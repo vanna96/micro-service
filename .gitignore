@@ -1,0 +1,13 @@
+#frontend-ui5
+frontend-ui5/node_modules/
+frontend-ui5/package-lock.json
+
+
+#fastapi-docker-app
+*__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+#global
+.env

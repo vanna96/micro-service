@@ -1,0 +1,14 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core">
+	<Menu itemSelected="onMenuAction">
+        <MenuItem text="My profile" icon="sap-icon://person-placeholder" key="employees" />
+        <MenuItem text="Logout" icon="sap-icon://log" key="logout" press="onLogoutPress">
+            <customData>
+                <core:CustomData
+                    key="target"
+                    value="p1" />
+            </customData>
+        </MenuItem>
+	</Menu>
+</core:FragmentDefinition>

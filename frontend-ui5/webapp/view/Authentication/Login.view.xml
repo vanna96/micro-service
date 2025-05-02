@@ -1,0 +1,31 @@
+<mvc:View
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    controllerName="my.app.controller.Authentication.Login">
+    <FlexBox 
+        justifyContent="Center" 
+        alignItems="Center" 
+        direction="Column"
+        height="100%" 
+        width="100%">
+        <Panel 
+            headerText="Login"   
+            class="sapUiSmallMargin sapUiContentPadding loginPanel">
+            <VBox>
+                <Label text="Username" />
+                <Input id="usernameInput" width="100%" />
+                <Label text="Password" class="sapUiSmallMarginTop" />
+                <Input id="passwordInput" type="Password" width="100%" />
+                <Label text="Company DB" class="sapUiSmallMarginTop" />
+                <Input id="companyDBInput" width="100%" />
+                <Button 
+                    text="{login>/loginButton}" 
+                    press="onLoginPress" 
+                    width="100%" 
+                    type="Emphasized" 
+                    class="sapUiSmallMarginTop" />
+                <Text id="errorMessage" text="" visible="false" />
+            </VBox>
+        </Panel>
+    </FlexBox>
+</mvc:View>

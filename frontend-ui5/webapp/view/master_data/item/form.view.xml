@@ -1,0 +1,376 @@
+<mvc:View
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.uxap"
+    xmlns:m="sap.m"
+    xmlns:f="sap.ui.layout.form"
+    xmlns:table="sap.ui.table"
+    xmlns:u="sap.ui.unified"
+    xmlns:core="sap.ui.core"
+    controllerName="my.app.controller.Item">
+     <m:Page showNavButton="true" navButtonPress="onNavBack">
+        <ObjectPageLayout
+            id="ObjectPageLayout"
+            enableLazyLoading="false"
+            useIconTabBar="true"
+            showTitleInHeaderContent="true"
+            upperCaseAnchorBar="false">
+            <headerTitle>
+                <ObjectPageDynamicHeaderTitle>
+                    <heading>
+                        <m:Title text="{model>/titleForm}" />
+                    </heading>
+
+                    <snappedTitleOnMobile>
+                        <m:Title text="{model>/titleForm}" />
+                    </snappedTitleOnMobile>
+
+
+                </ObjectPageDynamicHeaderTitle>
+            </headerTitle>
+            <headerContent>
+                <m:HeaderContainer id="headerContainer" scrollStep="200" showDividers="false">
+                    <m:HBox class="sapUiSmallMarginEnd sapUiSmallMarginBottom">
+                        <m:VBox class="sapUiLargeMarginEnd">
+                            <m:Title class="sapUiTinyMarginBottom" text="Status:"/>
+                            <m:ObjectStatus
+                                text="Active"
+                                state="Success"
+                                class="sapMObjectStatusLarge" />
+                        </m:VBox>
+
+                        <!-- <m:VBox class="sapUiLargeMarginEnd">
+                            <m:Title class="sapUiTinyMarginBottom">
+                                <m:Label text="Total:" />
+                            </m:Title>
+                            <m:Text
+                                text="${
+                                    path: 'model>/totalDocument',
+                                    type: 'sap.ui.model.type.Float',
+                                    formatOptions: { decimals: 2 }}" />
+                        </m:VBox>
+                        <m:VBox class="sapUiLargeMarginEnd">
+                            <m:Title class="sapUiTinyMarginBottom">
+                                <m:Label text="Credit Limit:" />
+                            </m:Title>
+                            <m:Text
+                                text="${
+                                    path: 'model>/customer/CreditLimit',
+                                    type: 'sap.ui.model.type.Float',
+                                    formatOptions: { decimals: 2 }}" />
+                        </m:VBox> -->
+                    </m:HBox>
+
+                </m:HeaderContainer>
+
+            </headerContent>
+
+            <sections>
+                <ObjectPageSection titleUppercase="false" title="my section">
+                    <subSections>
+                        <ObjectPageSubSection title="General" mode="Expanded" titleUppercase="false">
+
+                            <f:Form id="general_form"
+                                editable="true">
+
+                                <f:layout>
+                                    <f:ResponsiveGridLayout
+                                        labelSpanXL="4"
+                                        labelSpanL="4"
+                                        labelSpanM="12"
+                                        labelSpanS="12"
+                                        adjustLabelSpan="false"
+                                        emptySpanXL="0"
+                                        emptySpanL="0"
+                                        emptySpanM="0"
+                                        emptySpanS="0"
+                                        columnsXL="2"
+                                        columnsL="2"
+                                        columnsM="2"
+                                        singleContainerFullSize="false" />
+                                </f:layout>
+                                <f:FormContainer title="">
+                                    <f:formElements>
+
+                                        <f:FormElement label="Code">
+                                            <f:fields>
+                                                <m:Input name="code" required="true" value="{model>/code}"/>
+                                            </f:fields>
+                                        </f:FormElement>
+
+                                         <f:FormElement label="Name">
+                                            <f:fields>
+                                                <m:Input name="name" required="true" value="{model>/name}"/>
+                                            </f:fields>
+                                        </f:FormElement>
+
+                                         <f:FormElement label="Foreign Name">
+                                            <f:fields>
+                                                <m:Input name="foreign_name" value="{model>/foreign_name}"/>
+                                            </f:fields>
+                                        </f:FormElement>
+
+                                        <f:FormElement label="Barcode">
+                                            <f:fields>
+                                                <m:Input name="barcode" required="true" value="{model>/barcode}"/>
+                                            </f:fields>
+                                        </f:FormElement>
+
+                                        <!-- <f:FormElement label="Name">
+                                            <f:fields>
+                                                <m:Select
+                                                    name="ContactPersonCode"
+                                                    forceSelection="true"
+                                                    change="handlerChange"
+                                                    selectedKey="{model>/ContactPersonCode}"
+                                                    items="{model>/customer/ContactEmployees}">
+                                                    <core:Item key="{model>InternalCode}"
+                                                        text="{model>Name}" />
+                                                </m:Select>
+                                            </f:fields>
+                                        </f:FormElement>
+
+                                        <f:FormElement
+                                            label="Territory">
+                                            <f:fields>
+                                                <m:ComboBox
+                                                    name="Territory"
+                                                    selectedKey="{model>/Territory}"
+                                                    id="Territory"
+                                                    items="{
+                                                        path: 'model>/territories'
+                                                    }"
+                                                    change="handlerChange"
+                                                    loadItems="handleLoadTerritory"
+                                                >
+                                                    <core:ListItem
+                                                        key="{model>TerritoryID}"
+                                                        text="{model>Description}" />
+                                                </m:ComboBox>
+                                            </f:fields>
+                                        </f:FormElement>
+
+                                        <f:FormElement label="Sales Employee">
+                                            <f:fields>
+                                                <m:ComboBox
+                                                    name="SalesPersonCode"
+                                                    selectedKey="{model>/SalesPersonCode}"
+                                                    id="SalePerson"
+                                                    items="{
+                                                        path: 'model>/saleEmployees'
+                                                    }"
+                                                    change="handlerChange"
+                                                    loadItems="handleLoadSaleEmployee"
+                                                >
+                                                    <core:ListItem
+                                                        key="{model>SalesEmployeeCode}"
+                                                        text="{model>SalesEmployeeName}" />
+                                                </m:ComboBox>
+
+                                            </f:fields>
+                                        </f:FormElement>
+
+                                        <f:FormElement label="Owner">
+                                            <f:fields>
+                                                <m:ComboBox
+                                                    name="OwnerCode"
+                                                    selectedKey="{model>/OwnerCode}"
+                                                    id="Owner"
+                                                    items="{
+                                                        path: 'model>/Owners'
+                                                    }"
+                                                    change="handlerChange"
+                                                    loadItems="handleLoadOwner"
+                                                >
+                                                    <core:ListItem
+                                                        key="{model>EmployeeID}"
+                                                        text="{model>LastName}, {model>FirstName}" />
+                                                </m:ComboBox>
+                                            </f:fields>
+                                        </f:FormElement>
+
+                                        <f:FormElement label="Cost Center">
+                                            <f:fields>
+                                                <m:ComboBox
+                                                    name="U_cost_center"
+                                                    selectedKey="{model>/U_cost_center}"
+                                                    id="Costcenter"
+                                                    items="{
+                                                        path: 'model>/CostCenters'
+                                                    }"
+                                                    change="handlerChange"
+                                                    loadItems="handleLoadCostCenter"
+                                                >
+                                                    <core:ListItem
+                                                        key="{model>CostCenter}"
+                                                        text="{model>CostCenterName}" />
+                                                </m:ComboBox>
+                                            </f:fields>
+                                        </f:FormElement> -->
+                                    </f:formElements>
+                                </f:FormContainer>
+
+                                <f:FormContainer title="">
+                                    <f:formElements>
+
+                                        <f:FormElement label="Status">
+                                            <f:fields>
+                                                <m:Select
+                                                    name="status"
+                                                    selectedKey="{model>/status}"
+                                                    forceSelection="false"
+                                                    change="handlerChange"
+                                                    items="{model>/statusList}">
+                                                    <core:Item
+                                                        key="{model>value}"
+                                                        text="{model>name}" />
+                                                </m:Select>
+                                            </f:fields>
+                                        </f:FormElement>
+
+                                        <f:FormElement label="Currency">
+                                            <f:fields>
+                                                <m:Select
+                                                    name="currency"
+                                                    selectedKey="{model>/currency}"
+                                                    forceSelection="false"
+                                                    change="handlerChange"
+                                                    items="{model>/currencyList}">
+                                                    <core:Item
+                                                        key="{model>value}"
+                                                        text="{model>name}" />
+                                                </m:Select>
+                                            </f:fields>
+                                        </f:FormElement>
+
+                                        <f:FormElement label="Item Type">
+                                            <f:fields>
+                                                <m:Select
+                                                    name="item_type"
+                                                    selectedKey="{model>/item_type}"
+                                                    forceSelection="false"
+                                                    change="handlerChange"
+                                                    items="{model>/itemType}">
+                                                    <core:Item
+                                                        key="{model>value}"
+                                                        text="{model>name}" />
+                                                </m:Select>
+                                            </f:fields>
+                                        </f:FormElement>
+
+                                        <f:FormElement label="UoM Group">
+                                            <f:fields>
+                                                <m:Select
+                                                    name="uom_group"
+                                                    selectedKey="{model>/uom_group}"
+                                                    forceSelection="false"
+                                                    change="handlerChange"
+                                                    items="{model>/uomGroupList}">
+                                                    <core:Item
+                                                        key="{model>value}"
+                                                        text="{model>name}" />
+                                                </m:Select>
+                                            </f:fields>
+                                        </f:FormElement>
+
+                                        <f:FormElement label="Price List">
+                                            <f:fields>
+                                                <m:Select
+                                                    name="price_list"
+                                                    selectedKey="{model>/price_list}"
+                                                    forceSelection="false"
+                                                    change="handlerChange"
+                                                    items="{model>/priceLists}">
+                                                    <core:Item
+                                                        key="{model>name}"
+                                                        text="{model>name}" />
+                                                </m:Select>
+                                            </f:fields>
+                                        </f:FormElement>
+
+                                        <f:FormElement label="">
+                                            <f:fields>
+                                                <m:HBox>
+                                                    <m:CheckBox text="Stock Item" selected="{model>/stockItem}" />
+                                                    <m:ToolbarSpacer width="1.125rem"/>
+                                                    <m:CheckBox text="Purchase Item" selected="{model>/purchaseItem}" />
+                                                </m:HBox>
+                                            </f:fields>
+                                        </f:FormElement>
+
+                                        <f:FormElement label="">
+                                            <f:fields>
+                                                <m:HBox>
+                                                    <m:CheckBox text="Sale Item" selected="{model>/saleItem}" />
+                                                    <m:ToolbarSpacer width="1.125rem"/>
+                                                    <m:CheckBox text="Free Item" selected="{model>/freeItem}" />
+                                                </m:HBox>
+                                            </f:fields>
+                                        </f:FormElement>
+
+                                    </f:formElements>
+                                </f:FormContainer>
+                            </f:Form>
+
+                        </ObjectPageSubSection>
+                    </subSections>
+                </ObjectPageSection>
+
+                <ObjectPageSection titleUppercase="false" title="Attachments">
+                    <subSections>
+                        <ObjectPageSubSection title="Attachments" mode="Expanded"
+                            titleUppercase="false">
+                            <m:UploadCollection
+                                id="UploadCollection"
+                                multiple="true"
+                                change="onUploadChange"
+                                fileDeleted="onFileDeleted"
+                                filenameLengthExceed="onFilenameLengthExceed"
+                                fileSizeExceed="onFileSizeExceed"
+                                selectionChange="onSelectionChange"
+                                typeMissmatch="onTypeMissmatch"
+                                uploadComplete="onUploadComplete"
+                                beforeUploadStarts="onBeforeUploadStarts"
+                                uploadTerminated="onUploadTerminated"
+                                items="{model>/attachments}">
+                                <m:items>
+                                    <m:UploadCollectionItem
+                                        documentId="{model>documentId}"
+                                        fileName="{model>FileName}"
+                                        enableEdit="false"
+                                        visibleEdit="false"
+                                        enableDelete="true"
+                                        mimeType="{model>mimeType}"
+                                        thumbnailUrl="{model>SourcePath}"
+                                        url="{model>SourcePath}"
+                                        press="onThumbnailPress">
+                                        <m:attributes>
+                                            <m:ObjectAttribute title="File Name"
+                                                text="{model>FileName}"
+                                                active="true"
+                                                press="onAttributePress" />
+
+                                            <m:ObjectAttribute title="Attachment Date"
+                                                text="{model>AttachmentDate}"
+                                                active="true"
+                                                press="onAttributePress" />
+                                        </m:attributes>
+                                    </m:UploadCollectionItem>
+                                </m:items>
+                            </m:UploadCollection>
+                        </ObjectPageSubSection>
+                    </subSections>
+                </ObjectPageSection>
+            </sections>
+        </ObjectPageLayout>
+        <m:footer>
+            <m:Bar class="customFooterBar">
+                <m:contentRight>
+                    <m:Button text="{model>/buttonSubmit}" press="handlerSave"
+                        type="Emphasized"
+                        class="sapUiTinyMarginEnd" />
+                    <m:Button text="Cancel" press="onNavBack" />
+                </m:contentRight>
+            </m:Bar>
+        </m:footer>
+    </m:Page>
+</mvc:View>

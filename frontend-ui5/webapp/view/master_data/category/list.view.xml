@@ -1,0 +1,101 @@
+<mvc:View
+    xmlns:core="sap.ui.core"
+    xmlns:f="sap.f"
+    xmlns:m="sap.m"
+    xmlns:table="sap.ui.table"
+    xmlns:u="sap.ui.unified"
+    xmlns:mvc="sap.ui.core.mvc"
+    controllerName="my.app.controller.Category">
+
+    <f:DynamicPage fitContent="true">
+        <f:title>
+
+            <f:DynamicPageTitle> 
+            
+                <f:actions>
+                    <m:Button
+                        text="Create New"
+                        type="Emphasized"
+                        press="onCreate" />
+                </f:actions>
+
+            </f:DynamicPageTitle>
+        </f:title>
+        <f:content>
+            <table:Table
+                id="table"
+                busy="{model>/isLoading}"
+                rows="{model>/data}"
+                selectionMode="None">
+
+                <table:extension>
+                    <m:OverflowToolbar>
+                        <m:Title text="Category Master Data ({model>/pagination/totalItems})" level="H2" />
+                        <m:ToolbarSpacer />
+                        <m:Button icon="sap-icon://close-command-field" press="onFirstPage"
+                            tooltip="First" enabled="{model>/pagination/hasPrevious}" />
+                        <m:Button icon="sap-icon://navigation-left-arrow" press="onPreviousPage"
+                            tooltip="Previous" enabled="{model>/pagination/hasPrevious}" />
+                        <m:Text
+                            text="Page {model>/pagination/currentPage} of {model>/pagination/totalPages}" />
+                        <m:Button icon="sap-icon://navigation-right-arrow" press="onNextPage"
+                            tooltip="Next" enabled="{model>/pagination/hasNext}" />
+                        <m:Button icon="sap-icon://open-command-field" press="onLastPage"
+                            tooltip="Last" enabled="{model>/pagination/hasNext}" />
+                    </m:OverflowToolbar>
+                </table:extension>
+
+                <table:columns>
+                    <table:Column width="3rem">
+                        <m:Label text="No." />
+                        <table:template>
+                            <m:Text text="{= ${model>/data}.indexOf(${model>}) + 1}" />
+                        </table:template>
+                    </table:Column>
+
+                    <table:Column minWidth="120px">
+                        <m:Label text="Name" />
+                        <table:template>
+                            <m:Text text="{model>name}"
+                                wrapping="false" />
+                        </table:template>
+                    </table:Column>
+                    <table:Column minWidth="120px">
+                        <m:Label text="Foreign Name" />
+                        <table:template>
+                            <m:Link text="{model>foreign_name}" wrapping="false" />
+                        </table:template>
+                    </table:Column>
+                    <table:Column minWidth="120px">
+                        <m:Label text="Parent" />
+                        <table:template>
+                            <m:Text
+                                text="{model>parent}"
+                                wrapping="false" />
+                        </table:template>
+                    </table:Column>
+                    <table:Column minWidth="120px">
+                        <m:Label text="Status" />
+                        <table:template>
+                            <m:ObjectStatus text="Active" state="Success"/>
+                        </table:template>
+                    </table:Column>
+                    <table:Column width="4rem">
+                        <m:Label text="" />
+                        <table:template>
+                            <m:FlexBox
+                                justifyContent="Center"
+                                alignItems="Center"
+                                direction="Row">
+                                <m:Button
+                                    icon="sap-icon://navigation-right-arrow"
+                                    type="Transparent"
+                                    press="onNavigatePress" />
+                            </m:FlexBox>
+                        </table:template>
+                    </table:Column>
+                </table:columns>
+            </table:Table>
+        </f:content>
+    </f:DynamicPage>
+</mvc:View>

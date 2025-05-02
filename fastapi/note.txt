@@ -1,0 +1,16 @@
+# Build Docker image
+docker build -t fastapi-docker-app .
+
+# Run the container
+docker run -d -p 8000:8000 fastapi-docker-app
+
+#if want to run live reload
+docker-compose up
+
+=============================================
+Then check:
+
+http://localhost:8000
+
+http://localhost:8000/docs
+

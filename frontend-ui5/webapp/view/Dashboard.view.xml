@@ -1,0 +1,82 @@
+<mvc:View
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m"
+    xmlns:f="sap.f"
+    xmlns:card="sap.f.cards"
+    xmlns:w="sap.ui.integration.widgets"
+    controllerName="my.app.controller.Dashboard">
+    
+    <ScrollContainer height="100%" width="100%" vertical="true">
+        <f:GridContainer
+            class="sapUiSmallMargin"
+            snapToRow="true">
+            <!-- Default Grid Layout Settings -->
+            <f:layout>
+                <f:GridContainerSettings rowSize="84px" columnSize="84px" gap="8px" />
+            </f:layout>
+
+            <!-- Layout for Extra Small Screens (1-2 items per row) -->
+            <f:layoutXS>
+                <f:GridContainerSettings rowSize="70px" columnSize="70px" gap="8px" />
+            </f:layoutXS>
+
+            <!-- Layout for Medium and Larger Screens (4 items per row) -->
+            <f:layoutL>
+                <f:GridContainerSettings rowSize="84px" columnSize="84px" gap="8px" />
+            </f:layoutL>
+
+            <GenericTile header="Category">
+                <layoutData>
+                    <f:GridContainerItemLayoutData minRows="2" columns="2" />
+                </layoutData>
+                <TileContent unit="100" footer="">
+                    <ImageContent src="sap-icon://sap-box" />
+                </TileContent>
+            </GenericTile>
+
+            <GenericTile header="Item" subheader="Item Subheader">
+                <layoutData>
+                    <f:GridContainerItemLayoutData minRows="2" columns="2" />
+                </layoutData>
+                <TileContent unit="10">
+                    <ImageContent src="sap-icon://activities" />
+                </TileContent>
+            </GenericTile>
+
+            <GenericTile header="Customer">
+                <layoutData>
+                    <f:GridContainerItemLayoutData minRows="2" columns="2" />
+                </layoutData>
+                <TileContent unit="10" footer="">
+                    <ImageContent src="sap-icon://end-user-experience-monitoring" />
+                </TileContent>
+            </GenericTile>
+
+            
+
+            <GenericTile header="User">
+                <layoutData>
+                    <f:GridContainerItemLayoutData minRows="2" columns="2" />
+                </layoutData>
+                <TileContent unit="10" footer="">
+                    <ImageContent src="sap-icon://end-user-experience-monitoring" />
+                </TileContent>
+            </GenericTile>
+
+            <GenericTile header="Branch">
+                <layoutData>
+                    <f:GridContainerItemLayoutData minRows="2" columns="2" />
+                </layoutData>
+                <TileContent unit="10" footer="">
+                    <ImageContent src="sap-icon://retail-store" />
+                </TileContent>
+            </GenericTile>
+
+            <!-- <w:Card manifest="{dashboard>/listContent/largeList}">
+                <w:layoutData>
+                    <f:GridContainerItemLayoutData minRows="4" columns="5" />
+                </w:layoutData>
+            </w:Card> -->
+        </f:GridContainer>
+    </ScrollContainer>
+</mvc:View>

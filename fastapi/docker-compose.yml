@@ -1,0 +1,13 @@
+version: '3.9'
+
+services:
+  fastapi-app:
+    build:
+      context: .
+    volumes:
+      - ./app:/app/app  # Mount local code to container
+    ports:
+      - "8000:8000"
+    command: >
+      python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload 
+    # Remove reload if run on production

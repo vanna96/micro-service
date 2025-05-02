@@ -1,0 +1,41 @@
+/* Strikes through the completed items */
+li[data-todo-item-completed="true"] span {
+	text-decoration: line-through;
+}
+
+.loginPanel {
+    width: 400px !important;
+}
+
+/* Adjust width for screens smaller than or equal to 375px */
+@media (max-width: 375px) {
+    .loginPanel {
+        width: 300px !important;
+    }
+}
+
+.customFooterBar {
+    /* width: 97%; */
+    margin: auto;
+    margin-bottom: 20px;
+}
+
+@font-face {
+    font-family: "Ubuntu";
+    src: url("https://fonts.googleapis.com/css2?family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&display=swap") format("truetype");
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: "kmSBBICsf";
+    src: url("../fonts/kmSBBICsf.ttf") format("truetype");
+    font-weight: normal;
+    font-style: normal;
+    unicode-range: U+1780-17FF, U+19E0-19FF; /* Khmer Unicode Block */
+}
+
+
+body, p, div, h1, h2, h3, h4, h5, h6, a, [class*="Text"], label, input, textarea, select {
+    font-family: "Ubuntu", "kmSBBICsf", sans-serif;
+}

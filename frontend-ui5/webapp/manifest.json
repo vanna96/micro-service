@@ -1,0 +1,125 @@
+{
+	"_version": "1.61.0",
+	"sap.app": {
+		"id": "my.app",
+		"type": "application"
+	},
+	"sap.ui5": {
+		"dependencies": {
+			"minUI5Version": "1.121.0",
+			"libs": {
+				"sap.m": {},
+				"sap.tnt": {},
+				"sap.f": {},
+				"sap.ui.core": {},
+                "sap.ui.layout": {},
+				"sap.ui.comp": {},
+				"sap.uxap": {},
+				"sap.ui.table": {}
+			}
+		},
+		"rootView": {
+			"viewName": "my.app.view.App",
+			"type": "XML",
+			"id": "app"
+		},
+		"models": {
+			"i18n": {
+				"type": "sap.ui.model.resource.ResourceModel",
+				"settings": {
+					"bundleName": "my.app.i18n.i18n",
+					"async": true
+				}
+			},
+			"": {
+				"type": "sap.ui.model.json.JSONModel",
+				"uri": "model/menu.json"
+			}
+		},
+		"resources": {
+			"css": [
+				{
+					"uri": "css/styles.css"
+				}
+			]
+		},
+		"routing": {
+			"config": {
+				"routerClass": "sap.m.routing.Router",
+				"viewPath": "my.app.view",
+				"controlId": "app",
+				"controlAggregation": "pages",
+				"viewType": "XML",
+				"async": true,
+				"bypassed": {
+					"target": "notFound"
+				}
+			},
+			"routes": [
+				{
+					"pattern": "",
+					"name": "dashboard",
+					"target": "dashboard"
+				},
+				{
+					"pattern": "login",
+					"name": "login",
+					"target": "login"
+				},
+				{
+					"pattern": "category",
+					"name": "category",
+					"target": "category"
+				},
+				{
+					"pattern": "item",
+					"name": "item",
+					"target": "item"
+				},
+                {
+					"pattern": "item/create",
+					"name": "item_create",
+					"target": "item_form"
+				}
+			],
+			"targets": {
+				"main": {
+					"viewName": "Main",
+					"viewType": "XML",
+					"controlAggregation": "pages"
+				},
+				"dashboard": {
+					"viewName": "Dashboard",
+					"controlId": "appContainer",
+					"parent": "main",
+					"viewLevel": 1
+				},
+				"category": {
+					"viewName": "master_data.category.list",
+					"controlId": "appContainer",
+					"parent": "main",
+					"viewLevel": 1
+				},
+				"item": {
+					"viewName": "master_data.item.list",
+					"controlId": "appContainer",
+					"parent": "main",
+					"viewLevel": 1
+				},
+				"login": {
+					"viewName": "Authentication.Login"
+				},
+				"notFound": {
+					"viewName": "NotFound",
+					"transition": "show"
+				},
+                "item_form":{
+                    "viewName": "master_data.item.form",
+					"controlId": "appContainer",
+					"parent": "main",
+					"viewLevel": 1
+                }
+			}
+		}
+	}
+}

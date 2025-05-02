@@ -1,0 +1,82 @@
+
+<mvc:View
+    controllerName="my.app.controller.Main"
+    xmlns="sap.m"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns:core="sap.ui.core"
+	xmlns:tnt="sap.tnt"
+	xmlns:layout="sap.ui.layout"
+	xmlns:f="sap.f"
+    height="100%">
+	<VBox>
+		<tnt:ToolHeader id="shellLikeToolHeader">
+			<Button icon="sap-icon://menu2" type="Transparent" tooltip="Menu" press=".onSideNavButtonPress">
+				<layoutData>
+					<OverflowToolbarLayoutData priority="NeverOverflow"/>
+				</layoutData>
+			</Button>
+			<Image src="https://www.biz-dimension.com/wp-content/uploads/2021/08/Biz-Logo-Final.png" decorative="false" press="onLogoPressed" tooltip="SAP Logo" width="150px">
+				<layoutData>
+					<OverflowToolbarLayoutData priority="NeverOverflow"/>
+				</layoutData>
+			</Image>
+
+			<ToolbarSpacer />
+			<Button 
+				icon="sap-icon://bell"  
+				tooltip="Notification" 
+				press="handleNotification"  
+				type="Transparent">
+				<layoutData>
+					<OverflowToolbarLayoutData priority="NeverOverflow"/>
+				</layoutData>
+				<customData> 
+					<BadgeCustomData
+						key="badge"
+						value="3"  
+						visible="true"/>
+				</customData>
+			</Button>
+			<tnt:ToolHeaderUtilitySeparator/>
+			<ToolbarSpacer width="1.125rem"/>
+			<Avatar src="" displaySize="XS" press="onMyAccount" tooltip="Profile" id="button">
+				<layoutData>
+					<OverflowToolbarLayoutData priority="NeverOverflow"/>
+				</layoutData>
+			</Avatar>
+		</tnt:ToolHeader>
+        <SplitApp id="splitAppControl" class="sapUiResponsiveContentPadding sapUiTinyMarginTop">
+            <masterPages>
+                <Page id="masterPage" showHeader="false">
+					<tnt:NavigationList
+						id="navigationList"
+						class="sapUiSmallMarginBottom"
+						itemSelect="onItemSelect"
+						items="{menu>/menuItems}"
+						selectedKey="{menu>/selectedKey}"
+					>
+						<tnt:NavigationListItem
+							text="{menu>title}"
+							icon="{menu>icon}"
+							key="{menu>key}"
+							expanded="false"
+							items="{
+								path: 'menu>subItems',
+								templateShareable: false
+							}">
+							<tnt:NavigationListItem
+								icon="{menu>icon}"
+								text="{menu>title}"
+								key="{menu>key}" />
+						</tnt:NavigationListItem>
+					</tnt:NavigationList>
+				</Page>
+            </masterPages>
+            <detailPages>
+                <Page id="detailPage" showHeader="false">
+					<App id="appContainer"/>
+				</Page>
+            </detailPages>
+        </SplitApp>
+	</VBox>
+</mvc:View>
