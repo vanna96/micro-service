@@ -1,16 +1,43 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError 
 from fastapi.responses import HTMLResponse 
-from app.routes.v1 import mobile, web
-from app.middleware.middleware import PlatformMiddleware
+from routes.v1 import mobile, web
+from middleware.middleware import PlatformMiddleware 
+from dotenv import load_dotenv
+import os
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
-app = FastAPI()
+# Load environment variables from .env
+# load_dotenv()
+
+# Now you can access environment variables
+# database_url = os.getenv("DATABASE_URL")
+
+# config.set_main_option('sqlalchemy.url', database_url)
+
+app = FastAPI() 
+
+# # Mount the directory to serve static files
+app.mount("/assets", StaticFiles(directory="static/assets"), name="asset")
+
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    error_response = {"errors": []}
+    for error in exc.errors():
+        error_response["errors"].append({
+            "key": error["loc"][-1],  # e.g. "name"
+            "msg": error["msg"],      # e.g. "Field required"
+            # "input": error.get("input", None)  # optional, includes invalid input if needed
+        })
+    return JSONResponse(status_code=400, content=error_response)
 
 # Apply general middleware that can inspect route prefixes
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_middleware(PlatformMiddleware)
 
 # Route groups with prefixes
 app.include_router(mobile.router, prefix="/api/v1/mobile", tags=["Mobile API"])
-app.include_router(web.router, prefix="/api/v1/web", tags=["Web API"])
+app.include_router(web.router, prefix="/api/v1/admin")
 
 @app.get("/", tags=["Welcome"], response_class=HTMLResponse)
 async def welcome():
@@ -80,6 +107,7 @@ async def welcome():
     </head>
     <body>
         <div class="welcome-container">
+            <image src="https://localhost:8000/asset/images/categories/32d441e1652f442f9475e9ee29b75454.png"/>
             <h1>Welcome to Our API!</h1>
             <p>We're excited to have you here. Start exploring our services below:</p>
             <div>

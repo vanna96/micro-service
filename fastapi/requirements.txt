@@ -1,3 +1,9 @@
 fastapi
 uvicorn[standard]
 watchdog
+sqlalchemy
+mysql-connector-python
+pydantic
+alembic
+python-dotenv
+Pillow

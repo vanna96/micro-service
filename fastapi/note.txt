@@ -7,6 +7,10 @@ docker run -d -p 8000:8000 fastapi-docker-app
 #if want to run live reload
 docker-compose up
 
+#run migration
+alembic revision --autogenerate -m "Add deleted_at column to Category"
+alembic upgrade head
+
 =============================================
 Then check:
 
