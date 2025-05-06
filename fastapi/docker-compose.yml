@@ -36,7 +36,7 @@ services:
     volumes:
       - ./app:/app  # Mount `app` directly to container's /app
     ports:
-      - "${HOST_PORT}:8000"
+      - "${BAKEND_PORT}:8000"
     env_file:
       - .env
     # entrypoint: ["/entrypoint.sh"]  

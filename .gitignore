@@ -1,6 +1,7 @@
 #frontend-ui5
 frontend-ui5/node_modules/
 frontend-ui5/package-lock.json 
+frontend-ui5/webapp/config.js
 
 #fastapi-docker-app
 *__pycache__
@@ -8,6 +9,4 @@ frontend-ui5/package-lock.json
 *.pyo
 *.pyd
 fastapi/app/assets/images/
-
-#global
-.env
+fastapi/.env

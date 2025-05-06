@@ -18,7 +18,7 @@ RUN npm install
 COPY . .
 
 # Expose the UI5 server port
-EXPOSE 8080
+EXPOSE 9090
 
 # Start the UI5 development server
 CMD ["ui5", "serve", "--accept-remote-connections"]

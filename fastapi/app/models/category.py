@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
-from models.base import Base
+from database import Base
 
 class Category(Base):
     __tablename__ = "categories"
@@ -11,5 +11,6 @@ class Category(Base):
     parent_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     status = Column(String(20), default="active")
     image = Column(String(255), nullable=True)
-
+    deleted_at = Column(DateTime, nullable=True)
+    
     parent = relationship("Category", remote_side=[id], backref="children")

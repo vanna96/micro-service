@@ -15,7 +15,7 @@ from datetime import datetime
 # Path to store the images (make sure this folder exists or create it)
 # load_dotenv()
 IMAGE_DIR = "assets/images/categories/"
-HOST_URL = os.getenv("HOST_URL") 
+HOST_URL = os.getenv("BACKEND_URL") 
 
 
 
@@ -152,9 +152,10 @@ def update_category(db: Session, category_id: int, category: CategoryUpdate):
 
 def delete_category(db: Session, category_id: int):
     db_category = db.query(Category).filter(Category.id == category_id).first()
-    if db_category:
-        db_category.soft_delete()  # Mark as deleted
+    if db_category: 
+        db_category.deleted_at = datetime.datetime.utcnow()
         db.commit()
+        db.refresh(db_category) 
         return db_category
     else:
         raise HTTPException(status_code=404, detail="Category not found")

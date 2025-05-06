@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv
-from models.base import SoftDeleteQuery  # Import custom Base and SoftDeleteQuery
+from dotenv import load_dotenv 
+from sqlalchemy.ext.declarative import declarative_base
 
 import os
 
@@ -18,11 +18,11 @@ engine = create_engine(DATABASE_URL, echo=True)
 SessionLocal = sessionmaker(
     bind=engine,
     autocommit=False,
-    autoflush=False,
-    query_cls=SoftDeleteQuery  # Use the custom query class
+    autoflush=False  
 )
 
-# Optionally, you can add a function to get the database session
+Base = declarative_base()
+ 
 def get_db():
     db = SessionLocal()
     try:
