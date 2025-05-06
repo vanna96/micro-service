@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  ui5-app:
+    container_name: frontend-ui5
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    environment:
+      - NODE_ENV=development
+    command: ui5 serve --accept-remote-connections
