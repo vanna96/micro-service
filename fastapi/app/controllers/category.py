@@ -69,8 +69,8 @@ def create_category(category: CategoryCreate, db: Session):
 
 
 
-def get_categories(db: Session, skip: int = 0, limit: int = 10, include_deleted=True):
-    categories = db.query(Category).offset(skip).limit(limit).all()
+def get_categories(db: Session, skip: int = 0, limit: int = 10):
+    categories = db.query(Category).filter(Category.deleted_at == None).offset(skip).limit(limit).all()
     
     # Create image URL for each category
     for category in categories:
@@ -153,7 +153,7 @@ def update_category(db: Session, category_id: int, category: CategoryUpdate):
 def delete_category(db: Session, category_id: int):
     db_category = db.query(Category).filter(Category.id == category_id).first()
     if db_category: 
-        db_category.deleted_at = datetime.datetime.utcnow()
+        db_category.deleted_at = datetime.utcnow()
         db.commit()
         db.refresh(db_category) 
         return db_category
