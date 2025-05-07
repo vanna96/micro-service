@@ -2,6 +2,8 @@
 frontend-ui5/node_modules/
 frontend-ui5/package-lock.json 
 frontend-ui5/webapp/config.js
+frontend-ui5/.env
+frontend-ui5/config/config.js
 
 #fastapi-docker-app
 *__pycache__

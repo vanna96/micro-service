@@ -7,10 +7,11 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "9090:9090"
+      - "${FRONTEND_PORT}:9090"
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules
     environment:
       - NODE_ENV=development
-    command: ui5 serve --accept-remote-connections
+    command: >
+      sh -c "ui5 serve --port=${FRONTEND_PORT:-9090} --accept-remote-connections"
