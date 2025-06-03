@@ -3,9 +3,10 @@
 set -e  # Exit immediately if a command exits with a non-zero status
 
 # Configuration variables directly in the script
+BASE_HOST=http://localhost
 BAKEND_PORT=8080
 PHPMYADMIN_PORT=9000
-BACKEND_URL="http://localhost:$BAKEND_PORT"
+BACKEND_URL="$BASE_HOST:$BAKEND_PORT"
 
 MYSQL_ROOT_PASSWORD=admin
 MYSQL_DATABASE=fastapi
@@ -15,7 +16,7 @@ DB_HOST=mariadb
 DATABASE_URL="mysql+mysqlconnector://$MYSQL_USER:$MYSQL_PASSWORD@$DB_HOST:3306/$MYSQL_DATABASE"
 
 FRONTEND_PORT=9090
-FRONTEND_URL="https://localhost:$FRONTEND_PORT"
+FRONTEND_URL="$BASE_HOST:$FRONTEND_PORT"
 
 # Function to copy a file if it exists (we won't need this for .env anymore)
 copy_file() {

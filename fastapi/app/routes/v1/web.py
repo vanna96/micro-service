@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
 from controllers.category import create_category, get_categories, get_category, update_category, delete_category
-from schemas.category import CategoryCreate, CategoryUpdate, Category
+from schemas.category import CategoryCreate, CategoryUpdate, Category, ResponseWrapper
 from fastapi import Depends
 
 
@@ -12,7 +12,7 @@ category_route = APIRouter(
     tags=["Category"]
 )
 
-@category_route.get("/", response_model=list[Category])
+@category_route.get("/", response_model=ResponseWrapper)
 def list_categories_endpoint(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     return get_categories(db=db, skip=skip, limit=limit)
 
