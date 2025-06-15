@@ -29,9 +29,7 @@ sap.ui.define([
                 oRouter.navTo("dashboard");
             } else if (sRouteName !== "login" && !this._checkAuthentication()) {
                 oRouter.navTo("login");
-            }
-
-            this._setupAjaxErrorHandler();
+            } 
         },
 
         _handleAuthentication: function (oRouter) {
@@ -44,13 +42,6 @@ sap.ui.define([
             return true;
             const authCookie = document.cookie.split(';').find(cookie => cookie.trim().startsWith("B1SESSION="));
             return authCookie !== undefined;
-        },
-
-        _setupAjaxErrorHandler: function (){
-            $(document).ajaxError(function (event, jqXHR){
-                Cookie.deleteCookie("B1SESSION");
-                if (jqXHR.status === 401) this.getRouter().navTo("login");
-            }.bind(this));
         }
     });
 });

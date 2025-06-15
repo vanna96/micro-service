@@ -13,6 +13,7 @@ sap.ui.define([
     'sap/ui/core/Icon',
 	'sap/m/Link',
     'sap/ui/model/json/JSONModel',
+    'my/app/repository/PermissionRepository',
 ], (
     Device,
     Controller,
@@ -27,22 +28,35 @@ sap.ui.define([
     MessageItem,
     Icon,
     Link,
-    JSONModel
+    JSONModel,
+    PermissionRepository
 ) => {
     "use strict";
 
     return Controller.extend("my.app.controller.Main", {
         onInit: function () {
-            this.oModel = new sap.ui.model.json.JSONModel();
-            this.oModel.loadData(sap.ui.require.toUrl("my/app/model/menu.json"));
-            this.getView().setModel(this.oModel, "menu"); 
-            const oRouter = this.getOwnerComponent().getRouter();  
-            oRouter.initialize();
- 
-            oRouter.attachRouteMatched(this._onRouteMatched, this);
+            this._oRouter = sap.ui.core.UIComponent.getRouterFor(this);
+            // this._oRouter.attachRouteMatched(this._onRouteMatched, this);
+            this._oRouter.attachRoutePatternMatched(this._onRouteMatched, this);
+
+            this.oMenuModel = new sap.ui.model.json.JSONModel({
+                selectedKey: ""
+            });
+        
+            this.getView().setModel(this.oMenuModel, "menu");
+            this._loadMenu(this.oMenuModel);
+        
+            // Initialize router after rendering
+            this.getView()
+            .byId("appContainer")
+            .addDelegate({
+                onAfterRendering: () => this._oRouter.initialize()
+            });  
         },
 
-        _onRouteMatched: function () {
+        _onRouteMatched: function (oEvent) {
+            const sRouteName = oEvent.getParameter("name");
+            this.sRouteName = sRouteName || "dashboard";
             this._handleResize();
             this.hadleImplementNotification();
         },
@@ -117,11 +131,16 @@ sap.ui.define([
         _handleResize: function () {
             const oSplitApp = this.byId("splitAppControl");
             const phone = Device.system.phone;
-            const desktop = Device.system.desktop;
-
-            if (desktop) oSplitApp.showMaster();
+            const desktop = Device.system.desktop; 
+             
+            if (desktop) {
+                oSplitApp.showMaster();
+                oSplitApp.setMode("ShowHideMode");
+                oSplitApp.to(oSplitApp.getMasterPages()[0].getId());
+            }
             if (phone) {
                 oSplitApp.hideMaster();
+                oSplitApp.setMode("HideMode");
                 oSplitApp.to(oSplitApp.getDetailPages()[0].getId());
             }
         },
@@ -130,32 +149,19 @@ sap.ui.define([
             const oSplitApp = this.byId("splitAppControl");
             const phone = Device.system.phone;
             const desktop = Device.system.desktop;
-            const isShowMode = oSplitApp.getMode() === "ShowHideMode";
-
-            if (desktop) {
-                if (
-                    oSplitApp.isMasterShown() || isShowMode
-                ) {
-                    oSplitApp.hideMaster();
-                    oSplitApp.setMode("HideMode");
-                } else {
-                    oSplitApp.showMaster();
-                    oSplitApp.setMode("ShowHideMode");
-                }
-            }
-
-            if (phone) {
-                if (
-                    oSplitApp.isMasterShown() || isShowMode
-                ) {
-                    oSplitApp.setMode("HideMode");
-                    oSplitApp.hideMaster();
-                    oSplitApp.to(oSplitApp.getDetailPages()[0].getId());
-                } else {
-                    oSplitApp.setMode("ShowHideMode");
-                    oSplitApp.showMaster();
-                    oSplitApp.to(oSplitApp.getMasterPages()[0].getId());
-                }
+            const isShowMode = oSplitApp.getMode() === "ShowHideMode"; 
+            
+            if (
+                // oSplitApp.isMasterShown() || 
+                isShowMode
+            ) {
+                oSplitApp.hideMaster();
+                oSplitApp.setMode("HideMode");
+                oSplitApp.to(oSplitApp.getDetailPages()[0].getId());
+            } else {
+                oSplitApp.showMaster();
+                oSplitApp.setMode("ShowHideMode");
+                oSplitApp.to(oSplitApp.getMasterPages()[0].getId());
             }
         },
 
@@ -223,12 +229,68 @@ sap.ui.define([
                 counter: 1
             }];
 
-            const oModel = new JSONModel(aMockMessages);
-            this.getView().setModel(oModel);  
+            const oModel = new sap.ui.model.json.JSONModel(aMockMessages);
+
+            // Safety check
+            const oView = this.getView?.();
+            if (!oView) {
+                console.error("View is undefined in handleNotification");
+                return;
+            }
+
+            oView.setModel(oModel);
+
+            if (this.oMessageView && this._oPopover) {
+                this.oMessageView.setModel(oModel);
+                this.oMessageView.navigateBack();
+                this._oPopover.openBy(oEvent.getSource());
+            } else {
+                console.error("MessageView or Popover not initialized");
+            }
+        },
+
+        _loadMenu: async function(oMenuModel) {
+            const url = sap.ui.require.toUrl("my/app/assets/static/menu.json");
+            const permissions = (await PermissionRepository.get())?.value || [];  
+            
+            const loadDataAsync = (model, url) => {
+                return new Promise((resolve, reject) => {
+                    model.attachRequestCompleted(resolve);
+                    model.attachRequestFailed(reject);
+                    model.loadData(url);
+                });
+            };
         
-            this.oMessageView.setModel(oModel).navigateBack();
-            this._oPopover.openBy(oEvent.getSource());
-        }        
+            await loadDataAsync(oMenuModel, url);
+        
+            const data = oMenuModel.getData();
+            const menuItems = data?.menuItems || []; 
+            const allowedTitles = permissions.map(p => p.key); 
+            const sRouteName = this.sRouteName;
+            console.log(sRouteName);
+            
+            function filterMenuItems(items) {
+                return items
+                    .map(item => { 
+                        if (item.subItems) {
+                            item.subItems = filterMenuItems(item.subItems);
+                        }
+        
+                        const isAllowed = allowedTitles.includes(item.title);
+                        const hasAllowedSubItems = item.subItems && item.subItems.length > 0;
+                        const shouldExpand = item.subItems?.some(sub => sub.key === sRouteName);
+
+                        return (isAllowed || hasAllowedSubItems) ? {
+                            ...item,
+                            expanded: shouldExpand
+                        } : null;
+                    })
+                    .filter(item => item !== null);
+            } 
+             
+            oMenuModel.setProperty("/menuItems", filterMenuItems(menuItems));
+            oMenuModel.setProperty("/selectedKey", this.sRouteName ?? 'dasboard');  
+        }               
         
     });
 

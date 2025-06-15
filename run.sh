@@ -4,7 +4,7 @@ set -e  # Exit immediately if a command exits with a non-zero status
 
 # Configuration variables directly in the script
 BAKEND_PORT=8080
-PHPMYADMIN_PORT=9000
+PHPMYADMIN_PORT=9092
 BACKEND_URL="http://localhost:$BAKEND_PORT"
 
 MYSQL_ROOT_PASSWORD=admin

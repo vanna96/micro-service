@@ -9,17 +9,15 @@ sap.ui.define([
 ) {
     "use strict";
 
-    return BaseController.extend("my.app.controller.Category", {
+    return BaseController.extend("my.app.controller.Category.List", {
 
         onInit: function () {
             BaseController.prototype.onInit.call(this);
-            document.title = "Category"; 
-
-            this.oRouter.getRoute("category").attachPatternMatched(this.onListing, this);
-            // this.oRouter.getRoute("category_create").attachPatternMatched(this.onCreate, this);
+            document.title = "Category";  
+            this.oRouter.getRoute("category").attachPatternMatched(this.onListing, this); 
         },
 
-        onListing: async function () {
+        onListing: async function () { 
             this.oModel.setData({
                 pagination: {
                     currentPage: 1,
@@ -29,7 +27,7 @@ sap.ui.define([
                     hasPrevious: false,
                     hasNext: false
                 },
-                isLoading: true,
+                isLoading: false,
                 search: {}
             });
 
@@ -73,8 +71,9 @@ sap.ui.define([
 
             } catch (error) {
                 console.error("Error loading data:", error);
+            } finally{
+                this.oModel.setProperty("/isLoading", false);
             }
-            this.oModel.setProperty("/isLoading", false);
         },
     });
 });

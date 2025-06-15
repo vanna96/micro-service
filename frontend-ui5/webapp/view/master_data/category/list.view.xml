@@ -5,7 +5,7 @@
     xmlns:table="sap.ui.table"
     xmlns:u="sap.ui.unified"
     xmlns:mvc="sap.ui.core.mvc"
-    controllerName="my.app.controller.Category">
+    controllerName="my.app.controller.Category.List">
 
     <f:DynamicPage fitContent="true">
         <f:title>
@@ -30,7 +30,7 @@
 
                 <table:extension>
                     <m:OverflowToolbar>
-                        <m:Title text="Category Master Data ({model>/pagination/totalItems})" level="H2" />
+                        <m:Title text="Categories ({model>/pagination/totalItems})" level="H2" />
                         <m:ToolbarSpacer />
                         <m:Button icon="sap-icon://close-command-field" press="onFirstPage"
                             tooltip="First" enabled="{model>/pagination/hasPrevious}" />

@@ -33,7 +33,7 @@
 			},
 			"": {
 				"type": "sap.ui.model.json.JSONModel",
-				"uri": "model/menu.json"
+				"uri": "assets/static/menu.json"
 			}
 		},
 		"resources": {

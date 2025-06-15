@@ -1,206 +1,150 @@
 sap.ui.define([
     "sap/ui/core/mvc/Controller", 
-], function (Controller) {
+    "sap/ui/core/BusyIndicator",
+    "my/app/repository/PermissionRepository",
+    "my/app/repository/CategoryRepository",
+], function (
+    Controller,
+    BusyIndicator,
+    PermissionRepository,
+    CategoryRepository
+) {
     "use strict";
 
     return Controller.extend("my.app.controller.Dashboard", {
 
-        onInit: function () { 
+        onInit: async function () { 
+            BusyIndicator.show();
+
             document.title = "Dashboard";
-            this.oModel = new sap.ui.model.json.JSONModel({
-                "listContent": {
-                    "smallList": {
-                        "sap.app": {
-                            "id": "smallListCard"
-                        },
-                        "sap.card": {
-                            "type": "List",
-                            "header": {
-                                "title": "Tasks",
-                                "subTitle": "Upcoming",
-                                "icon": {
-                                    "src": "sap-icon://activities"
-                                }
-                            },
-                            "content": {
-                                "items": [
-                                    {
-                                        "title": "Call Simone",
-                                        "icon": "sap-icon://call",
-                                        "infoState": "Error"
-                                    },
-                                    {
-                                        "title": "Write to Elena",
-                                        "icon": "sap-icon://email",
-                                        "infoState": "Warning"
-                                    }
-                                ]
-                            }
-                        }
-                    },
-                    "mediumList": {
-                        "sap.app": {
-                            "id": "mediumListCard"
-                        },
-                        "sap.card": {
-                            "type": "List",
-                            "header": {
-                                "title": "Contacts",
-                                "subTitle": "Recent",
-                                "icon": {
-                                    "src": "sap-icon://activities"
-                                }
-                            },
-                            "content": {
-                                "items": [
-                                    {
-                                        "title": "Alain Chevalier",
-                                        "icon": "sap-icon://person-placeholder"
-                                    },
-                                    {
-                                        "title": "Monique Legrand",
-                                        "icon": "sap-icon://account"
-                                    },
-                                    {
-                                        "title": "Elena Petrova",
-                                        "icon": "sap-icon://business-card"
-                                    },
-                                    {
-                                        "title": "Monique Legrand",
-                                        "icon": "sap-icon://account"
-                                    },
-                                    {
-                                        "title": "Alain Chevalier",
-                                        "icon": "sap-icon://account"
-                                    },
-                                    {
-                                        "title": "Elena Petrova",
-                                        "icon": "sap-icon://business-card"
-                                    }
-                                ]
-                            }
-                        }
-                    },
-                    "largeList": {
-                        "sap.app": {
-                            "id": "largeListCard"
-                        },
-                        "sap.card": {
-                            "type": "List",
-                            "header": {
-                                "title": "Activity", 
-                                "icon": {
-                                    "src": "sap-icon://accept"
-                                },
-                                "status": "100 of 200"
-                            },
-                            "content": {
-                                "data": {
-                                    "json": {
-                                        "items": [
-                                            {
-                                                "Name": "Notebook Basic 15",
-                                                "Description": "Notebook Basic 15 with 2,80 GHz quad core, 15\" LCD, 4 GB DDR3 RAM, 500 GB Hard Disc, Windows 8 Pro",
-                                                "Id": "HT-1000",
-                                                "SubCategoryId": "Notebooks",
-                                                "state": "Information",
-                                                "info": "27.45 EUR",
-                                                "infoState": "Success"
-                                            },
-                                            {
-                                                "Name": "Notebook Basic 17",
-                                                "Description": "Notebook Basic 17 with 2,80 GHz quad core, 17\" LCD, 4 GB DDR3 RAM, 500 GB Hard Disc, Windows 8 Pro",
-                                                "Id": "HT-1001",
-                                                "SubCategoryId": "Notebooks",
-                                                "state": "Success",
-                                                "info": "27.45 EUR",
-                                                "infoState": "Success"
-                                            },
-                                            {
-                                                "Name": "Notebook Basic 18",
-                                                "Description": "Notebook Basic 18 with 2,80 GHz quad core, 18\" LCD, 8 GB DDR3 RAM, 1000 GB Hard Disc, Windows 8 Pro",
-                                                "Id": "HT-1002",
-                                                "SubCategoryId": "Notebooks",
-                                                "state": "Warning",
-                                                "info": "9.45 EUR",
-                                                "infoState": "Error"
-                                            },
-                                            {
-                                                "Name": "Notebook Basic 19",
-                                                "Description": "Notebook Basic 19 with 2,80 GHz quad core, 19\" LCD, 8 GB DDR3 RAM, 1000 GB Hard Disc, Windows 8 Pro",
-                                                "Id": "HT-1003",
-                                                "SubCategoryId": "Notebooks",
-                                                "state": "Error",
-                                                "info": "9.45 EUR",
-                                                "infoState": "Error"
-                                            },
-                                            {
-                                                "Name": "ITelO Vault",
-                                                "Description": "Digital Organizer with State-of-the-Art Storage Encryption",
-                                                "Id": "HT-1007",
-                                                "SubCategoryId": "PDAs & Organizers",
-                                                "state": "Success",
-                                                "info": "29.45 EUR",
-                                                "infoState": "Success"
-                                            },
-                                            {
-                                                "Name": "Notebook Professional 15",
-                                                "Description": "Notebook Professional 15 with 2,80 GHz quad core, 15\" Multitouch LCD, 8 GB DDR3 RAM, 500 GB SSD - DVD-Writer (DVD-R/+R/-RW/-RAM),Windows 8 Pro",
-                                                "Id": "HT-1010",
-                                                "SubCategoryId": "Notebooks",
-                                                "state": "Success",
-                                                "info": "29.45 EUR",
-                                                "infoState": "Success"
-                                            },
-                                            {
-                                                "Name": "Notebook Professional 26",
-                                                "Description": "Notebook Professional 15 with 2,80 GHz quad core, 15\" Multitouch LCD, 8 GB DDR3 RAM, 500 GB SSD - DVD-Writer (DVD-R/+R/-RW/-RAM),Windows 8 Pro",
-                                                "Id": "HT-1022",
-                                                "SubCategoryId": "Notebooks",
-                                                "state": "Success",
-                                                "info": "29.45 EUR",
-                                                "infoState": "Success"
-                                            },
-                                            {
-                                                "Name": "Notebook Professional 27",
-                                                "Description": "Notebook Professional 15 with 2,80 GHz quad core, 15\" Multitouch LCD, 8 GB DDR3 RAM, 500 GB SSD - DVD-Writer (DVD-R/+R/-RW/-RAM),Windows 8 Pro",
-                                                "Id": "HT-1024",
-                                                "SubCategoryId": "Notebooks",
-                                                "state": "Success",
-                                                "info": "29.45 EUR",
-                                                "infoState": "Success"
-                                            }
-                                        ]
-                                    },
-                                    "path": "/items"
-                                },
-                                "maxItems": 7,
-                                "item": {
-                                    "icon": {
-                                        "src": "{icon}"
-                                    },
-                                    "title": {
-                                        "label": "{{title_label}}",
-                                        "value": "{Name}"
-                                    },
-                                    "description": {
-                                        "label": "{{description_label}}",
-                                        "value": "{Description}"
-                                    },
-                                    "highlight": "{state}",
-                                    "info": {
-                                        "value": "{info}",
-                                        "state": "{infoState}"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        
-            // Set the model to the view
+            this.oModel = new sap.ui.model.json.JSONModel({});
             this.getView().setModel(this.oModel, "dashboard");
+
+            // this._oRouter = this.getOwnerComponent().getRouter();
+            // this._oRouter.attachRouteMatched(this.onRouteMatched, this); 
+
+            const [aValidMenuItems, count] = await this._loadMenu(this.oModel);   
+            
+            const aSections = this._createObjectPageSections(aValidMenuItems, count);
+
+            const oPage = this.byId("dashboardPageLayout");
+            aSections.forEach(section => oPage.addSection(section));
+
+            BusyIndicator.hide();
         }, 
+
+        _loadMenu: async function(oMenuModel) {
+            const url = sap.ui.require.toUrl("my/app/assets/static/menu.json");
+            const permissions = (await PermissionRepository.get())?.value || [];  
+            
+            const loadDataAsync = (model, url) => {
+                return new Promise((resolve, reject) => {
+                    model.attachRequestCompleted(resolve);
+                    model.attachRequestFailed(reject);
+                    model.loadData(url);
+                });
+            };
+        
+            await loadDataAsync(oMenuModel, url);
+            
+            const data = oMenuModel.getData();
+            let menuItems = data?.menuItems || []; 
+            const allowedTitles = permissions.map(p => p.key); 
+            let menus = []; 
+            const repositories = {
+                CategoryRepository 
+            };
+            
+            function filterMenuItems(items) {
+                return items
+                    .map(item => {
+                        if (item.subItems) {
+                            item.subItems = filterMenuItems(item.subItems);
+                        }
+        
+                        const isAllowed = allowedTitles.includes(item.title);
+                        const hasAllowedSubItems = item.subItems && item.subItems.length > 0;
+
+                        if(isAllowed || hasAllowedSubItems){ 
+                            if(hasAllowedSubItems) menus.push(...item.subItems)
+                            return item
+                        }
+                        return null; 
+                    })
+                    .filter(item => item !== null);
+            }  
+
+            const aValidMenuItems = filterMenuItems(menuItems).filter(item => item.subItems && item.subItems.length > 0);
+            const aMenuWithCount = await Promise.all(menus.map(async (menu) => {
+                if (menu.repo) {
+                    const repoName = `${menu.repo}Repository`;
+                    const repo = repositories[repoName];
+                    const count = await repo.count();
+                    return {
+                        ...menu,
+                        count
+                    };
+                } else {
+                    return {
+                        ...menu,
+                        count: " "
+                    };
+                }
+            }));            
+            
+            return [aValidMenuItems, aMenuWithCount]; 
+        },
+
+        _createObjectPageSections: function (aMenuItems, count) { 
+            var that = this;
+            const aSections = []; 
+            aMenuItems.forEach(oSection => {  
+                const oPageSection = new sap.uxap.ObjectPageSection({
+                    title: oSection.title,
+                    titleUppercase: false,
+                    subSections: [
+                        new sap.uxap.ObjectPageSubSection({
+                            title: oSection.title,
+                            mode: "Expanded",
+                            blocks: [
+                                new sap.f.GridContainer({ 
+                                    snapToRow: true,
+                                    items: oSection?.subItems?.map(oItem => {
+                                        return new sap.m.GenericTile({
+                                            header: oItem.title,
+                                            press: function (oEvent) {
+                                                var sTileKey = oEvent.getSource().getCustomData()[0].getValue();
+                                                that.getOwnerComponent().getRouter().navTo(sTileKey);
+                                            },
+                                            layoutData: new sap.f.GridContainerItemLayoutData({
+                                                minRows: 2,
+                                                columns: 2
+                                            }),
+                                            tileContent: [
+                                                new sap.m.TileContent({
+                                                    content: new sap.m.NumericContent({
+                                                        value: count?.find(({key}) => key == oItem.key)?.count ?? ' ',
+                                                        withMargin: false
+                                                    })
+                                                })
+                                            ],
+                                            customData: [
+                                                new sap.ui.core.CustomData({
+                                                    key: "navKey",
+                                                    value: oItem.key
+                                                })
+                                            ]
+                                        });
+                                    })
+                                })
+                            ]
+                        })
+                    ]
+                });
+        
+                aSections.push(oPageSection);
+            });
+            return aSections;
+        }
     });
 });

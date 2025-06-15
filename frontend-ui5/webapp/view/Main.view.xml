@@ -59,7 +59,7 @@
 							text="{menu>title}"
 							icon="{menu>icon}"
 							key="{menu>key}"
-							expanded="false"
+							expanded="{menu>expanded}"
 							items="{
 								path: 'menu>subItems',
 								templateShareable: false
