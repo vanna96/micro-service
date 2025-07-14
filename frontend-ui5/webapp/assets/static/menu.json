@@ -12,10 +12,10 @@
             "subItems": [
                 { "title": "Branch", "key": "branch"},
                 { "title": "Category", "key": "category", "repo": "Category"},
-                { "title": "Item", "key": "item"},
                 { "title": "Warehouse", "key": "warehouse"}, 
-                { "title": "Unit of Messure", "key": "unit_of_messure"},
+                { "title": "Unit of Messure", "key": "uom"},
                 { "title": "Tax", "key": "tax"},
+                { "title": "Item", "key": "item"},
                 { "title": "User", "key": "user"}
             ] 
         },

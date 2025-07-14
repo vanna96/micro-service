@@ -1,20 +1,20 @@
 sap.ui.define([ 
     "my/app/controller/Base.controller",
-    "my/app/repository/CategoryRepository",
+    "my/app/repository/UnitofMeasureRepository",
     "my/app/util/Pagination"
 ], function (
     BaseController,
-    CategoryRepository,
+    UnitofMeasureRepository,
     Pagination
 ) {
     "use strict";
 
-    return BaseController.extend("my.app.controller.Category.List", {
+    return BaseController.extend("my.app.controller.UoM.List", {
 
         onInit: function () {
             BaseController.prototype.onInit.call(this);
-            document.title = "Category";  
-            this.oRouter.getRoute("category").attachPatternMatched(this.onListing, this); 
+            document.title = "UoM";  
+            this.oRouter.getRoute("uom").attachPatternMatched(this.onListing, this); 
         },
 
         onListing: async function () { 
@@ -60,7 +60,7 @@ sap.ui.define([
             if (filters.length > 0) oParams.$filter = filters.join(' and ');
 
             try {
-                const data = await CategoryRepository.get(oParams);
+                const data = await UnitofMeasureRepository.get(oParams);
                 const totalItems = data["odata.count"]; 
                 const paginationInfo = Pagination.getPaginationInfo(totalItems, pageSize, pageNumber);
                 this.oModel.setProperty("/data", data.value); 
@@ -76,7 +76,7 @@ sap.ui.define([
         handlerEdit: function (oEvent) {
             var oItem = oEvent.getSource();
             var sId = oItem.getBindingContext("model").getProperty("id");
-            this.oRouter.navTo("category_edit", { id: sId });
+            this.oRouter.navTo("uom_edit", { id: sId });
         },
 
         onNextPage: function() { 
@@ -108,7 +108,7 @@ sap.ui.define([
         },
 
         handlerCreate: function(){
-            this.oRouter.navTo("category_create");
+            this.oRouter.navTo("uom_create");
         }
     });
 });

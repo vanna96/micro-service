@@ -36,8 +36,8 @@ sap.ui.define([
     return Controller.extend("my.app.controller.Main", {
         onInit: function () {
             this._oRouter = sap.ui.core.UIComponent.getRouterFor(this);
-            // this._oRouter.attachRouteMatched(this._onRouteMatched, this);
-            this._oRouter.attachRoutePatternMatched(this._onRouteMatched, this);
+            this._oRouter.attachRouteMatched(this._onRouteMatched, this);
+            // this._oRouter.attachRoutePatternMatched(this._onRouteMatched, this);
 
             this.oMenuModel = new sap.ui.model.json.JSONModel({
                 selectedKey: ""
@@ -47,11 +47,11 @@ sap.ui.define([
             this._loadMenu(this.oMenuModel);
         
             // Initialize router after rendering
-            this.getView()
-            .byId("appContainer")
-            .addDelegate({
-                onAfterRendering: () => this._oRouter.initialize()
-            });  
+            // this.getView()
+            // .byId("appContainer")
+            // .addDelegate({
+            //     onAfterRendering: () => this._oRouter.initialize()
+            // });  
         },
 
         _onRouteMatched: function (oEvent) {

@@ -20,6 +20,7 @@ sap.ui.define([
                     { key: 'Dashboard' },
                     { key: 'Category' },
                     { key: 'Item' },
+                    { key: 'Unit of Messure' },
                 ]
             }
             

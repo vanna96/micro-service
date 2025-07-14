@@ -4,7 +4,7 @@ sap.ui.define([
     "use strict";
 
     return {
-        endPoint: "Category",
+        endPoint: "UoM",
         get: async function (queryParams) {
             function toQueryString(params){
                 return Object.keys(params)
@@ -18,38 +18,17 @@ sap.ui.define([
                 "value": [
                     {
                         'id' : 1,
-                        'name' : 'អាវដៃវែង',
-                        'foreign_name': 'Long Shirt',
+                        'name' : 'លីត្រ',
+                        'foreign_name': 'Litter',
                         'status': 'Active',
                         'created_at': '2025-02-17'
                     },
                     {
                         'id' : 2,
-                        'name' : 'អាវដៃខ្លី',
-                        'foreign_name': 'Short Shirt',
+                        'name' : 'តោន',
+                        'foreign_name': 'Tone',
                         'status': 'Inactive',
                         'created_at': '2025-02-18'
-                    },
-                    {
-                        'id' : 3,
-                        'name' : 'បញ្ចុះតម្លៃ១០%',
-                        'foreign_name': 'Discount 10%',
-                        'status': 'Active',
-                        'created_at': '2025-02-19'
-                    },
-                    {
-                        'id' : 4,
-                        'name' : 'បញ្ចុះតម្លៃ១០%',
-                        'foreign_name': 'Discount 10%',
-                        'parent': 'បញ្ចុះតម្លៃ',
-                        'status': 'Active'
-                    },
-                    {
-                        'id' : 5,
-                        'name' : 'បញ្ចុះតម្លៃ',
-                        'foreign_name': 'Discount',
-                        'status': 'Active',
-                        'created_at': '2025-02-20'
                     }
                 ]
             };

@@ -5,7 +5,7 @@
     xmlns:table="sap.ui.table"
     xmlns:u="sap.ui.unified"
     xmlns:mvc="sap.ui.core.mvc"
-    controllerName="my.app.controller.Category.List">
+    controllerName="my.app.controller.UoM.List">
 
     <f:DynamicPage fitContent="true">
         <f:title>
@@ -32,7 +32,7 @@
 
                 <table:extension>
                     <m:OverflowToolbar>
-                        <m:Title text="Categories ({model>/pagination/totalItems})" level="H2" />
+                        <m:Title text="Unit of Measures ({model>/pagination/totalItems})" level="H2" />
                         <m:ToolbarSpacer />
                         <m:Button icon="sap-icon://close-command-field" press="onFirstPage"
                             tooltip="First" enabled="{model>/pagination/hasPrevious}" />
@@ -54,7 +54,6 @@
                             <m:Link text="{model>id}" />
                         </table:template>
                     </table:Column>
-
                     <table:Column width="200px">
                         <m:Label text="Name" />
                         <table:template>
@@ -66,31 +65,6 @@
                         <m:Label text="Foreign Name" />
                         <table:template>
                             <m:Text text="{model>foreign_name}" wrapping="false" />
-                        </table:template>
-                    </table:Column>
-                    <table:Column width="200px">
-                        <m:Label text="Parent" />
-                        <table:template>
-                            <m:Text
-                                text="{model>parent}"
-                                wrapping="false" />
-                        </table:template>
-                    </table:Column>
-                    <table:Column width="120px">
-                        <m:Label text="Status" />
-                        <table:template>
-                            <m:FlexBox
-                                width="100%"
-                                justifyContent="Center"
-                                alignItems="Center"
-                                direction="Row">
-                                <m:ObjectStatus 
-                                    text="{model>status}"
-                                    state="{
-                                        path: 'model>status',
-                                        formatter:'.displayStatusState'
-                                    }" inverted="true"/>
-                            </m:FlexBox>
                         </table:template>
                     </table:Column>
                     <table:Column width="250px">
