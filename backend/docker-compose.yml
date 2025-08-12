@@ -8,7 +8,7 @@ services:
     volumes:
       - .:/var/www/html
     networks:
-      - laravel
+      - app-network
 
   app2:
     build:
@@ -17,7 +17,7 @@ services:
     volumes:
       - .:/var/www/html
     networks:
-      - laravel
+      - app-network
 
   nginx:
     image: nginx:latest
@@ -31,7 +31,8 @@ services:
       - app1
       - app2
     networks:
-      - laravel
+      - app-network
 
 networks:
-  laravel:
+  app-network:
+    external: true
