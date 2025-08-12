@@ -15,11 +15,11 @@
 					<OverflowToolbarLayoutData priority="NeverOverflow"/>
 				</layoutData>
 			</Button>
-			<Image src="https://www.biz-dimension.com/wp-content/uploads/2021/08/Biz-Logo-Final.png" decorative="false" press="onLogoPressed" tooltip="SAP Logo" width="150px">
+			<!-- <Image src="https://www.biz-dimension.com/wp-content/uploads/2021/08/Biz-Logo-Final.png" decorative="false" press="onLogoPressed" tooltip="SAP Logo" width="150px">
 				<layoutData>
 					<OverflowToolbarLayoutData priority="NeverOverflow"/>
 				</layoutData>
-			</Image>
+			</Image> -->
 
 			<ToolbarSpacer />
 			<Button 
@@ -59,7 +59,7 @@
 							text="{menu>title}"
 							icon="{menu>icon}"
 							key="{menu>key}"
-							expanded="false"
+							expanded="{menu>expanded}"
 							items="{
 								path: 'menu>subItems',
 								templateShareable: false

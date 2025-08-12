@@ -6,16 +6,19 @@ sap.ui.define(["require"], (require) => {
 		},
 
 		dateFormat: function ({ format = 'MM/dd/yyyy', value }){
-            if (!value) return null;
+            if (!value) return ``;
 
             const date = new Date(value);
             const pad = (number) => number.toString().padStart(2, '0');
 
-            const getWeekOfYear = (date) =>{
+            const getWeekOfYear = (date) =>
+            {
                 const start = new Date(date.getFullYear(), 0, 1);
                 const diff = date - start + ((start.getDay() + 1) * 86400000);
                 return Math.ceil(diff / 604800000);
             };
+
+            const hour12 = date.getHours() % 12 || 12; 
 
             const formatMap = {
                 'yyyy': date.getFullYear(),  // 2024
@@ -28,6 +31,8 @@ sap.ui.define(["require"], (require) => {
                 'd': date.getDate(),  // 11
                 'HH': pad(date.getHours()),  // 14
                 'H': date.getHours(),  // 14
+                'hh': pad(hour12), // 02
+                'h': hour12,// 02
                 'mm': pad(date.getMinutes()),  // 35
                 'm': date.getMinutes(),  // 35
                 'ss': pad(date.getSeconds()),  // 15
@@ -41,9 +46,9 @@ sap.ui.define(["require"], (require) => {
             };
 
             // Handle the format tokens, ensuring that any non-format character (like space, hyphen) is preserved
-            return format.split(/(yyyy|yy|MMMM|MMM|MM|M|dd|d|HH|H|mm|m|ss|s|a|A|ww|W|Q|Z)/g)
+            return format.split(/(yyyy|yy|MMMM|MMM|MM|M|dd|d|HH|H|hh|h|mm|m|ss|s|a|A|ww|W|Q|Z)/g)
                 .map(part => formatMap[part] !== undefined ? formatMap[part] : part) // Replace format tokens with values
                 .join(''); // Join without additional spaces to preserve the original formatting
-        }
+        },
 	};
 });

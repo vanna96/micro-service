@@ -33,7 +33,7 @@
 			},
 			"": {
 				"type": "sap.ui.model.json.JSONModel",
-				"uri": "model/menu.json"
+				"uri": "assets/static/menu.json"
 			}
 		},
 		"resources": {
@@ -55,71 +55,8 @@
 					"target": "notFound"
 				}
 			},
-			"routes": [
-				{
-					"pattern": "",
-					"name": "dashboard",
-					"target": "dashboard"
-				},
-				{
-					"pattern": "login",
-					"name": "login",
-					"target": "login"
-				},
-				{
-					"pattern": "category",
-					"name": "category",
-					"target": "category"
-				},
-				{
-					"pattern": "item",
-					"name": "item",
-					"target": "item"
-				},
-                {
-					"pattern": "item/create",
-					"name": "item_create",
-					"target": "item_form"
-				}
-			],
-			"targets": {
-				"main": {
-					"viewName": "Main",
-					"viewType": "XML",
-					"controlAggregation": "pages"
-				},
-				"dashboard": {
-					"viewName": "Dashboard",
-					"controlId": "appContainer",
-					"parent": "main",
-					"viewLevel": 1
-				},
-				"category": {
-					"viewName": "master_data.category.list",
-					"controlId": "appContainer",
-					"parent": "main",
-					"viewLevel": 1
-				},
-				"item": {
-					"viewName": "master_data.item.list",
-					"controlId": "appContainer",
-					"parent": "main",
-					"viewLevel": 1
-				},
-				"login": {
-					"viewName": "Authentication.Login"
-				},
-				"notFound": {
-					"viewName": "NotFound",
-					"transition": "show"
-				},
-                "item_form":{
-                    "viewName": "master_data.item.form",
-					"controlId": "appContainer",
-					"parent": "main",
-					"viewLevel": 1
-                }
-			}
+			"routes": [],
+			"targets": {}
 		}
 	}
 }

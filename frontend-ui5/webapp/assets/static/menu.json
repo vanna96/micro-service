@@ -3,8 +3,7 @@
         { 
             "title": "Dashboard", 
             "icon": "sap-icon://bbyd-dashboard",
-            "key": "dashboard",
-            "subItems": [] 
+            "key": "dashboard"
         },
         { 
             "title": "Master Data", 
@@ -12,11 +11,11 @@
             "key": "",
             "subItems": [
                 { "title": "Branch", "key": "branch"},
-                { "title": "Category", "key": "category"},
-                { "title": "Item", "key": "item"},
+                { "title": "Category", "key": "category", "repo": "Category"},
                 { "title": "Warehouse", "key": "warehouse"}, 
-                { "title": "Unit of Messure", "key": "unit_of_messure"},
+                { "title": "Unit of Messure", "key": "uom"},
                 { "title": "Tax", "key": "tax"},
+                { "title": "Item", "key": "item"},
                 { "title": "User", "key": "user"}
             ] 
         },

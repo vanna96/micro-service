@@ -6,7 +6,7 @@
     xmlns:table="sap.ui.table"
     xmlns:u="sap.ui.unified"
     xmlns:core="sap.ui.core"
-    controllerName="my.app.controller.Category.Form">
+    controllerName="my.app.controller.UoM.Form">
      <m:Page showNavButton="true" navButtonPress="handlerNavBack">
         <ObjectPageLayout
             enableLazyLoading="false"
@@ -70,15 +70,6 @@
                                 </f:layout>
                                 <f:FormContainer title="">
                                     <f:formElements> 
-                                        <f:FormElement label="Parent">
-                                            <f:fields>
-                                                <m:ComboBox
-                                                    items="{model>/parents}"
-                                                    loadItems="handlerLoadCategory">
-                                                    <core:Item key="{key}" text="{text}" />
-                                                </m:ComboBox>
-                                            </f:fields>
-                                        </f:FormElement>
                                         <f:FormElement label="Name">
                                             <f:fields>
                                                 <m:Input 
@@ -96,19 +87,34 @@
                                                     value="{model>/foreign_name}"/>
                                             </f:fields>
                                         </f:FormElement>
-                                        <f:FormElement label="">
+                                    </f:formElements>
+                                </f:FormContainer>
+                                <f:FormContainer title="">
+                                    <f:formElements>  
+                                        <f:FormElement label="Length">
                                             <f:fields>
-                                                <m:RadioButtonGroup  
-                                                    columns="2"
-                                                    valueState="None" 
-                                                    id="status"
-                                                    select="handlerRadioChange"
-                                                    class="sapUiMediumMarginBottom"> 
-                                                        <m:RadioButton text="Active" />
-                                                        <m:RadioButton text="Inactive" /> 
-                                                </m:RadioButtonGroup>
+                                                <m:Input 
+                                                    name="length" 
+                                                    change="handlerInputChange" 
+                                                    value="{model>/length}"/>
                                             </f:fields>
-                                        </f:FormElement> 
+                                        </f:FormElement>
+                                        <f:FormElement label="Height">
+                                            <f:fields>
+                                                <m:Input 
+                                                    name="height" 
+                                                    change="handlerInputChange" 
+                                                    value="{model>/height}"/>
+                                            </f:fields>
+                                        </f:FormElement>
+                                        <f:FormElement label="Width">
+                                            <f:fields>
+                                                <m:Input 
+                                                    name="width" 
+                                                    change="handlerInputChange" 
+                                                    value="{model>/width}"/>
+                                            </f:fields>
+                                        </f:FormElement>
                                     </f:formElements>
                                 </f:FormContainer>
                             </f:Form>

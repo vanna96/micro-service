@@ -2,27 +2,28 @@ sap.ui.define([], function () {
     "use strict";
 
     return {
-        callApi: function (sMethod, sEndpoint, oData) {
+        callApi: function (sMethod, sEndpoint, oData, header = null) {
             const isFormData = oData instanceof FormData;
-            const sUrl = this.getUrl(sEndpoint);
-
-            return new Promise(function (resolve, reject) {
-                jQuery.ajax({
-                    url: sUrl,
-                    type: sMethod,
-                    contentType: isFormData ? false : "application/json", 
-                    processData: !isFormData,
-                    data: isFormData ? oData : oData ? JSON.stringify(oData) : null, 
-                    xhrFields: {
-                        withCredentials: true
-                    }, 
-                    success: function(data) {
-                        resolve(data); 
-                    },
-                    error: function (error) { 
-                        reject(error);
-                    }
-                });
+            // const sUrl = this.getUrl(sEndpoint);
+        
+            const ajaxConfig = {
+                url: sEndpoint,
+                type: sMethod,
+                contentType: isFormData ? false : "application/json",
+                processData: !isFormData,
+                data: isFormData ? oData : oData ? JSON.stringify(oData) : null,
+                success: (data) => resolve(data),
+                error: (error) => reject(error)
+            };
+        
+            if (header) {
+                ajaxConfig.headers = header;
+            }
+        
+            return new Promise(function (resolve, reject) { 
+                ajaxConfig.success = resolve;
+                ajaxConfig.error = reject;
+                jQuery.ajax(ajaxConfig);
             });
         },
 

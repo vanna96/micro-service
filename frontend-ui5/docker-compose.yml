@@ -14,4 +14,4 @@ services:
     environment:
       - NODE_ENV=development
     command: >
-      sh -c "ui5 serve --port=${FRONTEND_PORT:-9090} --accept-remote-connections"
+      sh -c "ui5 serve --port=9090 --accept-remote-connections"

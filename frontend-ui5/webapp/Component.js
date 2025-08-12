@@ -1,9 +1,13 @@
 sap.ui.define([
-    "sap/ui/core/UIComponent", 
-    "my/app/util/Cookie"
+    "sap/ui/core/UIComponent",
+    "my/app/util/Cookie",
+    "my/app/routes/index",
+    "my/app/routes/master",
 ], (
     UIComponent,
-    Cookie
+    Cookie,
+    index,
+    master
 ) => {
     "use strict";
     return UIComponent.extend("my.app.Component", {
@@ -15,9 +19,21 @@ sap.ui.define([
         init: function () {
             this._oSplitApp = this.byId("splitAppControl");
             UIComponent.prototype.init.apply(this, arguments);
-            const oRouter = this.getRouter();
-            oRouter.initialize();
 
+            const oRouter = this.getRouter();
+            const aRouteDefs = [index, master];
+            aRouteDefs.forEach(oDef => {
+                oDef.routes.forEach(route => {
+                    oRouter.addRoute(route);
+                });
+
+                const oTargets = oRouter.getTargets();
+                Object.entries(oDef.targets).forEach(([name, config]) => {
+                    oTargets.addTarget(name, config);
+                });
+            });
+
+            oRouter.initialize();
             oRouter.attachRouteMatched(this._onRouteMatched, this);
         },
 
@@ -30,27 +46,12 @@ sap.ui.define([
             } else if (sRouteName !== "login" && !this._checkAuthentication()) {
                 oRouter.navTo("login");
             }
-
-            this._setupAjaxErrorHandler();
-        },
-
-        _handleAuthentication: function (oRouter) {
-            if (!this._checkAuthentication()) {
-                oRouter.navTo("login");
-            }
         },
 
         _checkAuthentication: function () {
             return true;
             const authCookie = document.cookie.split(';').find(cookie => cookie.trim().startsWith("B1SESSION="));
             return authCookie !== undefined;
-        },
-
-        _setupAjaxErrorHandler: function (){
-            $(document).ajaxError(function (event, jqXHR){
-                Cookie.deleteCookie("B1SESSION");
-                if (jqXHR.status === 401) this.getRouter().navTo("login");
-            }.bind(this));
         }
     });
 });
