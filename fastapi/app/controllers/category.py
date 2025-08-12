@@ -70,21 +70,42 @@ def create_category(category: CategoryCreate, db: Session):
 
 
 def get_categories(db: Session, skip: int = 0, limit: int = 10):
+    # Count total non-deleted categories
+    total = db.query(Category).filter(Category.deleted_at == None).count()
+
+    # Get paginated categories
     categories = db.query(Category).filter(Category.deleted_at == None).offset(skip).limit(limit).all()
-    
-    # Create image URL for each category
+
+    value = []
+
     for category in categories:
+        # Handle image URL
         if category.image:
-            # Assuming image filename is stored as 'image_filename' or something similar in your Category model
             image_path = os.path.join(IMAGE_DIR, category.image)
-            # Assuming you are serving images from a public URL, you can generate the full URL like this
-            category.image = f"{HOST_URL}/{image_path}"
+            image_url = f"{HOST_URL}/{image_path}"
         else:
-            category.image = None  # Or some default image URL
-    
-    return categories
+            image_url = None  # Or some default image URL
 
+        # Prepare dictionary with required fields
+        category_data = {
+            "id": category.id,
+            "name": category.name,
+            "foreign_name": category.foreign_name,
+            "status": category.status,
+            "image": image_url,
+            "parent_id": category.parent_id,
+            "parent_name": category.parent.name if category.parent else None,
+            "parent_foreign_name": category.parent.foreign_name if category.parent else None
+        }
 
+        value.append(category_data)
+
+    return {
+        "data": {
+            "count": total,
+            "value": value
+        }
+    }
 
 def get_category(db: Session, category_id: int):
     category = db.query(Category).filter(Category.id == category_id).first()

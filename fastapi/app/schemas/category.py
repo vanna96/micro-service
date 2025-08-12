@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field, validator
 from typing import Optional
 import re
 import base64
+from typing import List
 
 class CategoryBase(BaseModel):
     name: str = Field(..., max_length=100)
@@ -53,3 +54,23 @@ class Category(BaseModel):
 
     class Config:
         from_attributes = True  # Pydantic will convert SQLAlchemy models to dictionaries here
+
+class CategoryOut(BaseModel):
+    id: int
+    name: str
+    foreign_name: Optional[str]
+    status: str
+    image: Optional[str]
+    parent_id: Optional[int]
+    parent_name: Optional[str]
+    parent_foreign_name: Optional[str]
+
+    class Config:
+        orm_mode = True
+
+class CategoryListOut(BaseModel):
+    count: int
+    value: List[CategoryOut]
+
+class ResponseWrapper(BaseModel):
+    data: CategoryListOut
