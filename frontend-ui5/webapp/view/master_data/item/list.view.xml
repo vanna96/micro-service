@@ -42,7 +42,7 @@
 
                 <table:extension>
                     <m:OverflowToolbar>
-                        <m:Title text="Item Master Data ({model>/pagination/totalItems})" level="H2" />
+                        <m:Title text="Items ({model>/pagination/totalItems})" level="H2" />
                         <m:ToolbarSpacer />
                         <m:Button icon="sap-icon://close-command-field" press="onFirstPage"
                             tooltip="First" enabled="{model>/pagination/hasPrevious}" />
@@ -72,7 +72,7 @@
                         </table:template>
                     </table:Column>
                     <table:Column minWidth="120px">
-                        <m:Label text="Create Date" />
+                        <m:Label text="Document Date" />
                         <table:template>
                             <m:Text
                                 text="{

@@ -11,9 +11,10 @@
             "key": "",
             "subItems": [
                 { "title": "Branch", "key": "branch"},
-                { "title": "Category", "key": "category", "repo": "Category"},
                 { "title": "Warehouse", "key": "warehouse"}, 
+                { "title": "Category", "key": "category", "repo": "Category"},
                 { "title": "Unit of Messure", "key": "uom"},
+                { "title": "Unit of Messure Group", "key": "uom"},
                 { "title": "Tax", "key": "tax"},
                 { "title": "Item", "key": "item"},
                 { "title": "User", "key": "user"}

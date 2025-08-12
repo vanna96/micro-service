@@ -21,6 +21,11 @@ sap.ui.define([
                     { key: 'Category' },
                     { key: 'Item' },
                     { key: 'Unit of Messure' },
+                    { key: 'Unit of Messure Group' },
+                    { key: 'Branch' },
+                    { key: 'Warehouse' },
+                    { key: 'Tax' },
+                    
                 ]
             }
             

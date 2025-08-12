@@ -13,5 +13,6 @@ services:
       - /usr/src/app/node_modules
     environment:
       - NODE_ENV=development
+    restart: always
     command: >
       sh -c "ui5 serve --port=9090 --accept-remote-connections"

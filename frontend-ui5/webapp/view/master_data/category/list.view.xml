@@ -94,7 +94,7 @@
                         </table:template>
                     </table:Column>
                     <table:Column width="250px">
-                        <m:Label text="Created at" />
+                        <m:Label text="Document Date" />
                         <table:template>
                             <m:Text
                                 text="{
