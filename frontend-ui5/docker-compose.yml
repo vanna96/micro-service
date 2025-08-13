@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   ui5-app:
     container_name: frontend-ui5
@@ -7,7 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "${FRONTEND_PORT}:9090"
+      - "${RUNNING_PORT}:9090"
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules
