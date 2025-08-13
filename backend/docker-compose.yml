@@ -3,6 +3,7 @@ services:
     build:
       context: ./php
     container_name: laravel_app1
+    command: php-fpm
     volumes:
       - .:/var/www/html
       - ./bootstrap/cache:/var/www/html/bootstrap/cache
@@ -13,9 +14,20 @@ services:
     build:
       context: ./php
     container_name: laravel_app2
+    command: php-fpm
     volumes:
       - .:/var/www/html
       - ./bootstrap/cache:/var/www/html/bootstrap/cache
+    networks:
+      - app-network
+
+  queue:
+    build:
+      context: ./php
+    container_name: laravel_queue
+    command: /usr/bin/supervisord -n -c /etc/supervisor/supervisord.conf
+    volumes:
+      - .:/var/www/html
     networks:
       - app-network
 

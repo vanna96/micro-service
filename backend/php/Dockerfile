@@ -23,7 +23,7 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy existing application
+# Copy application
 COPY . /var/www/html
 
 # Permissions
@@ -35,18 +35,22 @@ RUN echo "* * * * * root php /var/www/html/artisan schedule:run >> /dev/null 2>&
 # Create the log file to be able to run tail
 RUN touch /var/log/cron.log
 
-# Create worker.log file and set permission
+# Create storage/logs folder and worker log
 RUN mkdir -p /var/www/html/storage/logs \
     && touch /var/www/html/storage/logs/worker.log \
     && chown -R www-data:www-data /var/www/html/storage/logs \
     && chmod 664 /var/www/html/storage/logs/worker.log
 
-# Configure Supervisor
+# Copy Supervisor configs
+COPY supervisor/supervisord.conf /etc/supervisor/supervisord.conf
 COPY supervisor/queue-worker.conf /etc/supervisor/conf.d/queue-worker.conf
 
-# Copy start.sh
-COPY start.sh /usr/local/bin/start.sh
-RUN chmod +x /usr/local/bin/start.sh
+# Copy startup script
+COPY start-queue.sh /start-queue.sh
+RUN chmod +x /start-queue.sh
 
-# Use start.sh as the CMD
-CMD ["supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+EXPOSE 9000
+
+# Run startup script instead of directly starting supervisor
+CMD ["/start-queue.sh"]
+# CMD ["php-fpm"]
