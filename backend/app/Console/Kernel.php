@@ -13,12 +13,14 @@ class Kernel extends ConsoleKernel
      * @param  \Illuminate\Console\Scheduling\Schedule  $schedule
      * @return void
      */
+    protected $commands = [
+        \App\Console\Commands\TestQueueCron::class,
+    ];
+
     protected function schedule(Schedule $schedule)
     {
         // $schedule->command('inspire')->hourly();
-        $schedule->call(function () {
-            \Log::info('Scheduler is running!');
-        })->everyMinute();
+        $schedule->command('test:queue-cron')->hourly();
     }
 
     /**

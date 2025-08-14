@@ -16,6 +16,12 @@ RUN apt-get update && apt-get install -y \
     supervisor \
     && docker-php-ext-install pdo_mysql mbstring zip exif pcntl bcmath gd \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+    
+# Install Node.js (LTS) and npm
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && node -v \
+    && npm -v
 
 # Install Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
@@ -38,8 +44,14 @@ RUN touch /var/log/cron.log
 # Create storage/logs folder and worker log
 RUN mkdir -p /var/www/html/storage/logs \
     && touch /var/www/html/storage/logs/worker.log \
-    && chown -R www-data:www-data /var/www/html/storage/logs \
-    && chmod 664 /var/www/html/storage/logs/worker.log
+    && touch /var/www/html/storage/logs/laravel.log \
+    && chown -R www-data:www-data /var/www/html/storage \
+    && chmod -R 775 /var/www/html/storage
+
+# RUN mkdir -p /var/www/html/storage/logs \
+#     && touch /var/www/html/storage/logs/worker.log \
+#     && chown -R www-data:www-data /var/www/html/storage/logs \
+#     && chmod 664 /var/www/html/storage/logs/worker.log
 
 # Copy Supervisor configs
 COPY supervisor/supervisord.conf /etc/supervisor/supervisord.conf
