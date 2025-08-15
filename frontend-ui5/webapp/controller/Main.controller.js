@@ -191,7 +191,7 @@ sap.ui.define([
         },
 
         onLogoutPress: function () {
-            Cookie.deleteCookie("B1SESSION");
+            Cookie.deleteCookie("laravel_session");
             const oRouter = sap.ui.core.UIComponent.getRouterFor(this);
             oRouter.navTo("login");
         },

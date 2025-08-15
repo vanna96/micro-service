@@ -3,6 +3,7 @@ services:
     build:
       context: .
     container_name: fastapi-app
+    restart: always
     volumes:
       - ./app:/app  # Mount `app` directly to container's /app
     ports:

@@ -18,6 +18,7 @@ services:
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
     container_name: phpmyadmin
+    restart: always
     depends_on:
       - mysql
     environment:

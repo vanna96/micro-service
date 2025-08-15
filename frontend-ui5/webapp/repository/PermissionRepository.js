@@ -18,13 +18,16 @@ sap.ui.define([
                 "odata.count":3,
                 value:[
                     { key: 'Dashboard' },
-                    { key: 'Category' },
-                    { key: 'Item' },
-                    { key: 'Unit of Messure' },
-                    { key: 'Unit of Messure Group' },
-                    { key: 'Branch' },
-                    { key: 'Warehouse' },
-                    { key: 'Tax' },
+                    { key: 'Administrator' },
+                    { key: 'Tanent' },
+                    // { key: 'Dashboard' },
+                    // { key: 'Category' },
+                    // { key: 'Item' },
+                    // { key: 'Unit of Messure' },
+                    // { key: 'Unit of Messure Group' },
+                    // { key: 'Branch' },
+                    // { key: 'Warehouse' },
+                    // { key: 'Tax' },
                     
                 ]
             }

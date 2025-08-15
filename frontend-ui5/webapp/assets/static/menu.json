@@ -6,6 +6,15 @@
             "key": "dashboard"
         },
         { 
+            "title": "Administrator", 
+            "icon": "sap-icon://database",
+            "key": "",
+            "subItems": [
+                { "title": "Administrator", "key": "administrator"},
+                { "title": "Tanent", "key": "tenent"}
+            ] 
+        },
+        { 
             "title": "Master Data", 
             "icon": "sap-icon://database",
             "key": "",

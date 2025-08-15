@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError 
 from fastapi.responses import HTMLResponse 
-from routes.v1 import mobile, web
+from routes.v1 import mobile, web, api
 from middleware.middleware import PlatformMiddleware 
 from dotenv import load_dotenv
 import os
@@ -36,8 +36,9 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_middleware(PlatformMiddleware)
 
 # Route groups with prefixes
-app.include_router(mobile.router, prefix="/api/v1/mobile", tags=["Mobile API"])
-app.include_router(web.router, prefix="/api/v1/admin")
+# app.include_router(mobile.router, prefix="/api/v1/mobile", tags=["Mobile API"])
+# app.include_router(web.router, prefix="/api/v1/admin")
+app.include_router(api.router, prefix="/api")
 
 @app.get("/", tags=["Welcome"], response_class=HTMLResponse)
 async def welcome():

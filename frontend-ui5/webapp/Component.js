@@ -49,8 +49,7 @@ sap.ui.define([
         },
 
         _checkAuthentication: function () {
-            return true;
-            const authCookie = document.cookie.split(';').find(cookie => cookie.trim().startsWith("B1SESSION="));
+            const authCookie = document.cookie.split(';').find(cookie => cookie.trim().startsWith("laravel_session="));
             return authCookie !== undefined;
         }
     });

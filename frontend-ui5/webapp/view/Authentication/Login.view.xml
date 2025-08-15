@@ -16,10 +16,9 @@
                 <Input id="usernameInput" width="100%" />
                 <Label text="Password" class="sapUiSmallMarginTop" />
                 <Input id="passwordInput" type="Password" width="100%" />
-                <Label text="Company DB" class="sapUiSmallMarginTop" />
-                <Input id="companyDBInput" width="100%" />
                 <Button 
                     text="{login>/loginButton}" 
+                    enabled="{= ${login>/loginButton} === 'Login' }"
                     press="onLoginPress" 
                     width="100%" 
                     type="Emphasized" 
