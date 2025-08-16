@@ -49,7 +49,8 @@ sap.ui.define([
         },
 
         _checkAuthentication: function () {
-            const authCookie = document.cookie.split(';').find(cookie => cookie.trim().startsWith("laravel_session="));
+            console.log(document.cookie)
+            const authCookie = document.cookie.split(';').find(cookie => cookie.trim().startsWith("XSRF-TOKEN="));
             return authCookie !== undefined;
         }
     });
