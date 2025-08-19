@@ -13,17 +13,19 @@ use App\Http\Controllers\API\V1\AuthController;
 | is assigned the "api" middleware group. Enjoy building your API!
 |
 */
-Route::post('register', [AuthController::class, 'register']);
-Route::post('login', [AuthController::class, 'login']);
-// Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
-// Route::post('reset-password', [AuthController::class, 'resetPassword']);
 
-// // Protected admin routes
-// Route::middleware('auth:sanctum')->group(function () {
-//     Route::post('logout', [AuthController::class, 'logout']);
+Route::prefix('v1/admin')->group(function () {
+    // Public routes
+    Route::get('sanctum/csrf-cookie', [\Laravel\Sanctum\Http\Controllers\CsrfCookieController::class, 'show']);
+    Route::post('login', [AuthController::class, 'login']);
+    Route::post('register', [AuthController::class, 'register']); // optional
 
-//     // Example: admin-only routes
-//     Route::get('dashboard', function () {
-//         return response()->json(['message' => 'Admin dashboard']);
-//     });
-// });
+    // Protected routes
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('auth', [AuthController::class, 'auth']); // check logged-in user
+        Route::post('logout', [AuthController::class, 'logout']);
+        Route::get('dashboard', function() {
+            return response()->json(['message' => 'Welcome to dashboard']);
+        });
+    });
+});

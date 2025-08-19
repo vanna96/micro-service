@@ -3,11 +3,13 @@ sap.ui.define([
     "my/app/util/Cookie",
     "my/app/routes/index",
     "my/app/routes/master",
+    "my/app/util/HttpService",
 ], (
     UIComponent,
     Cookie,
     index,
-    master
+    master,
+    HttpService
 ) => {
     "use strict";
     return UIComponent.extend("my.app.Component", {
@@ -37,21 +39,25 @@ sap.ui.define([
             oRouter.attachRouteMatched(this._onRouteMatched, this);
         },
 
-        _onRouteMatched: function (oEvent) {
+        _onRouteMatched: async function (oEvent) {
             const oRouter = this.getRouter();
             const sRouteName = oEvent.getParameter("name");
 
-            if (sRouteName === "login" && this._checkAuthentication()) {
+            if (sRouteName === "login" && await this._checkAuthentication()) {
                 oRouter.navTo("dashboard");
-            } else if (sRouteName !== "login" && !this._checkAuthentication()) {
+            } else if (sRouteName !== "login" && !await this._checkAuthentication()) {
                 oRouter.navTo("login");
             }
         },
 
-        _checkAuthentication: function () {
-            console.log(document.cookie)
-            const authCookie = document.cookie.split(';').find(cookie => cookie.trim().startsWith("XSRF-TOKEN="));
-            return authCookie !== undefined;
+        _checkAuthentication: async function () {
+            try {
+                await HttpService.callApi("GET", HttpService.getUrl('auth'));
+                return true;
+            } catch (error) {
+                console.log(error)
+                return false;
+            }
         }
     });
 });

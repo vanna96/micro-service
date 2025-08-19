@@ -16,7 +16,7 @@ class AuthController extends Controller
         $input = $request->all();
         $country = country_code()[$request->input('country_code') ?? '855'] ?? 'KH';
         if (!empty($input['phone']))  $input['phone'] = ltrim($input['phone'], '0');
-        
+
         $validator = Validator::make($input, [
             'name'          => 'required|string|max:255',
             'username'      => 'required|string|max:255|unique:users,username',
@@ -29,7 +29,7 @@ class AuthController extends Controller
             'gender'        => 'nullable|in:Male,Female',
             'dob'           => 'nullable|date'
         ]);
-        
+
         if ($validator->fails()) {
             $message = formatValidationErrors($validator->errors()->toArray());
             if (in_array(request('lng'), explode(',', env('LNG_ALLOWED', 'en')))) $message = translate($message, request('lng'));
@@ -44,7 +44,7 @@ class AuthController extends Controller
                 'success' => true,
                 'data'    => $user
             ], 201);
-        } catch (\Throwable $th) { 
+        } catch (\Throwable $th) {
             return response()->json([
                 'success' => false,
                 'message' => translate($th->getMessage(), request('lng'))
@@ -85,17 +85,31 @@ class AuthController extends Controller
         }
 
         $user = Auth::user();
-        $token = $user->createToken('authToken')->plainTextToken;
+        // $token = $user->createToken('authToken')->plainTextToken;
 
         return response()->json([
             'success' => true,
             'message' => translate('Login successful', request('lng')),
             'data' => [
                 'user' => $user,
-                'token' => $token
+                // 'token' => $token
             ]
         ], 200);
-
-        dd($validator);
     }
-}   
+
+    public function auth(Request $request)
+    {
+        return response()->json([
+            'user' => $request->user()
+        ]);
+    }
+
+    // Logout
+    public function logout(Request $request)
+    {
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return response()->json(['message' => translate('Logged out')], 200);
+    }
+}

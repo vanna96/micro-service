@@ -5,15 +5,16 @@ sap.ui.define([
     "my/app/util/Cookie",
     'sap/m/Popover',
     'sap/m/Bar',
-	'sap/m/Title',
+    'sap/m/Title',
     'sap/ui/core/IconPool',
     'sap/m/Button',
     'sap/m/MessageView',
     'sap/m/MessageItem',
     'sap/ui/core/Icon',
-	'sap/m/Link',
+    'sap/m/Link',
     'sap/ui/model/json/JSONModel',
     'my/app/repository/PermissionRepository',
+    "my/app/util/HttpService",
 ], (
     Device,
     Controller,
@@ -29,7 +30,8 @@ sap.ui.define([
     Icon,
     Link,
     JSONModel,
-    PermissionRepository
+    PermissionRepository,
+    HttpService
 ) => {
     "use strict";
 
@@ -42,16 +44,16 @@ sap.ui.define([
             this.oMenuModel = new sap.ui.model.json.JSONModel({
                 selectedKey: ""
             });
-        
+
             this.getView().setModel(this.oMenuModel, "menu");
             this._loadMenu(this.oMenuModel);
-        
+
             // Initialize router after rendering
             // this.getView()
             // .byId("appContainer")
             // .addDelegate({
             //     onAfterRendering: () => this._oRouter.initialize()
-            // });  
+            // });
         },
 
         _onRouteMatched: function (oEvent) {
@@ -61,13 +63,13 @@ sap.ui.define([
             this.hadleImplementNotification();
         },
 
-        hadleImplementNotification(){
-            const that  = this;
-            
+        hadleImplementNotification() {
+            const that = this;
+
             const oBackButton = new Button({
                 icon: IconPool.getIconURI("nav-back"),
                 visible: false,
-                press: function() {
+                press: function () {
                     that.oMessageView.navigateBack();
                     that._oPopover.focus();
                     this.setVisible(false);
@@ -79,7 +81,7 @@ sap.ui.define([
                 href: "http://sap.com",
                 target: "_blank"
             });
-        
+
             const oMessageTemplate = new MessageItem({
                 type: '{type}',
                 title: '{title}',
@@ -92,7 +94,7 @@ sap.ui.define([
 
             this.oMessageView = new MessageView({
                 showDetailsPageHeader: false,
-                itemSelect: function() {
+                itemSelect: function () {
                     oBackButton.setVisible(true);
                 },
                 items: {
@@ -101,14 +103,14 @@ sap.ui.define([
                 }
             });
 
-        
+
             const oCloseButton = new Button({
                 text: "Close",
-                press: function() {
+                press: function () {
                     that._oPopover.close();
                 }
-            }).addStyleClass("sapUiTinyMarginEnd") 
-        
+            }).addStyleClass("sapUiTinyMarginEnd")
+
             this._oPopover = new Popover({
                 customHeader: new Bar({
                     contentLeft: [oBackButton],
@@ -131,8 +133,8 @@ sap.ui.define([
         _handleResize: function () {
             const oSplitApp = this.byId("splitAppControl");
             const phone = Device.system.phone;
-            const desktop = Device.system.desktop; 
-             
+            const desktop = Device.system.desktop;
+
             if (desktop) {
                 oSplitApp.showMaster();
                 oSplitApp.setMode("ShowHideMode");
@@ -149,10 +151,10 @@ sap.ui.define([
             const oSplitApp = this.byId("splitAppControl");
             const phone = Device.system.phone;
             const desktop = Device.system.desktop;
-            const isShowMode = oSplitApp.getMode() === "ShowHideMode"; 
-            
+            const isShowMode = oSplitApp.getMode() === "ShowHideMode";
+
             if (
-                // oSplitApp.isMasterShown() || 
+                // oSplitApp.isMasterShown() ||
                 isShowMode
             ) {
                 oSplitApp.hideMaster();
@@ -190,15 +192,18 @@ sap.ui.define([
             }
         },
 
-        onLogoutPress: function () {
-            Cookie.deleteCookie("XSRF-TOKEN");
-            Cookie.deleteCookie("mcsession");
-            const oRouter = sap.ui.core.UIComponent.getRouterFor(this);
-            oRouter.navTo("login");
+        onLogoutPress: async function () {
+            try {
+                await HttpService.callApi("POST", HttpService.getUrl('logout'));
+                const oRouter = sap.ui.core.UIComponent.getRouterFor(this);
+                oRouter.navTo("login");
+            } catch (error) {
+                console.error(error)
+            }
         },
 
-        handleNotification: function(oEvent) {
-            
+        handleNotification: function (oEvent) {
+
             const aMockMessages = [{
                 type: 'Error',
                 title: 'Error message',
@@ -250,10 +255,10 @@ sap.ui.define([
             }
         },
 
-        _loadMenu: async function(oMenuModel) {
+        _loadMenu: async function (oMenuModel) {
             const url = sap.ui.require.toUrl("my/app/assets/static/menu.json");
-            const permissions = (await PermissionRepository.get())?.value || [];  
-            
+            const permissions = (await PermissionRepository.get())?.value || [];
+
             const loadDataAsync = (model, url) => {
                 return new Promise((resolve, reject) => {
                     model.attachRequestCompleted(resolve);
@@ -261,22 +266,22 @@ sap.ui.define([
                     model.loadData(url);
                 });
             };
-        
+
             await loadDataAsync(oMenuModel, url);
-        
+
             const data = oMenuModel.getData();
-            const menuItems = data?.menuItems || []; 
-            const allowedTitles = permissions.map(p => p.key); 
+            const menuItems = data?.menuItems || [];
+            const allowedTitles = permissions.map(p => p.key);
             const sRouteName = this.sRouteName;
             console.log(sRouteName);
-            
+
             function filterMenuItems(items) {
                 return items
-                    .map(item => { 
+                    .map(item => {
                         if (item.subItems) {
                             item.subItems = filterMenuItems(item.subItems);
                         }
-        
+
                         const isAllowed = allowedTitles.includes(item.title);
                         const hasAllowedSubItems = item.subItems && item.subItems.length > 0;
                         const shouldExpand = item.subItems?.some(sub => sub.key === sRouteName);
@@ -287,12 +292,12 @@ sap.ui.define([
                         } : null;
                     })
                     .filter(item => item !== null);
-            } 
-             
+            }
+
             oMenuModel.setProperty("/menuItems", filterMenuItems(menuItems));
-            oMenuModel.setProperty("/selectedKey", this.sRouteName ?? 'dasboard');  
-        }               
-        
+            oMenuModel.setProperty("/selectedKey", this.sRouteName ?? 'dasboard');
+        }
+
     });
 
 });
