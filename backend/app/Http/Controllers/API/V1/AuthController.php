@@ -85,14 +85,14 @@ class AuthController extends Controller
         }
 
         $user = Auth::user();
-        // $token = $user->createToken('authToken')->plainTextToken;
+        $token = $user->createToken('authToken')->plainTextToken;
 
         return response()->json([
             'success' => true,
             'message' => translate('Login successful', request('lng')),
             'data' => [
                 'user' => $user,
-                // 'token' => $token
+                'token' => $token
             ]
         ], 200);
     }

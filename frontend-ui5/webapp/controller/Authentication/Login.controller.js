@@ -3,13 +3,15 @@ sap.ui.define([
     "my/app/util/HttpService",
     "sap/m/MessageBox",
     "sap/m/MessageToast",
-    "my/app/util/Cookie"
+    "my/app/util/Cookie",
+    "my/app/util/Crypto"
 ], (
     Controller,
     HttpService,
     MessageBox,
     MessageToast,
-    Cookie
+    Cookie,
+    Crypto
 ) => {
     "use strict";
 
@@ -34,12 +36,14 @@ sap.ui.define([
             };
 
             try {
-                await HttpService.callApi("GET", HttpService.getUrl('sanctum/csrf-cookie'));
-                await HttpService.callApi("POST", HttpService.getUrl('login'), payload);
+                // await HttpService.callApi("GET", HttpService.getUrl('sanctum/csrf-cookie'));
+                const res = await HttpService.callApi("POST", HttpService.getUrl('login'), payload);
+                Cookie.setCookie("userData", Crypto.encryptData(res.data), 0.5)
                 const oRouter = sap.ui.core.UIComponent.getRouterFor(that);
                 MessageToast.show("login was successful!")
                 setTimeout(() => oRouter.navTo("dashboard"), 1000)
             } catch (error) {
+                console.error(error)
                 let errorMessage = "Unknown error occurred.";
                 if (error && error.responseJSON) {
                     if (error.responseJSON && error.responseJSON.message) {

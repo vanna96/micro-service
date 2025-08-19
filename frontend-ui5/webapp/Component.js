@@ -4,12 +4,16 @@ sap.ui.define([
     "my/app/routes/index",
     "my/app/routes/master",
     "my/app/util/HttpService",
+    "my/app/util/Crypto",
+     "my/app/routes/administrator",
 ], (
     UIComponent,
     Cookie,
     index,
     master,
-    HttpService
+    HttpService,
+    Crypto,
+    administrator
 ) => {
     "use strict";
     return UIComponent.extend("my.app.Component", {
@@ -23,7 +27,7 @@ sap.ui.define([
             UIComponent.prototype.init.apply(this, arguments);
 
             const oRouter = this.getRouter();
-            const aRouteDefs = [index, master];
+            const aRouteDefs = [index, master, administrator];
             aRouteDefs.forEach(oDef => {
                 oDef.routes.forEach(route => {
                     oRouter.addRoute(route);
@@ -41,11 +45,10 @@ sap.ui.define([
 
         _onRouteMatched: async function (oEvent) {
             const oRouter = this.getRouter();
-            const sRouteName = oEvent.getParameter("name");
-
-            if (sRouteName === "login" && await this._checkAuthentication()) {
+            const sRouteName = oEvent.getParameter("name"); 
+            if (sRouteName === "login" && Cookie.getCookie("userData")/*await this._checkAuthentication()*/) {
                 oRouter.navTo("dashboard");
-            } else if (sRouteName !== "login" && !await this._checkAuthentication()) {
+            } else if (sRouteName !== "login" && !Cookie.getCookie("userData")/*await this._checkAuthentication()*/) {
                 oRouter.navTo("login");
             }
         },
@@ -58,6 +61,6 @@ sap.ui.define([
                 console.log(error)
                 return false;
             }
-        }
+        },
     });
 });

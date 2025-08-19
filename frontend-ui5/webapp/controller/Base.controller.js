@@ -26,6 +26,10 @@ sap.ui.define([
         
         handlerNavBack: function(){
             window.history.back();
+        },
+
+        formatVisibleRowCount: function(perPage) {
+            return perPage || 20; // default to 20 if undefined
         }
 	});
 

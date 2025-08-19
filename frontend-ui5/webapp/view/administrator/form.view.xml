@@ -1,0 +1,168 @@
+<mvc:View
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.uxap"
+    xmlns:m="sap.m"
+    xmlns:f="sap.ui.layout.form"
+    xmlns:table="sap.ui.table"
+    xmlns:u="sap.ui.unified"
+    xmlns:core="sap.ui.core"
+    controllerName="my.app.controller.Administrator.Form">
+     <m:Page showNavButton="true" navButtonPress="handlerNavBack">
+        <ObjectPageLayout
+            enableLazyLoading="false"
+            useIconTabBar="true"
+            showTitleInHeaderContent="false"
+            alwaysShowContentHeader="true"
+            upperCaseAnchorBar="false">
+            <headerTitle>
+                <ObjectPageDynamicHeaderTitle>
+                    <heading>
+                        <m:Title text="{model>/titleForm}" />
+                    </heading>
+                    <snappedTitleOnMobile>
+                        <m:Title text="{model>/titleForm}" />
+                    </snappedTitleOnMobile>
+                </ObjectPageDynamicHeaderTitle>
+            </headerTitle>
+            <headerContent>
+                <m:HeaderContainer scrollStep="200" showDividers="false">
+                    <m:HBox class="sapUiSmallMarginEnd sapUiSmallMarginBottom">
+                        <m:VBox class="sapUiLargeMarginEnd">
+                            <m:Title class="sapUiTinyMarginBottom" text="Status:"/>
+                            <m:ObjectStatus
+                                text="{model>/status}"
+                                state="{
+                                    path: 'model>/status',
+                                    formatter: '.displayStatusState'
+                                }"
+                                class="sapMObjectStatusLarge" />
+                        </m:VBox> 
+                        <m:VBox class="sapUiLargeMarginEnd">
+                            <m:Title class="sapUiTinyMarginBottom" text="Document Date:"/>
+                            <m:ObjectStatus
+                                text="{model>/DocumentDate}"
+                                state="None"
+                                class="sapMObjectStatusLarge" />
+                        </m:VBox> 
+                    </m:HBox>
+                </m:HeaderContainer>
+            </headerContent>
+            <sections>
+                <ObjectPageSection titleUppercase="false" title="">
+                    <subSections>
+                        <ObjectPageSubSection title="General" mode="Expanded" titleUppercase="false">
+                            <f:Form>
+                                <f:layout>
+                                    <f:ResponsiveGridLayout
+                                        labelSpanXL="2"
+                                        labelSpanL="3"
+                                        labelSpanM="12"
+                                        labelSpanS="12"
+                                        adjustLabelSpan="false"
+                                        emptySpanXL="0"
+                                        emptySpanL="0"
+                                        emptySpanM="0"
+                                        emptySpanS="0"
+                                        columnsXL="2"
+                                        columnsL="2"
+                                        columnsM="2"
+                                        singleContainerFullSize="false" />
+                                </f:layout>
+                                <f:FormContainer title="">
+                                    <f:formElements> 
+                                        <f:FormElement label="Parent">
+                                            <f:fields>
+                                                <m:ComboBox
+                                                    items="{model>/parents}"
+                                                    loadItems="handlerLoadCategory">
+                                                    <core:Item key="{key}" text="{text}" />
+                                                </m:ComboBox>
+                                            </f:fields>
+                                        </f:FormElement>
+                                        <f:FormElement label="Name">
+                                            <f:fields>
+                                                <m:Input 
+                                                    name="name" 
+                                                    required="true" 
+                                                    change="handlerInputChange"
+                                                    value="{model>/name}"/>
+                                            </f:fields>
+                                        </f:FormElement>
+                                        <f:FormElement label="Foreign Name">
+                                            <f:fields>
+                                                <m:Input 
+                                                    name="foreign_name" 
+                                                    change="handlerInputChange" 
+                                                    value="{model>/foreign_name}"/>
+                                            </f:fields>
+                                        </f:FormElement>
+                                        <f:FormElement label="">
+                                            <f:fields>
+                                                <m:RadioButtonGroup  
+                                                    columns="2"
+                                                    valueState="None" 
+                                                    id="status"
+                                                    select="handlerRadioChange"
+                                                    class="sapUiMediumMarginBottom"> 
+                                                        <m:RadioButton text="Active" />
+                                                        <m:RadioButton text="Inactive" /> 
+                                                </m:RadioButtonGroup>
+                                            </f:fields>
+                                        </f:FormElement> 
+                                    </f:formElements>
+                                </f:FormContainer>
+                            </f:Form>
+                        </ObjectPageSubSection>
+                    </subSections>
+                </ObjectPageSection>
+                <ObjectPageSection titleUppercase="false" title="Attachment">
+                    <subSections>
+                        <ObjectPageSubSection title="Attachment" mode="Expanded"
+                            titleUppercase="false">
+                            <m:UploadCollection
+                                change="handlerChangeFile"
+                                fileDeleted="hanlderDeletedFile"
+                                typeMissmatch="onTypeMissmatch" 
+                                items="{model>/attachments}">
+                                <m:items>
+                                    <m:UploadCollectionItem
+                                        documentId="{model>documentId}"
+                                        fileName="{model>FileName}"
+                                        enableEdit="false"
+                                        visibleEdit="false"
+                                        enableDelete="true"
+                                        mimeType="{model>mimeType}"
+                                        thumbnailUrl="{model>thumbnailUrl}"
+                                        url="{model>SourcePath}"
+                                        press="hanlderPressThumbnail">
+                                        <m:attributes>
+                                            <m:ObjectAttribute title="File Name"
+                                                text="{model>FileName}"
+                                                active="true"
+                                                press="onAttributePress" />
+                                    
+                                            <m:ObjectAttribute title="Attachment Date"
+                                                text="{model>AttachmentDate}"
+                                                active="true"
+                                                press="onAttributePress" />
+                                        </m:attributes>                 
+                                    </m:UploadCollectionItem>
+                                </m:items>
+                            </m:UploadCollection>
+                        </ObjectPageSubSection>
+                    </subSections>
+                </ObjectPageSection>
+            </sections>
+        </ObjectPageLayout>
+        <m:footer>
+            <m:Bar class="customFooterBar">
+                <m:contentRight>
+                    <m:Button text="{model>/buttonSubmit}" press="handlerSave"
+                        type="Emphasized"
+                        class="sapUiTinyMarginEnd" />
+                    <m:Button text="Cancel" press="onNavBack" />
+                </m:contentRight>
+            </m:Bar>
+        </m:footer>
+    </m:Page>
+</mvc:View>

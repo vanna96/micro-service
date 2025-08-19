@@ -29,5 +29,8 @@
 		"rimraf": "^6.0.1",
 		"start-server-and-test": "^2.0.10",
 		"ui5-test-runner": "^5.4.3"
+	},
+	"dependencies": {
+		"crypto-js": "^4.2.0"
 	}
 }

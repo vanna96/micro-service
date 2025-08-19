@@ -39,7 +39,6 @@ sap.ui.define([
         onInit: function () {
             this._oRouter = sap.ui.core.UIComponent.getRouterFor(this);
             this._oRouter.attachRouteMatched(this._onRouteMatched, this);
-            // this._oRouter.attachRoutePatternMatched(this._onRouteMatched, this);
 
             this.oMenuModel = new sap.ui.model.json.JSONModel({
                 selectedKey: ""
@@ -47,18 +46,10 @@ sap.ui.define([
 
             this.getView().setModel(this.oMenuModel, "menu");
             this._loadMenu(this.oMenuModel);
-
-            // Initialize router after rendering
-            // this.getView()
-            // .byId("appContainer")
-            // .addDelegate({
-            //     onAfterRendering: () => this._oRouter.initialize()
-            // });
         },
 
-        _onRouteMatched: function (oEvent) {
-            const sRouteName = oEvent.getParameter("name");
-            this.sRouteName = sRouteName || "dashboard";
+        _onRouteMatched: function (oEvent) {  
+            this.sRouteName = oEvent.getParameter("name") || "dashboard";
             this._handleResize();
             this.hadleImplementNotification();
         },
@@ -193,13 +184,16 @@ sap.ui.define([
         },
 
         onLogoutPress: async function () {
-            try {
-                await HttpService.callApi("POST", HttpService.getUrl('logout'));
-                const oRouter = sap.ui.core.UIComponent.getRouterFor(this);
-                oRouter.navTo("login");
-            } catch (error) {
-                console.error(error)
-            }
+            Cookie.deleteCookie('userData')
+            const oRouter = sap.ui.core.UIComponent.getRouterFor(this);
+            oRouter.navTo("login");
+            // try {
+            //     await HttpService.callApi("POST", HttpService.getUrl('logout'));
+            //     const oRouter = sap.ui.core.UIComponent.getRouterFor(this);
+            //     oRouter.navTo("login");
+            // } catch (error) {
+            //     console.error(error)
+            // }
         },
 
         handleNotification: function (oEvent) {
@@ -272,8 +266,7 @@ sap.ui.define([
             const data = oMenuModel.getData();
             const menuItems = data?.menuItems || [];
             const allowedTitles = permissions.map(p => p.key);
-            const sRouteName = this.sRouteName;
-            console.log(sRouteName);
+            const sRouteName = this._oRouter.getHashChanger().getHash() || this.sRouteName;
 
             function filterMenuItems(items) {
                 return items
@@ -282,7 +275,7 @@ sap.ui.define([
                             item.subItems = filterMenuItems(item.subItems);
                         }
 
-                        const isAllowed = allowedTitles.includes(item.title);
+                        const isAllowed = true || allowedTitles.includes(item.title);
                         const hasAllowedSubItems = item.subItems && item.subItems.length > 0;
                         const shouldExpand = item.subItems?.some(sub => sub.key === sRouteName);
 
@@ -295,7 +288,7 @@ sap.ui.define([
             }
 
             oMenuModel.setProperty("/menuItems", filterMenuItems(menuItems));
-            oMenuModel.setProperty("/selectedKey", this.sRouteName ?? 'dasboard');
+            oMenuModel.setProperty("/selectedKey", sRouteName ?? 'dasboard');
         }
 
     });

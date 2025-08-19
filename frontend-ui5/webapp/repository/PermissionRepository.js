@@ -19,7 +19,7 @@ sap.ui.define([
                 value:[
                     { key: 'Dashboard' },
                     { key: 'Administrator' },
-                    { key: 'Tanent' },
+                    // { key: 'Tanent' },
                     // { key: 'Dashboard' },
                     // { key: 'Category' },
                     // { key: 'Item' },

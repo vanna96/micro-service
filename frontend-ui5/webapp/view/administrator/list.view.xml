@@ -1,0 +1,163 @@
+<mvc:View
+    xmlns:core="sap.ui.core"
+    xmlns:f="sap.f"
+    xmlns:m="sap.m"
+    xmlns:table="sap.ui.table"
+    xmlns:u="sap.ui.unified"
+    xmlns:mvc="sap.ui.core.mvc"
+    controllerName="my.app.controller.Administrator.List">
+
+    <f:DynamicPage fitContent="true">
+        <f:title>
+            <f:DynamicPageTitle>
+                <f:content>
+                    <m:OverflowToolbar>
+                        <m:SearchField width="300px" search="handlerSearch" placeholder="Search"/>
+                    </m:OverflowToolbar>
+                </f:content>
+                <f:actions>
+                    <m:Button
+                        text="Create New"
+                        type="Emphasized"
+                        press="handlerCreate" />
+                </f:actions>
+            </f:DynamicPageTitle>
+        </f:title>
+        <f:content>
+            <table:Table
+                visibleRowCount="{path: 'model>/pageSize', formatter: '.formatVisibleRowCount'}"
+                busy="{model>/isLoading}"
+                rows="{model>/data}"
+                selectionMode="None">
+
+                <table:extension>
+                    <m:OverflowToolbar>
+                        <m:Title text="Administrators ({model>/pagination/totalItems})" level="H2" />
+                        <m:ToolbarSpacer />
+                        <m:Button text="Refresh" press="onReset"/>
+                        <m:Button text="Reset" press="onReset"/>
+                        <m:OverflowToolbarMenuButton
+                            tooltip="Export"
+                            type="Transparent"
+                            text="Export"
+                            buttonMode="Split"
+                            icon="sap-icon://download"
+                            defaultAction="onDefaultActionAccept"
+                            beforeMenuOpen="onBeforeMenuOpen"
+                            useDefaultActionOnly="true">
+                            <m:menu>
+                                <m:Menu itemSelected="onMenuAction">
+                                    <m:MenuItem text="Export as PDF" icon="sap-icon://pdf-attachment" />
+                                    <m:MenuItem text="Export to Excel" icon="sap-icon://excel-attachment" />
+                                </m:Menu>
+                            </m:menu>
+                        </m:OverflowToolbarMenuButton>
+                        <m:ToolbarSeparator />
+                        <m:Button icon="sap-icon://close-command-field" press="onFirstPage"
+                            tooltip="First" enabled="{model>/pagination/hasPrevious}" />
+                        <m:Button icon="sap-icon://navigation-left-arrow" press="onPreviousPage"
+                            tooltip="Previous" enabled="{model>/pagination/hasPrevious}" />
+                        <m:Text
+                            text="Page {model>/pagination/currentPage} of {model>/pagination/totalPages}" />
+                        <m:Button icon="sap-icon://navigation-right-arrow" press="onNextPage"
+                            tooltip="Next" enabled="{model>/pagination/hasNext}" />
+                        <m:Button icon="sap-icon://open-command-field" press="onLastPage"
+                            tooltip="Last" enabled="{model>/pagination/hasNext}" />
+                    </m:OverflowToolbar>
+                </table:extension>
+
+                <table:columns>
+                    <table:Column width="3rem">
+                        <m:Label text="ID." />
+                        <table:template>
+                            <m:Link text="{model>id}" />
+                        </table:template>
+                    </table:Column>
+
+                    <table:Column width="200px">
+                        <m:Label text="Name" />
+                        <table:template>
+                            <m:Text text="{model>name}"
+                                wrapping="false" />
+                        </table:template>
+                    </table:Column>
+                    <table:Column width="200px">
+                        <m:Label text="Username" />
+                        <table:template>
+                            <m:Text text="{model>username}" wrapping="false" />
+                        </table:template>
+                    </table:Column>
+                    <table:Column width="200px">
+                        <m:Label text="Phone" />
+                        <table:template>
+                            <m:Text
+                                text="{model>country_code}{model>phone}"
+                                wrapping="false" />
+                        </table:template>
+                    </table:Column>
+                    <table:Column width="200px">
+                        <m:Label text="Gender" />
+                        <table:template>
+                            <m:Text
+                                text="{model>gender}"
+                                wrapping="false" />
+                        </table:template>
+                    </table:Column>
+                    <table:Column width="250px">
+                        <m:Label text="Date of Birth" />
+                        <table:template>
+                            <m:Text
+                                text="{
+                                    path: 'model>dob',
+                                    formatter:'.formatDisplayDate'
+                                }"
+                                wrapping="false" />
+                        </table:template>
+                    </table:Column>
+                    <table:Column width="120px">
+                        <m:Label text="Status" />
+                        <table:template>
+                            <m:FlexBox
+                                width="100%"
+                                justifyContent="Center"
+                                alignItems="Center"
+                                direction="Row">
+                                <m:ObjectStatus 
+                                    text="{model>status}"
+                                    state="{
+                                        path: 'model>status',
+                                        formatter:'.displayStatusState'
+                                    }" inverted="true"/>
+                            </m:FlexBox>
+                        </table:template>
+                    </table:Column>
+                    <table:Column width="250px">
+                        <m:Label text="Document Date" />
+                        <table:template>
+                            <m:Text
+                                text="{
+                                    path: 'model>created_at',
+                                    formatter:'.formatDisplayDate'
+                                }"
+                                wrapping="false" />
+                        </table:template>
+                    </table:Column>
+                    <table:Column>
+                        <m:Label text="" />
+                        <table:template>
+                            <m:FlexBox
+                                justifyContent="End"
+                                alignItems="Center"
+                                direction="Row">
+                                <m:Button
+                                    icon="sap-icon://navigation-right-arrow"
+                                    type="Transparent" 
+                                    press="handlerEdit" />
+                            </m:FlexBox>
+                        </table:template>
+                    </table:Column>
+                </table:columns>
+            </table:Table>
+        </f:content>
+    </f:DynamicPage>
+</mvc:View>
