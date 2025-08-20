@@ -16,9 +16,10 @@ sap.ui.define([
             const queryString = queryParams ? "?" + toQueryString(queryParams) : "";
             return await HttpService.callApi("GET", HttpService.getUrl(`${this.endPoint}${queryString}`)); 
         },
-        count: async function (queryParams) {
-            const res =  await HttpService.callApi("GET", `https://jsonplaceholder.typicode.com/posts`);  
-            return res.length ?? 0;
+
+        find: async function (id) {
+            if(!id) return;
+            return  await HttpService.callApi("GET", HttpService.getUrl(`${this.endPoint}/edit/${id}`));     
         },
     };
 });

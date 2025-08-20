@@ -1,15 +1,19 @@
 sap.ui.define([ 
     "my/app/controller/Base.controller",
-    "my/app/repository/CategoryRepository",
-    "my/app/util/Pagination",
+    "my/app/repository/AdministratorRepository",
     "my/app/util/FileHelper",
     "my/app/util/Funtion",
+    "my/app/models/Administrator",
+    "sap/ui/core/BusyIndicator",
+    "my/app/util/HttpService",
 ], function (
     BaseController,
-    CategoryRepository,
-    Pagination,
+    AdministratorRepository, 
     FileHelper,
-    Funtion
+    Funtion,
+    AdministratorModel,
+    BusyIndicator,
+    HttpService
 ) {
     "use strict";
 
@@ -17,9 +21,9 @@ sap.ui.define([
     
         onInit: function () {
             BaseController.prototype.onInit.call(this);
-            document.title = "Category Form";  
-            this.oRouter.getRoute("category_create").attachPatternMatched(this.hanlderCreateForm, this); 
-            this.oRouter.getRoute("category_edit").attachPatternMatched(this.hanlderEditForm, this); 
+            document.title = "Administrator Form";  
+            this.oRouter.getRoute("administrator_create").attachPatternMatched(this.hanlderCreateForm, this); 
+            this.oRouter.getRoute("administrator_edit").attachPatternMatched(this.hanlderEditForm, this); 
         },
 
         hanlderCreateForm: function(){  
@@ -28,21 +32,62 @@ sap.ui.define([
                 titleForm: 'Form Create',
                 buttonSubmit: 'Save',
                 DocumentDate: this.formatDisplayDate(new Date()),
-                status: 'Active'
+                status: 'Active',
+                requiredFields: [
+                    { key: "username", msg: "Username is required!"},
+                    { key: "password", msg: "Password is required!"},
+                    { key: "password_confirmation", msg: "Confirm Password is required!"},
+                    { key: "name", msg: "Name is required" },
+                    { key: "phone", msg: "Phone is required" },
+                ]
             });
         },
 
-        hanlderEditForm: function(oEvent){
+        hanlderEditForm: async function(oEvent){
+            BusyIndicator.show();
             const oParams = oEvent.getParameter("arguments");
-            console.log(`edit: ${oParams.id}`)
+            const res = await AdministratorRepository.find(oParams?.id ?? 0) 
+            const data = AdministratorModel.toModel(res.data); 
             this.oModel.setData({
                 titleForm: 'Form Edit',
-                buttonSubmit: 'Update'
+                buttonSubmit: 'Update',
+                ...data,
+                requiredFields: [
+                    { key: "username", msg: "Username is required!"}, 
+                    { key: "name", msg: "Name is required" },
+                    { key: "phone", msg: "Phone is required" },
+                ]
             });
+            BusyIndicator.hide();
         },
 
         handlerChangeFile: function (oEvent) {
             return FileHelper.handlerChangeFiles.call(this, oEvent, false);
         }, 
+
+        handlerSave: async function(){  
+            var oRouter = sap.ui.core.UIComponent.getRouterFor(this);
+            var data = this.oModel.getData();
+            var payload = AdministratorModel.toJson(data); 
+
+            if (Funtion.validateRequiredFields.call(this, {
+                data:payload,
+                requiredFields:data.requiredFields
+            })) return;
+
+            try {
+                BusyIndicator.show();
+                const res = await HttpService.callApi("POST", HttpService.getUrl('register'), payload);
+                BusyIndicator.hide(); 
+                sap.m.MessageToast.show(res.message);  
+                setTimeout(() => {
+                    oRouter.navTo("administrator")
+                }, 1000)
+            } catch (error) { 
+                Funtion.errMessageDialog.call(this, error)
+                BusyIndicator.hide();
+            }
+        }
+
     }, FileHelper, Funtion));
 });

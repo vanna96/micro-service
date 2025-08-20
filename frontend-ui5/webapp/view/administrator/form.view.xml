@@ -53,12 +53,7 @@
                         <ObjectPageSubSection title="General" mode="Expanded" titleUppercase="false">
                             <f:Form>
                                 <f:layout>
-                                    <f:ResponsiveGridLayout
-                                        labelSpanXL="2"
-                                        labelSpanL="3"
-                                        labelSpanM="12"
-                                        labelSpanS="12"
-                                        adjustLabelSpan="false"
+                                    <f:ResponsiveGridLayout 
                                         emptySpanXL="0"
                                         emptySpanL="0"
                                         emptySpanM="0"
@@ -70,32 +65,51 @@
                                 </f:layout>
                                 <f:FormContainer title="">
                                     <f:formElements> 
-                                        <f:FormElement label="Parent">
-                                            <f:fields>
-                                                <m:ComboBox
-                                                    items="{model>/parents}"
-                                                    loadItems="handlerLoadCategory">
-                                                    <core:Item key="{key}" text="{text}" />
-                                                </m:ComboBox>
-                                            </f:fields>
-                                        </f:FormElement>
-                                        <f:FormElement label="Name">
+                                        <f:FormElement label="First Name">
                                             <f:fields>
                                                 <m:Input 
-                                                    name="name" 
-                                                    required="true" 
+                                                    name="firstName" 
                                                     change="handlerInputChange"
-                                                    value="{model>/name}"/>
+                                                    value="{model>/firstName}"/>
                                             </f:fields>
                                         </f:FormElement>
-                                        <f:FormElement label="Foreign Name">
+                                        <f:FormElement label="Last Name">
                                             <f:fields>
                                                 <m:Input 
-                                                    name="foreign_name" 
-                                                    change="handlerInputChange" 
-                                                    value="{model>/foreign_name}"/>
+                                                    name="lastName" 
+                                                    change="handlerInputChange"
+                                                    value="{model>/lastName}"/>
                                             </f:fields>
                                         </f:FormElement>
+                                        <f:FormElement label="Username">
+                                            <f:fields>
+                                                <m:Input 
+                                                    required="true"
+                                                    name="username" 
+                                                    change="handlerInputChange"
+                                                    value="{model>/username}"/>
+                                            </f:fields>
+                                        </f:FormElement>
+                                        <f:FormElement label="Password">
+                                            <f:fields>
+                                                <m:Input 
+                                                    required="{= ${model>/buttonSubmit} === 'Update' ? false : true }"
+                                                    type="Password"
+                                                    name="password" 
+                                                    change="handlerInputChange"
+                                                    value="{model>/password}"/>
+                                            </f:fields>
+                                        </f:FormElement> 
+                                        <f:FormElement label="Confirm Password">
+                                            <f:fields>
+                                                <m:Input 
+                                                    required="{= ${model>/buttonSubmit} === 'Update' ? false : true }"
+                                                    type="Password"
+                                                    name="cpassword" 
+                                                    change="handlerInputChange"
+                                                    value="{model>/cpassword}"/>
+                                            </f:fields>
+                                        </f:FormElement> 
                                         <f:FormElement label="">
                                             <f:fields>
                                                 <m:RadioButtonGroup  
@@ -103,12 +117,69 @@
                                                     valueState="None" 
                                                     id="status"
                                                     select="handlerRadioChange"
+                                                    selectedIndex="{= ${model>/status} === 'Active' ? 0 : 1 }"
                                                     class="sapUiMediumMarginBottom"> 
-                                                        <m:RadioButton text="Active" />
+                                                        <m:RadioButton text="Active"/>
                                                         <m:RadioButton text="Inactive" /> 
                                                 </m:RadioButtonGroup>
                                             </f:fields>
-                                        </f:FormElement> 
+                                        </f:FormElement>
+                                    </f:formElements>
+                                </f:FormContainer>
+                                <f:FormContainer title="">
+                                    <f:formElements> 
+                                        <f:FormElement label="Name">
+                                            <f:fields>
+                                                <m:Input 
+                                                    required="true"
+                                                    name="name" 
+                                                    change="handlerInputChange"
+                                                    value="{model>/name}"/>
+                                            </f:fields>
+                                        </f:FormElement>
+                                        <f:FormElement label="Phone">
+                                            <f:fields>
+                                                <m:Input 
+                                                    required="true"
+                                                    name="phone" 
+                                                    change="handlerInputChange"
+                                                    value="{ 
+                                                        path: 'model>/phone', 
+                                                        type: 'sap.ui.model.type.String', 
+                                                        constraints: { maxLength: 15 } 
+                                                    }"/>
+                                            </f:fields>
+                                        </f:FormElement>
+                                        <f:FormElement label="Date of Birth">
+                                            <f:fields>
+                                                <m:DatePicker 
+                                                    name="dob"
+                                                    value="{model>/dob}"
+                                                    change="handlerInputChange"
+                                                    displayFormat="dd MMM, yyyy" 
+                                                    valueFormat="yyyy-MM-dd"/>
+                                            </f:fields>
+                                        </f:FormElement>
+                                        <f:FormElement label="Gender">
+                                            <f:fields>
+                                                <m:Select
+                                                    name="gender"
+                                                    selectedKey="{model>/gender}"
+                                                    change="handlerInputChange">
+                                                    <core:Item key="Male" text="Male"/>
+                                                    <core:Item key="Female" text="Female"/>
+                                                </m:Select>
+                                            </f:fields>
+                                        </f:FormElement>
+                                        <f:FormElement label="Email">
+                                            <f:fields>
+                                                <m:Input
+                                                    type="Email"
+                                                    name="email" 
+                                                    change="handlerInputChange"
+                                                    value="{model>/email}"/>
+                                            </f:fields>
+                                        </f:FormElement>
                                     </f:formElements>
                                 </f:FormContainer>
                             </f:Form>

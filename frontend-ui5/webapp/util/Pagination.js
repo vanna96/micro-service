@@ -23,6 +23,34 @@ sap.ui.define([], function() {
                 hasPrevious: iCurrentPage > 1,
                 hasNext: iCurrentPage < iTotalPages
             };
-        }
+        },
+
+        onNextPage: function() { 
+            var currentPage = this.oModel.getProperty("/pagination/currentPage");
+            var totalPages = this.oModel.getProperty("/pagination/totalPages");
+            
+            if (currentPage < totalPages) {
+                currentPage++;
+                this.loadData(currentPage);
+            }
+        },
+        
+        onPreviousPage: function() {
+            var currentPage = this.oModel.getProperty("/pagination/currentPage");
+            
+            if (currentPage > 1) {
+                currentPage--;
+                this.loadData(currentPage);
+            }
+        },
+
+        onFirstPage: function () {
+            this.loadData(1);
+        },
+
+        onLastPage: function () {
+            var totalPages = this.oModel.getProperty("/pagination/totalPages");
+            this.loadData(totalPages);
+        },
     };
 });

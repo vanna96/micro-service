@@ -26,8 +26,9 @@ sap.ui.define([
                     data: isFormData ? oData : oData ? JSON.stringify(oData) : null,
                     success: (data) => resolve(data),
                     error: (jqXHR) => {
-                        if (jqXHR.status == 422) { 
-                            window.location.href = "/index.html";
+                        if (jqXHR.status == 401) { 
+                            Cookie.deleteCookie('userData')
+                            window.location.href = "#/login";
                         }
                         reject(jqXHR);
                     }

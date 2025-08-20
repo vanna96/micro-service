@@ -12,7 +12,7 @@
             <f:DynamicPageTitle>
                 <f:content>
                     <m:OverflowToolbar>
-                        <m:SearchField width="300px" search="handlerSearch" placeholder="Search"/>
+                        <m:SearchField width="300px" value="{model>/search}" change="handlerSearchChange" search="handlerSearch" placeholder="Search"/>
                     </m:OverflowToolbar>
                 </f:content>
                 <f:actions>
@@ -34,8 +34,8 @@
                     <m:OverflowToolbar>
                         <m:Title text="Administrators ({model>/pagination/totalItems})" level="H2" />
                         <m:ToolbarSpacer />
-                        <m:Button text="Refresh" press="onReset"/>
-                        <m:Button text="Reset" press="onReset"/>
+                        <m:Button text="Refresh" press="handlerRefreshList"/>
+                        <m:Button text="Reset" press="handlerResetList"/>
                         <m:OverflowToolbarMenuButton
                             tooltip="Export"
                             type="Transparent"

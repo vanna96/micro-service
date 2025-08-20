@@ -27,7 +27,8 @@ class AuthController extends Controller
             'country_code'  => 'nullable|string|max:5',
             'phone'         => "required|phone:{$country}|unique:users,phone",
             'gender'        => 'nullable|in:Male,Female',
-            'dob'           => 'nullable|date'
+            'dob'           => 'nullable|date',
+            'status'        => 'nullable|in:Active,Inactive',
         ]);
 
         if ($validator->fails()) {
@@ -42,6 +43,7 @@ class AuthController extends Controller
             $user = User::create($validated);
             return response()->json([
                 'success' => true,
+                'message' => translate('Administrator created successfully.', request('lng')),
                 'data'    => $user
             ], 201);
         } catch (\Throwable $th) {
@@ -85,14 +87,22 @@ class AuthController extends Controller
         }
 
         $user = Auth::user();
-        $token = $user->createToken('authToken')->plainTextToken;
+        $tokenResult = $user->createToken('authToken');
+        $plainTextToken = $tokenResult->plainTextToken;
+        $tokenResult->accessToken->forceFill([
+            'expires_at'  => now()->addHours(1),
+            'tenant_id'   => null,
+            'device_name' => null,
+            'device_ip'   => $request->ip(),
+            'user_agent'  => $request->userAgent(),
+        ])->save();
 
         return response()->json([
             'success' => true,
             'message' => translate('Login successful', request('lng')),
             'data' => [
                 'user' => $user,
-                'token' => $token
+                'token' => $plainTextToken
             ]
         ], 200);
     }

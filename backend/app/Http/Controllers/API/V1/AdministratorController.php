@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\Request;
 use App\Repositories\UserRepository;
 
@@ -41,6 +42,14 @@ class AdministratorController extends Controller
             'per_page' => $users->perPage(),
             'total' => $users->total(), 
             'last_page' => $users->lastPage(),
+        ], 200);
+    }
+
+    public function edit(User $admin){
+        return response()->json([
+            'success' => true,
+            'message' => '',
+            'data'    => $admin 
         ], 200);
     }
 }

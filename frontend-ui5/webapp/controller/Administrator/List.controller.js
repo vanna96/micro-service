@@ -1,15 +1,17 @@
 sap.ui.define([ 
     "my/app/controller/Base.controller",
     "my/app/repository/AdministratorRepository",
-    "my/app/util/Pagination"
+    "my/app/util/Pagination",
+    "my/app/util/ToolbarList",
 ], function (
     BaseController,
     AdministratorRepository,
-    Pagination
+    Pagination,
+    ToolbarList
 ) {
     "use strict";
 
-    return BaseController.extend("my.app.controller.Administrator.List", {
+    return BaseController.extend("my.app.controller.Administrator.List", Object.assign(Pagination, ToolbarList, {
 
         onInit: function () {
             BaseController.prototype.onInit.call(this);
@@ -40,7 +42,7 @@ sap.ui.define([
             try {
                 const res = await AdministratorRepository.get(oParams); 
                 const totalItems = res["total"] ?? 0; 
-                const paginationInfo = Pagination.getPaginationInfo(totalItems, pageSize, pageNumber);
+                const paginationInfo = this.getPaginationInfo(totalItems, pageSize, pageNumber);
                 this.oModel.setProperty("/data", res['data'] ?? []); 
                 this.oModel.setProperty("/pagination", paginationInfo);
 
@@ -57,41 +59,8 @@ sap.ui.define([
             this.oRouter.navTo("administrator_edit", { id: sId });
         },
 
-        onNextPage: function() { 
-            var currentPage = this.oModel.getProperty("/pagination/currentPage");
-            var totalPages = this.oModel.getProperty("/pagination/totalPages");
-            
-            if (currentPage < totalPages) {
-                currentPage++;
-                this.loadData(currentPage);
-            }
-        },
-        
-        onPreviousPage: function() {
-            var currentPage = this.oModel.getProperty("/pagination/currentPage");
-            
-            if (currentPage > 1) {
-                currentPage--;
-                this.loadData(currentPage);
-            }
-        },
-
-        onFirstPage: function () {
-            this.loadData(1);
-        },
-
-        onLastPage: function () {
-            var totalPages = this.oModel.getProperty("/pagination/totalPages");
-            this.loadData(totalPages);
-        },
-
         handlerCreate: function(){
             this.oRouter.navTo("administrator_create");
         },
-
-        handlerSearch: function(oEvent){
-            this.oModel.setProperty('/search', oEvent.getParameter("query"))
-            this.loadData(1);
-        }
-    });
+    }));
 });

@@ -22,12 +22,12 @@ return new class extends Migration
             $table->string('last_name')->nullable();
             $table->string('country_code')->nullable();
             $table->string('phone')->nullable();
-            $table->enum('gender', ['Male', 'Female'])->nullable();
-            $table->dateTime('dob')->nullable();
+            $table->enum('gender', ['Male', 'Female'])->nullable()->default('Male');
+            $table->date('dob')->nullable();
             $table->string('email')->nullable()->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->enum('status', ['active', 'inactive'])->nullable()->default('active');
+            $table->enum('status', ['Active', 'Inactive'])->nullable()->default('active');
             $table->rememberToken();
             $table->timestamps();
         });

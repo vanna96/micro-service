@@ -38,7 +38,7 @@ sap.ui.define([
             try {
                 // await HttpService.callApi("GET", HttpService.getUrl('sanctum/csrf-cookie'));
                 const res = await HttpService.callApi("POST", HttpService.getUrl('login'), payload);
-                Cookie.setCookie("userData", Crypto.encryptData(res.data), 0.5)
+                Cookie.setCookie("userData", Crypto.encryptData(res.data), 60)
                 const oRouter = sap.ui.core.UIComponent.getRouterFor(that);
                 MessageToast.show("login was successful!")
                 setTimeout(() => oRouter.navTo("dashboard"), 1000)
