@@ -178,3 +178,15 @@ if (! function_exists('country_code')) {
         ];
     }
 }
+
+if (!function_exists('disk_config')) {
+    function disk_config(string $disk)
+    {
+        return [
+            'driver' => 'local',
+            'root' => storage_path("app/public/uploads/{$disk}"),
+            'url' => env('APP_URL') . "/storage/uploads/{$disk}",
+            'visibility' => 'public',
+        ];
+    }
+}

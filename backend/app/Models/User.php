@@ -19,6 +19,7 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'profile_id',
         'email',
         'password',    
         'username', 
@@ -49,4 +50,9 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
+
+    public function galleries()
+    {
+        return $this->morphMany(Gallery::class, 'gallarieable');
+    }
 }

@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
+use App\Rules\Base64Image;
 
 class AuthController extends Controller
 {
@@ -29,6 +30,7 @@ class AuthController extends Controller
             'gender'        => 'nullable|in:Male,Female',
             'dob'           => 'nullable|date',
             'status'        => 'nullable|in:Active,Inactive',
+            'profile'       => ['nullable', new Base64Image]
         ]);
 
         if ($validator->fails()) {
@@ -39,8 +41,35 @@ class AuthController extends Controller
 
         $validated = $validator->validated();
         $validated['password'] = \Hash::make($validated['password']);
+        $profile = $request->input('profile');
+
         try {
             $user = User::create($validated);
+
+            if ($profile) { 
+                $matches = [];
+                $extension =  'png';
+                // Try to match "data:image/png;base64,"
+                preg_match("/^data:image\/(\w+);base64,/", $profile, $matches);
+
+                if (isset($matches[1])) {
+                    $extension = strtolower($matches[1]); // e.g. png, jpg, jpeg, gif
+                }
+                $base64Data = preg_replace("/^data:image\/\w+;base64,/", '', $profile);
+                $imageData = base64_decode($base64Data);
+                $fileName = "user_".uniqid().".".$extension;
+                \Storage::disk('user')->put($fileName, $imageData);
+
+                $gallery = $user->galleries()->create([ 
+                    'type' => "thumbnail",
+                    'status' => "Active",
+                    'name' => $fileName
+                ]);
+
+                $user->profile_id = $gallery->id;
+                $user->save();
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => translate('Administrator created successfully.', request('lng')),
@@ -87,10 +116,19 @@ class AuthController extends Controller
         }
 
         $user = Auth::user();
+        if ($user->status !== 'Active') {
+            Auth::logout();
+            return response()->json([
+                'success' => false,
+                'message' => translate('Invalid username or password', request('lng'))
+            ], 401);
+        }
+
         $tokenResult = $user->createToken('authToken');
         $plainTextToken = $tokenResult->plainTextToken;
+        $timeout = 60;
         $tokenResult->accessToken->forceFill([
-            'expires_at'  => now()->addHours(1),
+            'expires_at'  => now()->addMinute($timeout),
             'tenant_id'   => null,
             'device_name' => null,
             'device_ip'   => $request->ip(),
@@ -101,8 +139,9 @@ class AuthController extends Controller
             'success' => true,
             'message' => translate('Login successful', request('lng')),
             'data' => [
-                'user' => $user,
-                'token' => $plainTextToken
+                'user'      => $user,
+                'token'     => $plainTextToken,
+                'timeout'   => $timeout
             ]
         ], 200);
     }

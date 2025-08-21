@@ -12,3 +12,9 @@ frontend-ui5/config/config.js
 *.pyd
 fastapi/app/assets/images/
 fastapi/.env
+
+#file-storage
+file-storage/.env
+
+#database
+database/.env

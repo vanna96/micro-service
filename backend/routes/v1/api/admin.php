@@ -30,4 +30,5 @@ Route::middleware('auth:sanctum')->group(function () {
     // administrator
     Route::get('administrator', [AdministratorController::class, 'list']);
     Route::get('administrator/edit/{admin}', [AdministratorController::class, 'edit']);
+    Route::patch('administrator/edit/{admin}', [AdministratorController::class, 'update']);
 });

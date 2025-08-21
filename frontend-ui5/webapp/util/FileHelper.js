@@ -14,7 +14,7 @@ sap.ui.define([], function () {
                     const mimeType = oFile.type;
 
                     const isImage = ["jpg", "jpeg", "png", "gif", "bmp", "webp"].includes(sFileExtension);
-
+                    
                     const oNewItem = {
                         documentId: Date.now(),
                         FileName: sFileName,
@@ -23,7 +23,7 @@ sap.ui.define([], function () {
                         mimeType: mimeType,
                         thumbnailUrl: isImage ? sImagePath : ""
                     };
-
+                    
                     if (allowMultiple) {
                         // Add to existing
                         const aAttachments = oModel.getProperty("/attachments") || [];

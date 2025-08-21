@@ -47,7 +47,8 @@ sap.ui.define([
             BusyIndicator.show();
             const oParams = oEvent.getParameter("arguments");
             const res = await AdministratorRepository.find(oParams?.id ?? 0) 
-            const data = AdministratorModel.toModel(res.data); 
+            const data = await AdministratorModel.toModel(res.data); 
+            console.log(data)
             this.oModel.setData({
                 titleForm: 'Form Edit',
                 buttonSubmit: 'Update',
@@ -69,21 +70,29 @@ sap.ui.define([
             var oRouter = sap.ui.core.UIComponent.getRouterFor(this);
             var data = this.oModel.getData();
             var payload = AdministratorModel.toJson(data); 
-
+             
             if (Funtion.validateRequiredFields.call(this, {
                 data:payload,
                 requiredFields:data.requiredFields
             })) return;
 
             try {
+                let method = "POST";
+                let url = HttpService.getUrl('register');
+                if(data.id){
+                    method = "PATCH";
+                    url = HttpService.getUrl(`administrator/edit/${data.id}`);
+                }
+                
                 BusyIndicator.show();
-                const res = await HttpService.callApi("POST", HttpService.getUrl('register'), payload);
+                const res = await HttpService.callApi(method, url, payload);
                 BusyIndicator.hide(); 
                 sap.m.MessageToast.show(res.message);  
                 setTimeout(() => {
                     oRouter.navTo("administrator")
                 }, 1000)
             } catch (error) { 
+                console.error(error)
                 Funtion.errMessageDialog.call(this, error)
                 BusyIndicator.hide();
             }

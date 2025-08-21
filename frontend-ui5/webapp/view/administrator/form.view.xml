@@ -186,9 +186,9 @@
                         </ObjectPageSubSection>
                     </subSections>
                 </ObjectPageSection>
-                <ObjectPageSection titleUppercase="false" title="Attachment">
+                <ObjectPageSection titleUppercase="false" title=" ">
                     <subSections>
-                        <ObjectPageSubSection title="Attachment" mode="Expanded"
+                        <ObjectPageSubSection title="Profile" mode="Expanded"
                             titleUppercase="false">
                             <m:UploadCollection
                                 change="handlerChangeFile"

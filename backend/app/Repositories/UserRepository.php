@@ -12,7 +12,8 @@ class UserRepository extends RepositoryBase
     public function list()
     {
         $table = $this->getTable();
-        $query = $this->select("{$table}.*");
+        $query = $this->select("{$table}.*")
+                    ->with('galleries');
         return $query;
     }
 

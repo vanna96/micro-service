@@ -1,5 +1,5 @@
 <?php
-
+$is_local = in_array(env('STORAGE_DISK', 'public'), ['local', 'public']);
 return [
 
     /*
@@ -56,6 +56,19 @@ return [
             'throw' => false,
         ],
 
+        'minio'  => $minio_config = [
+            'driver'     => 's3',
+            'endpoint'   => env('MINIO_ENDPOINT'),
+            'key'        => env('MINIO_ACCESS_KEY_ID'),
+            'secret'     => env('MINIO_SECRET_ACCESS_KEY'),
+            'region'     => env('MINIO_DEFAULT_REGION'),
+            'bucket'     => env('MINIO_BUCKET'),
+            'url'        => env('MINIO_URL'),
+            'visibility' => 'public',
+            'use_path_style_endpoint' => true, 
+        ],
+
+        'user' => $is_local ? disk_config("user") : ['root'  => 'user'] + ${env('STORAGE_DISK', 'public') . '_config'}
     ],
 
     /*

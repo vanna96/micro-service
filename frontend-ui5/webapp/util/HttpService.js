@@ -1,7 +1,8 @@
 sap.ui.define([
     "my/app/util/Cookie",
-    "my/app/util/Crypto"
-], function (Cookie, Crypto) {
+    "my/app/util/Crypto",
+     "sap/ui/core/BusyIndicator",
+], function (Cookie, Crypto, BusyIndicator) {
     "use strict";
 
     return {
@@ -26,6 +27,7 @@ sap.ui.define([
                     data: isFormData ? oData : oData ? JSON.stringify(oData) : null,
                     success: (data) => resolve(data),
                     error: (jqXHR) => {
+                        BusyIndicator.hide();
                         if (jqXHR.status == 401) { 
                             Cookie.deleteCookie('userData')
                             window.location.href = "#/login";
