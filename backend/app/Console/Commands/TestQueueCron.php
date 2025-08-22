@@ -28,16 +28,16 @@ class TestQueueCron extends Command
 
         // Log to file so you can check later
         $message = "[TEST] Command run at: " . now()->toDateTimeString();
-        Log::channel('daily')->info($message);
-
-        $this->info("✅ Command executed: {$message}");
+        // Log::channel('daily')->info($message);
+        info($message);
+        info("✅ Command executed: {$message}");
 
         // Simulate pushing a queue job
         dispatch(function () use ($delay) {
             if ($delay > 0) {
                 sleep($delay);
             }
-            Log::channel('daily')->info("[TEST] Queue job processed at: " . now()->toDateTimeString());
+            info("[TEST] Queue job processed at: " . now()->toDateTimeString());
         })->onQueue('default');
 
         $this->info("📤 Test job dispatched to queue (delay: {$delay}s).");

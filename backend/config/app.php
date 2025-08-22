@@ -195,6 +195,8 @@ return [
         App\Providers\EventServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
 
+        // Tenancy
+        App\Providers\TenancyServiceProvider::class
     ],
 
     /*

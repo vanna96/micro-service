@@ -4,6 +4,7 @@ use App\Http\Controllers\API\V1\AdministratorController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\V1\AuthController;
+use App\Http\Controllers\API\V1\TenantController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -30,5 +31,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // administrator
     Route::get('administrator', [AdministratorController::class, 'list']);
     Route::get('administrator/edit/{admin}', [AdministratorController::class, 'edit']);
-    Route::patch('administrator/edit/{admin}', [AdministratorController::class, 'update']);
+    Route::patch('administrator/update/{admin}', [AdministratorController::class, 'update']);
+
+    // tanent 
+    Route::get('tenant', [TenantController::class, 'list']);
+    Route::post('tenant', [TenantController::class, 'store']);
+    Route::get('tenant/edit/{tenant}', [TenantController::class, 'edit']);
+    Route::patch('tenant/update/{tenant}', [TenantController::class, 'update']);
+    Route::delete('tenant/delete/{tenant}', [TenantController::class, 'delete']);
 });

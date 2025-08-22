@@ -81,7 +81,7 @@ sap.ui.define([
                 let url = HttpService.getUrl('register');
                 if(data.id){
                     method = "PATCH";
-                    url = HttpService.getUrl(`administrator/edit/${data.id}`);
+                    url = HttpService.getUrl(`administrator/update/${data.id}`);
                 }
                 
                 BusyIndicator.show();
