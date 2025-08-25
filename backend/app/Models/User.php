@@ -11,7 +11,7 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
-
+    
     /**
      * The attributes that are mass assignable.
      *
@@ -51,6 +51,19 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
     ];
 
+    public function __construct(array $attributes = [])
+    {
+        parent::__construct($attributes);
+
+        // if inside a tenant request, use tenant DB
+        if (tenant()) {
+            $this->setConnection(tenant()->database_connection_name);
+        } else {
+            // fallback to central DB
+            $this->setConnection('central');
+        }
+    }
+    
     public function galleries()
     {
         return $this->morphMany(Gallery::class, 'gallarieable');
