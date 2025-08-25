@@ -2,7 +2,7 @@ sap.ui.define([], function () {
     "use strict";
 
     return {
-        handlerChangeFiles: function (oEvent, allowMultiple = true) {  
+        handlerChangeFiles: function (oEvent, allowMultiple = true) {
             const oFile = oEvent.getParameter("files")[0];
             if (oFile) {
                 const oModel = this.oModel;
@@ -14,7 +14,7 @@ sap.ui.define([], function () {
                     const mimeType = oFile.type;
 
                     const isImage = ["jpg", "jpeg", "png", "gif", "bmp", "webp"].includes(sFileExtension);
-                    
+
                     const oNewItem = {
                         documentId: Date.now(),
                         FileName: sFileName,
@@ -23,7 +23,7 @@ sap.ui.define([], function () {
                         mimeType: mimeType,
                         thumbnailUrl: isImage ? sImagePath : ""
                     };
-                    
+
                     if (allowMultiple) {
                         // Add to existing
                         const aAttachments = oModel.getProperty("/attachments") || [];
@@ -69,21 +69,47 @@ sap.ui.define([], function () {
                 return;
             }
 
-            if (sFileUrl.startsWith("data:")) {
-                const win = window.open();
-                if (!win) {
-                    sap.m.MessageToast.show("Popup blocked. Please allow popups.");
-                    return;
-                }
+            // if (sFileUrl.startsWith("data:")) {
+            //     const win = window.open(sFileUrl, "_blank");
+            //     if (!win) {
+            //         sap.m.MessageToast.show("Popup blocked. Please allow popups.");
+            //         return;
+            //     }
 
-                win.document.write(`
-                    <html>
-                        <head><title>Preview</title></head>
-                        <body style="margin:0">
-                            <iframe src="${sFileUrl}" width="100%" height="100%" frameborder="0" style="border: none;"></iframe>
-                        </body>
-                    </html>
-                `);
+            //     win.document.write(`
+            //         <html>
+            //             <head><title>Preview</title></head>
+            //             <body style="margin:0">
+            //                 <iframe src="${sFileUrl}" width="100%" height="100%" frameborder="0" style="border: none;"></iframe>
+            //             </body>
+            //         </html>
+            //     `);
+            // }
+            if (sFileUrl.startsWith("data:")) {
+                try {
+                    const [header, base64Data] = sFileUrl.split(',');
+                    const mimeType = header.match(/data:(.*);base64/)[1];
+
+                    const byteCharacters = atob(base64Data);
+                    const byteArrays = [];
+
+                    for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+                        const slice = byteCharacters.slice(offset, offset + 512);
+                        const byteNumbers = new Array(slice.length);
+                        for (let i = 0; i < slice.length; i++) {
+                            byteNumbers[i] = slice.charCodeAt(i);
+                        }
+                        byteArrays.push(new Uint8Array(byteNumbers));
+                    }
+
+                    const blob = new Blob(byteArrays, { type: mimeType });
+                    const blobUrl = URL.createObjectURL(blob);
+
+                    window.open(blobUrl, '_blank');
+                } catch (e) {
+                    sap.m.MessageToast.show("Unable to open file preview.");
+                    console.error(e);
+                }
             } else {
                 window.open(sFileUrl, "_blank");
             }

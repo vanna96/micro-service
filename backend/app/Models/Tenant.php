@@ -11,6 +11,19 @@ class Tenant extends BaseTenant implements TenantWithDatabase
 {
     use HasDatabase, HasDomains;
 
+    protected $fillable = [
+        'id',
+        "db_name",
+        "db_host",
+        "db_username",
+        "db_password",
+        "db_connection",
+        "db_port",
+        'status',
+        'data',
+        'tenancy_db_name'
+    ];
+
     protected $casts = [
         'data' => 'array',
     ];

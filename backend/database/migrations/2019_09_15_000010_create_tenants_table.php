@@ -19,8 +19,13 @@ class CreateTenantsTable extends Migration
             $table->string('id')->primary();
 
             // your custom columns may go here
-            $table->string('name')->nullable();
-            
+            $table->string('db_name')->nullable();
+            $table->string('db_host')->nullable();
+            $table->string('db_username')->nullable();
+            $table->string('db_password')->nullable();
+            $table->string('db_connection')->nullable();
+            $table->string('db_port')->nullable();
+            $table->enum('status', ['Active', 'Inactive'])->nullable()->default('Active');
             $table->timestamps();
             $table->json('data')->nullable();
         });

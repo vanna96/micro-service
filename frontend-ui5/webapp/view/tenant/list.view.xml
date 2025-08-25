@@ -5,7 +5,7 @@
     xmlns:table="sap.ui.table"
     xmlns:u="sap.ui.unified"
     xmlns:mvc="sap.ui.core.mvc"
-    controllerName="my.app.controller.Administrator.List">
+    controllerName="my.app.controller.Tenant.List">
 
     <f:DynamicPage fitContent="true">
         <f:title>
@@ -17,7 +17,7 @@
                 </f:content>
                 <f:actions>
                     <m:Button
-                        text="{i18n>CreateNew}"
+                        text="Create New"
                         type="Emphasized"
                         press="handlerCreate" />
                 </f:actions>
@@ -32,14 +32,14 @@
 
                 <table:extension>
                     <m:OverflowToolbar>
-                        <m:Title text="{i18n>Administrators} ({model>/pagination/totalItems})" level="H2" />
+                        <m:Title text="Tenants ({model>/pagination/totalItems})" level="H2" />
                         <m:ToolbarSpacer />
-                        <m:Button text="{i18n>Refresh}" press="handlerRefreshList"/>
-                        <m:Button text="{i18n>Reset}" press="handlerResetList"/>
+                        <m:Button text="Refresh" press="handlerRefreshList"/>
+                        <m:Button text="Reset" press="handlerResetList"/>
                         <m:OverflowToolbarMenuButton
                             tooltip="Export"
                             type="Transparent"
-                            text="{i18n>Export}"
+                            text="Export"
                             buttonMode="Split"
                             icon="sap-icon://download"
                             defaultAction="onDefaultActionAccept"
@@ -67,55 +67,23 @@
                 </table:extension>
 
                 <table:columns>
-                    <table:Column width="3rem">
-                        <m:Label text="{i18n>ID}" />
+                    <table:Column width="100px">
+                        <m:Label text="DB ID." />
                         <table:template>
                             <m:Link text="{model>id}" />
                         </table:template>
                     </table:Column>
 
                     <table:Column width="200px">
-                        <m:Label text="{i18n>Name}" />
+                        <m:Label text="DB Name" />
                         <table:template>
-                            <m:Text text="{model>name}"
+                            <m:Text text="{model>db_name}"
                                 wrapping="false" />
                         </table:template>
                     </table:Column>
-                    <table:Column width="200px">
-                        <m:Label text="{i18n>Username}" />
-                        <table:template>
-                            <m:Text text="{model>username}" wrapping="false" />
-                        </table:template>
-                    </table:Column>
-                    <table:Column width="200px">
-                        <m:Label text="{i18n>Phone}" />
-                        <table:template>
-                            <m:Text
-                                text="{model>country_code}{model>phone}"
-                                wrapping="false" />
-                        </table:template>
-                    </table:Column>
-                    <table:Column width="200px">
-                        <m:Label text="{i18n>Gender}" />
-                        <table:template>
-                            <m:Text
-                                text="{model>gender}"
-                                wrapping="false" />
-                        </table:template>
-                    </table:Column>
-                    <table:Column width="250px">
-                        <m:Label text="{i18n>dob}" />
-                        <table:template>
-                            <m:Text
-                                text="{
-                                    path: 'model>dob',
-                                    formatter:'.formatDisplayDate'
-                                }"
-                                wrapping="false" />
-                        </table:template>
-                    </table:Column>
+
                     <table:Column width="120px">
-                        <m:Label text="{i18n>Status}" />
+                        <m:Label text="Status" />
                         <table:template>
                             <m:FlexBox
                                 width="100%"
@@ -132,7 +100,7 @@
                         </table:template>
                     </table:Column>
                     <table:Column width="250px">
-                        <m:Label text="{i18n>DocumentDate}" />
+                        <m:Label text="Document Date" />
                         <table:template>
                             <m:Text
                                 text="{
@@ -153,7 +121,14 @@
                                     icon="sap-icon://navigation-right-arrow"
                                     type="Default"
                                     press="handlerEdit">
+                                      <m:layoutData>
+                                        <m:FlexItemData styleClass="sapUiTinyMarginEnd" />
+                                    </m:layoutData>
                                 </m:Button>
+                                <m:Button
+                                    icon="sap-icon://delete"
+                                    type="Reject"
+                                    press="handlerDelete" />
                             </m:FlexBox>
                         </table:template>
                     </table:Column>

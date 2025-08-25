@@ -1,24 +1,23 @@
 sap.ui.define(["require"], (require) => {
-	"use strict";
-	return {
-		resolvePath(sPath) { 
-			return require.toUrl("../") + sPath;
-		},
+    "use strict";
+    return {
+        resolvePath(sPath) {
+            return require.toUrl("../") + sPath;
+        },
 
-		dateFormat: function ({ format = 'MM/dd/yyyy', value }){
+        dateFormat: function ({ format = 'MM/dd/yyyy', value }) {
             if (!value) return ``;
 
             const date = new Date(value);
             const pad = (number) => number.toString().padStart(2, '0');
 
-            const getWeekOfYear = (date) =>
-            {
+            const getWeekOfYear = (date) => {
                 const start = new Date(date.getFullYear(), 0, 1);
                 const diff = date - start + ((start.getDay() + 1) * 86400000);
                 return Math.ceil(diff / 604800000);
             };
 
-            const hour12 = date.getHours() % 12 || 12; 
+            const hour12 = date.getHours() % 12 || 12;
 
             const formatMap = {
                 'yyyy': date.getFullYear(),  // 2024
@@ -50,5 +49,20 @@ sap.ui.define(["require"], (require) => {
                 .map(part => formatMap[part] !== undefined ? formatMap[part] : part) // Replace format tokens with values
                 .join(''); // Join without additional spaces to preserve the original formatting
         },
-	};
+
+        trans: function (sKey) {
+            try {
+
+                const oI18nModel = sap.ui.getCore().getModel("i18n");
+                if (!oI18nModel) return sKey;
+
+                const oBundle = oI18nModel.getResourceBundle();
+                if (!oBundle) return sKey;
+
+                return oBundle.getText(sKey) || sKey;
+            } catch (e) {
+                return sKey;
+            }
+        }
+    };
 });

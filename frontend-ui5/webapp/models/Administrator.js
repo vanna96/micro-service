@@ -1,12 +1,10 @@
-sap.ui.define([ 
-], function ()
-{
+sap.ui.define([
+], function () {
     "use strict";
     return {
-        toJson: function (data)
-        {
+        toJson: function (data) {
             var json = {
-                name: data['name'], 
+                name: data['name'],
                 username: data['username'],
                 email: data['email'],
                 password: data['password'],
@@ -27,7 +25,7 @@ sap.ui.define([
         toModel: async function (data) {
             const attachments = await Promise.all(
                 data['galleries']?.map(async (item) => {
-                    const fileName = item.name.split('/').pop(); 
+                    const fileName = item.name.split('/').pop();
                     const fileExtension = fileName.split('.').pop().toLowerCase();
                     const isImage = ["jpg", "jpeg", "png", "gif", "bmp", "webp"].includes(fileExtension);
                     let base64Data = null;
@@ -60,8 +58,8 @@ sap.ui.define([
             );
 
             return {
-                id: data['id'], 
-                name: data['name'], 
+                id: data['id'],
+                name: data['name'],
                 username: data['username'],
                 email: data['email'],
                 password: data['password'],

@@ -1,31 +1,29 @@
 sap.ui.define([
     "my/app/controller/Base.controller",
-    "my/app/repository/AdministratorRepository",
+    "my/app/repository/TenantRepository",
     "my/app/util/Pagination",
     "my/app/util/ToolbarList",
     "my/app/util/Funtion",
-    "my/app/util/HttpService",
-    "my/app/util/Helper"
+    "sap/ui/core/BusyIndicator",
 ], function (
     BaseController,
-    AdministratorRepository,
+    TenantRepository,
     Pagination,
     ToolbarList,
     Funtion,
-    HttpService,
-    Helper
+    BusyIndicator
 ) {
     "use strict";
 
-    return BaseController.extend("my.app.controller.Administrator.List", Object.assign(Pagination, ToolbarList, {
-        formatter: Helper,
+    return BaseController.extend("my.app.controller.Tenant.List", Object.assign(Pagination, ToolbarList, {
+
         onInit: function () {
             BaseController.prototype.onInit.call(this);
-            this.oRouter.getRoute("administrator").attachPatternMatched(this.onListing, this);
+            this.oRouter.getRoute("tenant").attachPatternMatched(this.onListing, this);
         },
 
         onListing: async function () {
-            document.title = "Administrator";
+            document.title = "Tenant";
             this.oModel.setData({
                 pageSize: 20,
                 isLoading: false
@@ -46,7 +44,7 @@ sap.ui.define([
             };
 
             try {
-                const res = await AdministratorRepository.get(oParams);
+                const res = await TenantRepository.get(oParams);
                 const totalItems = res["total"] ?? 0;
                 const paginationInfo = this.getPaginationInfo(totalItems, pageSize, pageNumber);
                 this.oModel.setProperty("/data", res['data'] ?? []);
@@ -62,11 +60,35 @@ sap.ui.define([
         handlerEdit: function (oEvent) {
             var oItem = oEvent.getSource();
             var sId = oItem.getBindingContext("model").getProperty("id");
-            this.oRouter.navTo("administrator_edit", { id: sId });
+            this.oRouter.navTo("tenant_edit", { id: sId });
         },
 
         handlerCreate: function () {
-            this.oRouter.navTo("administrator_create");
+            this.oRouter.navTo("tenant_create");
+        },
+
+        handlerDelete: function (oEvent) {
+            var that = this;
+            var oItem = oEvent.getSource();
+            var sId = oItem.getBindingContext("model").getProperty("id");
+            new Funtion.smgDialog({
+                type: 'Error',
+                title: 'Confirm deletion',
+                smg: 'Are you sure you want to delete this item?',
+                onOk: async function () {
+                    try {
+                        BusyIndicator.show();
+                        const res = await TenantRepository.delete(sId);
+                        sap.m.MessageToast.show(res.message);
+                        BusyIndicator.hide();
+                        that.handlerResetList();
+                    } catch (error) {
+                        console.error(error)
+                        Funtion.errMessageDialog.call(that, error)
+                        BusyIndicator.hide();
+                    }
+                }
+            });
         }
     }));
 });

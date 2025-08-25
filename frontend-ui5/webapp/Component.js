@@ -5,7 +5,8 @@ sap.ui.define([
     "my/app/routes/master",
     "my/app/util/HttpService",
     "my/app/util/Crypto",
-     "my/app/routes/administrator",
+    "my/app/routes/administrator",
+    "my/app/routes/tenant",
 ], (
     UIComponent,
     Cookie,
@@ -13,7 +14,8 @@ sap.ui.define([
     master,
     HttpService,
     Crypto,
-    administrator
+    administrator,
+    tenant
 ) => {
     "use strict";
     return UIComponent.extend("my.app.Component", {
@@ -27,7 +29,7 @@ sap.ui.define([
             UIComponent.prototype.init.apply(this, arguments);
 
             const oRouter = this.getRouter();
-            const aRouteDefs = [index, master, administrator];
+            const aRouteDefs = [index, master, administrator, tenant];
             aRouteDefs.forEach(oDef => {
                 oDef.routes.forEach(route => {
                     oRouter.addRoute(route);
@@ -41,11 +43,15 @@ sap.ui.define([
 
             oRouter.initialize();
             oRouter.attachRouteMatched(this._onRouteMatched, this);
+
+            const sLanguage = sessionStorage.getItem("lng") || "en";
+            this._setLanguage(sLanguage);
+
         },
 
         _onRouteMatched: async function (oEvent) {
             const oRouter = this.getRouter();
-            const sRouteName = oEvent.getParameter("name"); 
+            const sRouteName = oEvent.getParameter("name");
             if (sRouteName === "login" && Cookie.getCookie("userData")/*await this._checkAuthentication()*/) {
                 oRouter.navTo("dashboard");
             } else if (sRouteName !== "login" && !Cookie.getCookie("userData")/*await this._checkAuthentication()*/) {
@@ -62,5 +68,22 @@ sap.ui.define([
                 return false;
             }
         },
+
+        _setLanguage: function (sLang) {
+            const i18nModel = new sap.ui.model.resource.ResourceModel({
+                bundleName: "my.app.i18n.i18n",
+                locale: sLang
+            });
+
+            this.setModel(i18nModel, "i18n");
+            sap.ui.getCore().setModel(i18nModel, "i18n");
+            sap.ui.getCore().getConfiguration().setLanguage(sLang);
+        },
+
+        setLanguage: function (sLang) {
+            sessionStorage.setItem("lng", sLang);
+            this._setLanguage(sLang);
+            this.getEventBus().publish("app", "languageChanged", { lang: sLang });
+        }
     });
 });

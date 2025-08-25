@@ -6,7 +6,7 @@
     xmlns:table="sap.ui.table"
     xmlns:u="sap.ui.unified"
     xmlns:core="sap.ui.core"
-    controllerName="my.app.controller.Administrator.Form">
+    controllerName="my.app.controller.Tenant.Form">
      <m:Page showNavButton="true" navButtonPress="handlerNavBack">
         <ObjectPageLayout
             enableLazyLoading="false"
@@ -65,49 +65,45 @@
                                 </f:layout>
                                 <f:FormContainer title="">
                                     <f:formElements>
-                                        <f:FormElement label="First Name">
+                                        <f:FormElement label="Tenant ID">
                                             <f:fields>
                                                 <m:Input
-                                                    name="firstName"
+                                                    editable="{= ${model>/buttonSubmit} === 'Update' ? false : true }"
+                                                    placeholder="001..."
+                                                    required="true"
+                                                    name="id"
                                                     change="handlerInputChange"
-                                                    value="{model>/firstName}"/>
+                                                    value="{model>/id}"/>
                                             </f:fields>
                                         </f:FormElement>
-                                        <f:FormElement label="Last Name">
+                                        <f:FormElement label="DB Name">
                                             <f:fields>
                                                 <m:Input
-                                                    name="lastName"
+                                                    placeholder="host001..."
+                                                    required="true"
+                                                    name="db_name"
                                                     change="handlerInputChange"
-                                                    value="{model>/lastName}"/>
+                                                    value="{model>/db_name}"/>
                                             </f:fields>
                                         </f:FormElement>
-                                        <f:FormElement label="Username">
+                                        <f:FormElement label="DB Connection">
                                             <f:fields>
                                                 <m:Input
                                                     required="true"
-                                                    name="username"
+                                                    placeholder="mysql..."
+                                                    name="db_connection"
                                                     change="handlerInputChange"
-                                                    value="{model>/username}"/>
+                                                    value="{model>/db_connection}"/>
                                             </f:fields>
                                         </f:FormElement>
-                                        <f:FormElement label="Password">
+                                        <f:FormElement label="DB Port">
                                             <f:fields>
                                                 <m:Input
-                                                    required="{= ${model>/buttonSubmit} === 'Update' ? false : true }"
-                                                    type="Password"
-                                                    name="password"
+                                                    required="true"
+                                                    name="db_port"
+                                                    placeholder="3306..."
                                                     change="handlerInputChange"
-                                                    value="{model>/password}"/>
-                                            </f:fields>
-                                        </f:FormElement>
-                                        <f:FormElement label="Confirm Password">
-                                            <f:fields>
-                                                <m:Input
-                                                    required="{= ${model>/buttonSubmit} === 'Update' ? false : true }"
-                                                    type="Password"
-                                                    name="cpassword"
-                                                    change="handlerInputChange"
-                                                    value="{model>/cpassword}"/>
+                                                    value="{model>/db_port}"/>
                                             </f:fields>
                                         </f:FormElement>
                                         <f:FormElement label="">
@@ -128,98 +124,38 @@
                                 </f:FormContainer>
                                 <f:FormContainer title="">
                                     <f:formElements>
-                                        <f:FormElement label="Name">
+                                        <f:FormElement label="DB Username">
                                             <f:fields>
                                                 <m:Input
+                                                    placeholder="..."
                                                     required="true"
-                                                    name="name"
+                                                    name="db_username"
                                                     change="handlerInputChange"
-                                                    value="{model>/name}"/>
+                                                    value="{model>/db_username}"/>
                                             </f:fields>
                                         </f:FormElement>
-                                        <f:FormElement label="Phone">
+                                        <f:FormElement label="DB Host">
                                             <f:fields>
                                                 <m:Input
+                                                    placeholder="localhost,192..."
                                                     required="true"
-                                                    name="phone"
+                                                    name="db_host"
                                                     change="handlerInputChange"
-                                                    value="{
-                                                        path: 'model>/phone',
-                                                        type: 'sap.ui.model.type.String',
-                                                        constraints: { maxLength: 15 }
-                                                    }"/>
+                                                    value="{model>/db_host}"/>
                                             </f:fields>
                                         </f:FormElement>
-                                        <f:FormElement label="Date of Birth">
-                                            <f:fields>
-                                                <m:DatePicker
-                                                    name="dob"
-                                                    value="{model>/dob}"
-                                                    change="handlerInputChange"
-                                                    displayFormat="dd MMM, yyyy"
-                                                    valueFormat="yyyy-MM-dd"/>
-                                            </f:fields>
-                                        </f:FormElement>
-                                        <f:FormElement label="Gender">
-                                            <f:fields>
-                                                <m:Select
-                                                    name="gender"
-                                                    selectedKey="{model>/gender}"
-                                                    change="handlerInputChange">
-                                                    <core:Item key="Male" text="Male"/>
-                                                    <core:Item key="Female" text="Female"/>
-                                                </m:Select>
-                                            </f:fields>
-                                        </f:FormElement>
-                                        <f:FormElement label="Email">
+                                        <f:FormElement label="DB Password">
                                             <f:fields>
                                                 <m:Input
-                                                    type="Email"
-                                                    name="email"
+                                                    required="{= ${model>/buttonSubmit} === 'Update' ? false : true }"
+                                                    name="db_password"
                                                     change="handlerInputChange"
-                                                    value="{model>/email}"/>
+                                                    value="{model>/db_password}"/>
                                             </f:fields>
                                         </f:FormElement>
                                     </f:formElements>
                                 </f:FormContainer>
                             </f:Form>
-                        </ObjectPageSubSection>
-                    </subSections>
-                </ObjectPageSection>
-                <ObjectPageSection titleUppercase="false" title=" ">
-                    <subSections>
-                        <ObjectPageSubSection title="Profile" mode="Expanded"
-                            titleUppercase="false">
-                            <m:UploadCollection
-                                change="handlerChangeFile"
-                                fileDeleted="hanlderDeletedFile"
-                                typeMissmatch="onTypeMissmatch"
-                                items="{model>/attachments}">
-                                <m:items>
-                                    <m:UploadCollectionItem
-                                        documentId="{model>documentId}"
-                                        fileName="{model>FileName}"
-                                        enableEdit="false"
-                                        visibleEdit="false"
-                                        enableDelete="true"
-                                        mimeType="{model>mimeType}"
-                                        thumbnailUrl="{model>thumbnailUrl}"
-                                        url="{model>SourcePath}"
-                                        press="hanlderPressThumbnail">
-                                        <m:attributes>
-                                            <m:ObjectAttribute title="File Name"
-                                                text="{model>FileName}"
-                                                active="true"
-                                                press="onAttributePress" />
-
-                                            <m:ObjectAttribute title="Attachment Date"
-                                                text="{model>AttachmentDate}"
-                                                active="true"
-                                                press="onAttributePress" />
-                                        </m:attributes>
-                                    </m:UploadCollectionItem>
-                                </m:items>
-                            </m:UploadCollection>
                         </ObjectPageSubSection>
                     </subSections>
                 </ObjectPageSection>

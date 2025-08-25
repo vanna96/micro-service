@@ -15,6 +15,8 @@ sap.ui.define([
     'sap/ui/model/json/JSONModel',
     'my/app/repository/PermissionRepository',
     "my/app/util/HttpService",
+    "my/app/util/Funtion",
+    "my/app/util/Helper"
 ], (
     Device,
     Controller,
@@ -31,11 +33,14 @@ sap.ui.define([
     Link,
     JSONModel,
     PermissionRepository,
-    HttpService
+    HttpService,
+    Funtion,
+    Helper
 ) => {
     "use strict";
 
     return Controller.extend("my.app.controller.Main", {
+        formatter: Helper,
         onInit: function () {
             this._oRouter = sap.ui.core.UIComponent.getRouterFor(this);
             this._oRouter.attachRouteMatched(this._onRouteMatched, this);
@@ -48,7 +53,7 @@ sap.ui.define([
             this._loadMenu(this.oMenuModel);
         },
 
-        _onRouteMatched: function (oEvent) {  
+        _onRouteMatched: function (oEvent) {
             this.sRouteName = oEvent.getParameter("name") || "dashboard";
             this._handleResize();
             this.hadleImplementNotification();
@@ -289,7 +294,38 @@ sap.ui.define([
 
             oMenuModel.setProperty("/menuItems", filterMenuItems(menuItems));
             oMenuModel.setProperty("/selectedKey", sRouteName ?? 'dasboard');
+        },
+
+        handlerChangeLanguage: function () {
+            const that = this;
+            const oModel = this.getView().getModel("menu");
+            const lng = sessionStorage.getItem('lng') || 'km';
+
+            const oSelect = new sap.m.Select({
+                width: "100%",
+                selectedKey: lng,
+                change: function (oEvent) {
+                    const newLang = oEvent.getParameter("selectedItem").getKey();
+                    oModel.setProperty('/lng', newLang)
+                }
+            });
+
+            oSelect.addItem(new sap.ui.core.Item({ key: "en", text: "🇬🇧 English" }));
+            oSelect.addItem(new sap.ui.core.Item({ key: "km", text: "🇰🇭 ខ្មែរ" }));
+
+            new Funtion.smgDialog({
+                type: 'Information',
+                title: 'Change Language',
+                content: oSelect,
+                onOk: function () {
+                    const selectedLang = oModel.getProperty('/lng');
+                    sessionStorage.setItem('lng', selectedLang)
+                    const oComponent = that.getOwnerComponent();
+                    oComponent.setLanguage(selectedLang);
+                }
+            });
         }
+
 
     });
 
