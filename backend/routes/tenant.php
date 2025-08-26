@@ -20,25 +20,25 @@ use App\Http\Controllers\API\V1\AdministratorController;
 |
 */
 
-// API
+// API Tenant
 Route::middleware([
     'api',
     InitializeTenancyByDomain::class,
     PreventAccessFromCentralDomains::class,
-])->group(function ($r){
+])->group(function ($r) {
     $r->group([ 'prefix' => 'v1/tenant'], function ($r) {
-        // administrator
-        $r->get('auth', [AuthController::class, 'auth']);
-        $r->post('register', [AuthController::class, 'register']);
-        $r->post('login', [AuthController::class, 'login']);
-        $r->post('logout', [AuthController::class, 'logout']);
-        $r->get('list', [AdministratorController::class, 'list']);
-        $r->get('edit/{admin}', [AdministratorController::class, 'edit']);
-        $r->patch('update/{admin}', [AdministratorController::class, 'update']);
-        
-        // $r->get('/category', function () {
-        //     $categories = \App\Models\Category::all();
-        //     return response()->json($categories);
-        // });
+        $r->group([ 'prefix' => 'user'], function ($r) {
+            $r->post('register', [AuthController::class, 'register']);
+            $r->post('login', [AuthController::class, 'login'])->middleware('tenant.active');
+
+            $r->middleware(['auth:sanctum',  'tenant.active'])->group(function ($r) {
+                $r->post('store', [AuthController::class, 'register']);
+                $r->get('list', [AdministratorController::class, 'list']);
+                $r->get('edit/{admin}', [AdministratorController::class, 'edit']);
+                $r->patch('update/{admin}', [AdministratorController::class, 'update']);
+                $r->get('auth', [AuthController::class, 'auth']);
+                $r->post('logout', [AuthController::class, 'logout']);
+            });
+        });
     });
 });

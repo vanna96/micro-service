@@ -1,0 +1,94 @@
+{
+    "menuItems": [
+        {
+            "title": "Dashboard",
+            "icon": "sap-icon://bbyd-dashboard",
+            "key": "dashboard"
+        },
+        {
+            "title": "Administrator",
+            "icon": "sap-icon://database",
+            "key": "",
+            "subItems": [
+                { "title": "Administrator", "key": "administrator"},
+                { "title": "Tenant", "key": "tenant"}
+            ]
+        },
+        {
+            "title": "Master Data",
+            "icon": "sap-icon://database",
+            "key": "",
+            "subItems": [
+                { "title": "Branch", "key": "branch"},
+                { "title": "Warehouse", "key": "warehouse"},
+                { "title": "Category", "key": "category", "repo": "Category"},
+                { "title": "Unit of Messure", "key": "uom"},
+                { "title": "Unit of Messure Group", "key": "uom"},
+                { "title": "Tax", "key": "tax"},
+                { "title": "Item", "key": "item"},
+                { "title": "User", "key": "user"}
+            ]
+        },
+        {
+            "title": "Inventory",
+            "icon": "sap-icon://inventory",
+            "key": "",
+            "subItems": [
+            ]
+        },
+        {
+            "title": "Purchase",
+            "icon": "sap-icon://sales-order",
+            "key": "",
+            "subItems": [
+            ]
+        },
+        {
+            "title": "Sale",
+            "icon": "sap-icon://sales-order",
+            "key": "",
+            "subItems": [
+            ]
+        },
+        {
+            "title": "Promotion",
+            "icon": "sap-icon://sales-order",
+            "key": "",
+            "subItems": [
+            ]
+        },
+        {
+            "title": "Reports",
+            "icon": "sap-icon://expense-report",
+            "key": "",
+            "subItems": [
+                { "title": "Sale Report", "key": "sale"},
+                { "title": "Purchase Report", "key": "purchase"},
+                { "title": "Stock Report", "key": "stock"},
+                { "title": "Profit Report", "key": "profit"},
+                { "title": "Loss Report", "key": "loss"},
+                { "title": "Sale Report", "key": "sale"}
+            ]
+        },
+        {
+            "title": "User Management",
+            "icon": "sap-icon://end-user-experience-monitoring",
+            "key": "",
+            "subItems": [
+                { "title": "Supplier", "key": "supplier"},
+                { "title": "Customer", "key": "customer"},
+                { "title": "Employee", "key": "employee"},
+                { "title": "Role", "key": "role"},
+                { "title": "Permission", "key": "permission"}
+            ]
+        },
+        {
+            "title": "Settings",
+            "icon": "sap-icon://action-settings",
+            "key": "",
+            "subItems": [
+                { "title": "Currency", "key": "currency"}
+            ]
+        }
+    ]
+}

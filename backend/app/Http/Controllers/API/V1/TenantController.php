@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API\V1;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant;
+use App\Models\User;
 
 class TenantController extends Controller
 {
@@ -71,7 +72,7 @@ class TenantController extends Controller
 
         $tenant = Tenant::create([
             'id'   => $data['id'],
-            'status'   => $data['status'],
+            'status'   => $data['status'] ?? 'Active',
             'db_name'     => $data['db_name'],
             'db_host'     => $data['db_host'],
             'db_username' => $data['db_username'],
@@ -107,6 +108,9 @@ class TenantController extends Controller
         ]);
         if(!$success) return response()->json($message, $status);
 
+        // Detect if tenant is being deactivated
+        $isDeactivating = isset($data['status']) && $data['status'] === 'Inactive' && $tenant->status !== 'Inactive';
+
         $tenant->update([
             'status'        => $data['status'],
             'db_name'       => $data['db_name'],
@@ -116,6 +120,21 @@ class TenantController extends Controller
             'db_connection' => $data['db_connection'],
             'db_port'       => $data['db_port']
         ]);
+
+        // If deactivating the tenant, revoke all user tokens
+        if ($isDeactivating) {
+            tenancy()->initialize($tenant->id); // switch to tenant DB
+
+            // Revoke all tokens from users in this tenant
+            User::query()->chunk(100, function ($users) {
+                foreach ($users as $user) {
+                    $user->tokens()->delete(); // revoke all tokens
+                }
+            });
+
+            tenancy()->end();
+        }
+
 
         return response()->json([
             'success' => true,

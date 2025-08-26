@@ -188,6 +188,66 @@
                 </ObjectPageSection>
                 <ObjectPageSection titleUppercase="false" title=" ">
                     <subSections>
+                        <ObjectPageSubSection title="Tenants" mode="Expanded"
+                            titleUppercase="false">
+                            <table:Table
+                                id="tenants_table"
+                                rows="{model>/doc_tenants}"
+                                selectionMode="Multiple">
+                                <table:extension>
+                                    <m:OverflowToolbar>
+                                        <m:ToolbarSpacer />
+                                        <m:Button icon="sap-icon://create-form" press="handlerAddTenantRow" tooltip="Add Row" />
+                                        <m:Button icon="sap-icon://decline" press="handlerRemoveTenants" type="Reject" tooltip="Delete Row" />
+                                    </m:OverflowToolbar>
+                                </table:extension>
+
+                                <table:columns>
+                                    <table:Column width="10rem">
+                                        <m:Label text="{i18n>ID}" />
+                                        <table:template>
+                                            <m:Link text="{model>id}" />
+                                        </table:template>
+                                    </table:Column>
+
+                                    <table:Column width="200px">
+                                        <m:Label text="{i18n>Name}" />
+                                        <table:template>
+                                            <m:ComboBox
+                                                width="100%"
+                                                loadItems="handlerLoadTenants"
+                                                selectionChange="onTenantSelectionChange"
+                                                selectedKey="{model>id}"
+                                                busy="{model>isBusy}"
+                                                items="{model>/tenants}">
+                                                <core:Item key="{model>id}" text="{model>db_name}"/>
+                                            </m:ComboBox>
+                                        </table:template>
+                                    </table:Column>
+                                    <table:Column>
+                                        <m:Label text="{i18n>Status}" />
+                                        <table:template>
+                                            <m:FlexBox
+                                                width="100%"
+                                                justifyContent="Center"
+                                                alignItems="Center"
+                                                direction="Row">
+                                                <m:ObjectStatus
+                                                    text="{model>status}"
+                                                    state="{
+                                                        path: 'model>status',
+                                                        formatter:'.displayStatusState'
+                                                    }" inverted="true"/>
+                                            </m:FlexBox>
+                                        </table:template>
+                                    </table:Column>
+                                </table:columns>
+                            </table:Table>
+                        </ObjectPageSubSection>
+                    </subSections>
+                </ObjectPageSection>
+                <ObjectPageSection titleUppercase="false" title=" ">
+                    <subSections>
                         <ObjectPageSubSection title="Profile" mode="Expanded"
                             titleUppercase="false">
                             <m:UploadCollection

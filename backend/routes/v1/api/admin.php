@@ -25,22 +25,23 @@ Route::get('sanctum/csrf-cookie', [\Laravel\Sanctum\Http\Controllers\CsrfCookieC
 Route::post('login', [AuthController::class, 'login']);
 Route::post('register', [AuthController::class, 'register']);
 
-// Protected routes
 Route::middleware(['auth:sanctum', 'api'])->group(function ($r) {
-    $r->get('auth', [AuthController::class, 'auth']);
-    $r->post('logout', [AuthController::class, 'logout']);
+    $r->group([ 'prefix' => 'administrator'], function ($r) {
+        $r->get('list', [AdministratorController::class, 'list']);
+        $r->get('edit/{admin}', [AdministratorController::class, 'edit']);
+        $r->post('store', [AuthController::class, 'register']);
+        $r->patch('update/{admin}', [AdministratorController::class, 'update']);
+        $r->get('auth', [AuthController::class, 'auth']);
+        $r->post('logout', [AuthController::class, 'logout']);
+    });
 
-    // administrator
-    $r->get('administrator', [AdministratorController::class, 'list']);
-    $r->get('administrator/edit/{admin}', [AdministratorController::class, 'edit']);
-    $r->patch('administrator/update/{admin}', [AdministratorController::class, 'update']);
-
-    // tanent 
-    $r->get('tenant', [TenantController::class, 'list']);
-    $r->post('tenant', [TenantController::class, 'store']);
-    $r->get('tenant/edit/{tenant}', [TenantController::class, 'edit']);
-    $r->patch('tenant/update/{tenant}', [TenantController::class, 'update']);
-    $r->delete('tenant/delete/{tenant}', [TenantController::class, 'delete']);
+    $r->group([ 'prefix' => 'tenant'], function ($r) {
+        $r->get('list', [TenantController::class, 'list']);
+        $r->post('store', [TenantController::class, 'store']);
+        $r->get('edit/{tenant}', [TenantController::class, 'edit']);
+        $r->patch('update/{tenant}', [TenantController::class, 'update']);
+        $r->delete('delete/{tenant}', [TenantController::class, 'delete']);
+    });
 });
 
 Route::middleware([ InitializeTenancyByRequestData::class, 'api'])->prefix('tenant')->group(function () {

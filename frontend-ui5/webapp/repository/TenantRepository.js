@@ -14,7 +14,7 @@ sap.ui.define([
                     .join("&");
             }
             const queryString = queryParams ? "?" + toQueryString(queryParams) : "";
-            return await HttpService.callApi("GET", HttpService.getUrl(`${this.endPoint}${queryString}`));
+            return await HttpService.callApi("GET", HttpService.getUrl(`${this.endPoint}/list${queryString}`));
         },
 
         find: async function (id) {
@@ -23,7 +23,7 @@ sap.ui.define([
         },
 
         post: async function (payload) {
-            return await HttpService.callApi("POST", HttpService.getUrl(`${this.endPoint}`), payload);
+            return await HttpService.callApi("POST", HttpService.getUrl(`${this.endPoint}/store`), payload);
         },
 
         update: async function (id, payload) {
