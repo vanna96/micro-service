@@ -5,6 +5,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\V1\AuthController;
 use App\Http\Controllers\API\V1\TenantController;
+use Stancl\Tenancy\Middleware\InitializeTenancyByPath;
+use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
+use Stancl\Tenancy\Middleware\InitializeTenancyByRequestData;
+use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
+use Laravel\Sanctum\PersonalAccessToken;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -21,22 +26,41 @@ Route::post('login', [AuthController::class, 'login']);
 Route::post('register', [AuthController::class, 'register']);
 
 // Protected routes
-Route::middleware('auth:sanctum')->group(function () {
-    Route::get('auth', [AuthController::class, 'auth']);
-    Route::post('logout', [AuthController::class, 'logout']);
-    Route::get('dashboard', function() {
-        return response()->json(['message' => 'Welcome to dashboard']);
-    });
+Route::middleware(['auth:sanctum', 'api'])->group(function ($r) {
+    $r->get('auth', [AuthController::class, 'auth']);
+    $r->post('logout', [AuthController::class, 'logout']);
 
     // administrator
-    Route::get('administrator', [AdministratorController::class, 'list']);
-    Route::get('administrator/edit/{admin}', [AdministratorController::class, 'edit']);
-    Route::patch('administrator/update/{admin}', [AdministratorController::class, 'update']);
+    $r->get('administrator', [AdministratorController::class, 'list']);
+    $r->get('administrator/edit/{admin}', [AdministratorController::class, 'edit']);
+    $r->patch('administrator/update/{admin}', [AdministratorController::class, 'update']);
 
     // tanent 
-    Route::get('tenant', [TenantController::class, 'list']);
-    Route::post('tenant', [TenantController::class, 'store']);
-    Route::get('tenant/edit/{tenant}', [TenantController::class, 'edit']);
-    Route::patch('tenant/update/{tenant}', [TenantController::class, 'update']);
-    Route::delete('tenant/delete/{tenant}', [TenantController::class, 'delete']);
+    $r->get('tenant', [TenantController::class, 'list']);
+    $r->post('tenant', [TenantController::class, 'store']);
+    $r->get('tenant/edit/{tenant}', [TenantController::class, 'edit']);
+    $r->patch('tenant/update/{tenant}', [TenantController::class, 'update']);
+    $r->delete('tenant/delete/{tenant}', [TenantController::class, 'delete']);
+});
+
+Route::middleware([ InitializeTenancyByRequestData::class, 'api'])->prefix('tenant')->group(function () {
+    Route::get('/test', function () {
+        $accessToken = request()->bearerToken();
+        if (!$accessToken || !str_contains($accessToken, '|')) return response()->json(['message' => 'Invalid token format'], 401);
+
+        [$id, $token] = explode('|', $accessToken, 2);
+        $tokenModel = PersonalAccessToken::on('central')->find($id);
+
+        if (!$tokenModel) return response()->json(['message' => 'Unauthenticated.'], 401);
+        if (!hash_equals($tokenModel->token, hash('sha256', $token))) return response()->json(['message' => 'Unauthenticated.'], 401);
+
+        $user = $tokenModel->tokenable;
+        auth()->setUser($user);
+
+        App\Models\Category::create(['name' => 'Test Category from tenant route']);
+        return [
+            'user' => $user,
+            'tenant_id' => tenant('id'),
+        ];
+    });
 });

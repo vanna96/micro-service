@@ -64,5 +64,5 @@ return [
         'encrypt_cookies' => App\Http\Middleware\EncryptCookies::class,
     ],
 
-    'personal_access_token_model' => App\Models\CustomPersonalAccessToken::class,
+    // 'personal_access_token_model' => App\Models\CustomPersonalAccessToken::class,
 ];
