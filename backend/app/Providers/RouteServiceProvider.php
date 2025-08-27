@@ -30,11 +30,27 @@ class RouteServiceProvider extends ServiceProvider
 
         $this->routes(function () {
             Route::middleware('api')
-                ->prefix('v1/admin')
+                ->prefix('v1/api')
+                ->domain('localhost')
                 ->group(base_path('routes/v1/api/admin.php'));
 
             Route::middleware('web')
                 ->group(base_path('routes/web.php'));
+
+            // Tenant domains
+            Route::middleware('api')
+                ->prefix('v1/api')
+                ->group(function () {
+                    Route::group([
+                        'domain' => '{tenant}.localhost',
+                        'middleware' => [
+                            \Stancl\Tenancy\Middleware\InitializeTenancyByDomain::class,
+                            \Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains::class,
+                        ]
+                    ], function () {
+                        require base_path('routes/tenant.php');
+                    });
+                });
         });
     }
 

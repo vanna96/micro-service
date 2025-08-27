@@ -318,7 +318,7 @@ sap.ui.define([
                 title: 'Change Language',
                 content: oSelect,
                 onOk: function () {
-                    const selectedLang = oModel.getProperty('/lng');
+                    const selectedLang = oModel.getProperty('/lng') || 'en';
                     sessionStorage.setItem('lng', selectedLang)
                     const oComponent = that.getOwnerComponent();
                     oComponent.setLanguage(selectedLang);
