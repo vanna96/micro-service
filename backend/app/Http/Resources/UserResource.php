@@ -36,6 +36,12 @@ class UserResource extends JsonResource
                     'created_at' => $child->created_at->format('d M, Y'),
                     // 'tmp_image' => \Storage::disk('minio-temporaryurls')->temporaryUrl($child->name, now()->addMinutes(30))
                 ];
+            }),
+            "tenants" => $this->tenants->map(function ($child) {
+                return [
+                    'tenant_id' => $child->id,
+                    'tanent' => $child
+                ];
             })
         ];
     }

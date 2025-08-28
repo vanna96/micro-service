@@ -78,7 +78,9 @@ class AdministratorController extends Controller
             'gender'        => 'nullable|in:Male,Female',
             'dob'           => 'nullable|date',
             'status'        => 'nullable|in:Active,Inactive',
-            'profile'       => ['nullable', new Base64Image]
+            'profile'       => ['nullable', new Base64Image],
+            'tenants'       => ['nullable', 'array'],
+            'tenants.*'     => ['nullable', 'exists:tenants,id'],
         ]);
 
         if ($validator->fails()) {
@@ -133,7 +135,8 @@ class AdministratorController extends Controller
             unset($validated['password']);
         }
  
-        $admin->update($validated); 
+        $admin->update($validated);  
+        $admin->tenants()->sync($request->tenants);
 
         return response()->json([
             'success' => true,

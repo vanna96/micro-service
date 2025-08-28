@@ -68,4 +68,9 @@ class User extends Authenticatable
     {
         return $this->morphMany(Gallery::class, 'gallarieable');
     }
+
+    public function tenants()
+    {
+        return $this->belongsToMany(Tenant::class, 'user_tenants', 'user_id', 'tenant_id');
+    }
 }

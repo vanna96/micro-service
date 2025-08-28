@@ -4,7 +4,7 @@ sap.ui.define([
     "use strict";
 
     return {
-        endPoint: "administrator",
+        endPoint: "user",
         get: async function (queryParams) {
             function toQueryString(params) {
                 return Object.keys(params)

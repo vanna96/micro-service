@@ -20,11 +20,15 @@ class Tenant extends BaseTenant implements TenantWithDatabase
         "db_connection",
         "db_port",
         'status',
-        'data',
-        'tenancy_db_name'
+        'data'
     ];
 
     protected $casts = [
         'data' => 'array',
     ];
+
+    public function users()
+    {
+        return $this->belongsToMany(User::class, 'user_tenants', 'tenant_id', 'user_id');
+    }
 }

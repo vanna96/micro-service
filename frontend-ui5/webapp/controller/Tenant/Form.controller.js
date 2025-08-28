@@ -78,8 +78,9 @@ sap.ui.define([
                 data: payload,
                 requiredFields: data.requiredFields
             })) return;
-
+           
             try {
+                BusyIndicator.show();
                 let res;
                 if (data.buttonSubmit === 'Update') res = await TenantRepository.update(data.id, payload);
                 else res = await TenantRepository.post(payload);

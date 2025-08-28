@@ -13,7 +13,7 @@ class UserRepository extends RepositoryBase
     {
         $table = $this->getTable();
         $query = $this->select("{$table}.*")
-                    ->with('galleries');
+                    ->with(['galleries', 'tenants']);
         return $query;
     }
 

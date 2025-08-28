@@ -45,7 +45,7 @@ sap.ui.define([
         },
 
         getUrl: function (sEndpoint) {
-            return "http://localhost:8880/v1/admin/" + sEndpoint;
+            return `http://${window.location.hostname}:8880/v1/api/`+ sEndpoint;
         }
     };
 });

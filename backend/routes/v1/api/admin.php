@@ -22,46 +22,53 @@ use Laravel\Sanctum\PersonalAccessToken;
 */
 
 Route::get('sanctum/csrf-cookie', [\Laravel\Sanctum\Http\Controllers\CsrfCookieController::class, 'show']);
-Route::post('login', [AuthController::class, 'login']);
-Route::post('register', [AuthController::class, 'register']);
+Route::middleware(['api'])->group(function () {
 
-Route::middleware(['auth:sanctum', 'api'])->group(function ($r) {
-    $r->group([ 'prefix' => 'administrator'], function ($r) {
-        $r->get('list', [AdministratorController::class, 'list']);
-        $r->get('edit/{admin}', [AdministratorController::class, 'edit']);
-        $r->post('store', [AuthController::class, 'register']);
-        $r->patch('update/{admin}', [AdministratorController::class, 'update']);
-        $r->get('auth', [AuthController::class, 'auth']);
-        $r->post('logout', [AuthController::class, 'logout']);
+    Route::prefix('user')->group(function () {
+        // Public routes
+        Route::post('register', [AuthController::class, 'register']);
+        Route::post('login', [AuthController::class, 'login']);
+
+        // Protected user routes
+        Route::middleware(['auth:sanctum'])->group(function () {
+            Route::get('list', [AdministratorController::class, 'list']);
+            Route::post('store', [AuthController::class, 'register']);
+            Route::get('edit/{admin}', [AdministratorController::class, 'edit']);
+            Route::patch('update/{admin}', [AdministratorController::class, 'update']);
+            Route::get('auth', [AuthController::class, 'auth']);
+            Route::post('logout', [AuthController::class, 'logout']);
+        });
     });
 
-    $r->group([ 'prefix' => 'tenant'], function ($r) {
-        $r->get('list', [TenantController::class, 'list']);
-        $r->post('store', [TenantController::class, 'store']);
-        $r->get('edit/{tenant}', [TenantController::class, 'edit']);
-        $r->patch('update/{tenant}', [TenantController::class, 'update']);
-        $r->delete('delete/{tenant}', [TenantController::class, 'delete']);
+    // Protected tenant routes
+    Route::prefix('tenant')->middleware(['auth:sanctum'])->group(function () {
+        Route::get('list', [TenantController::class, 'list']);
+        Route::post('store', [TenantController::class, 'store']);
+        Route::get('edit/{tenant}', [TenantController::class, 'edit']);
+        Route::patch('update/{tenant}', [TenantController::class, 'update']);
+        Route::delete('delete/{tenant}', [TenantController::class, 'delete']);
     });
+
 });
 
-Route::middleware([ InitializeTenancyByRequestData::class, 'api'])->prefix('tenant')->group(function () {
-    Route::get('/test', function () {
-        $accessToken = request()->bearerToken();
-        if (!$accessToken || !str_contains($accessToken, '|')) return response()->json(['message' => 'Invalid token format'], 401);
+// Route::middleware([ InitializeTenancyByRequestData::class, 'api'])->prefix('tenant')->group(function () {
+//     Route::get('/test', function () {
+//         $accessToken = request()->bearerToken();
+//         if (!$accessToken || !str_contains($accessToken, '|')) return response()->json(['message' => 'Invalid token format'], 401);
 
-        [$id, $token] = explode('|', $accessToken, 2);
-        $tokenModel = PersonalAccessToken::on('central')->find($id);
+//         [$id, $token] = explode('|', $accessToken, 2);
+//         $tokenModel = PersonalAccessToken::on('central')->find($id);
 
-        if (!$tokenModel) return response()->json(['message' => 'Unauthenticated.'], 401);
-        if (!hash_equals($tokenModel->token, hash('sha256', $token))) return response()->json(['message' => 'Unauthenticated.'], 401);
+//         if (!$tokenModel) return response()->json(['message' => 'Unauthenticated.'], 401);
+//         if (!hash_equals($tokenModel->token, hash('sha256', $token))) return response()->json(['message' => 'Unauthenticated.'], 401);
 
-        $user = $tokenModel->tokenable;
-        auth()->setUser($user);
+//         $user = $tokenModel->tokenable;
+//         auth()->setUser($user);
 
-        App\Models\Category::create(['name' => 'Test Category from tenant route']);
-        return [
-            'user' => $user,
-            'tenant_id' => tenant('id'),
-        ];
-    });
-});
+//         App\Models\Category::create(['name' => 'Test Category from tenant route']);
+//         return [
+//             'user' => $user,
+//             'tenant_id' => tenant('id'),
+//         ];
+//     });
+// });

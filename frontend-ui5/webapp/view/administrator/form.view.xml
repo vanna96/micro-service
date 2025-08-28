@@ -186,14 +186,14 @@
                         </ObjectPageSubSection>
                     </subSections>
                 </ObjectPageSection>
-                <ObjectPageSection titleUppercase="false" title=" ">
+                <ObjectPageSection titleUppercase="false" title=" " visible="{= ${model>/buttonSubmit} === 'Update'}">
                     <subSections>
                         <ObjectPageSubSection title="Tenants" mode="Expanded"
                             titleUppercase="false">
                             <table:Table
                                 id="tenants_table"
                                 rows="{model>/doc_tenants}"
-                                selectionMode="Multiple">
+                                selectionMode="MultiToggle">
                                 <table:extension>
                                     <m:OverflowToolbar>
                                         <m:ToolbarSpacer />
@@ -206,22 +206,28 @@
                                     <table:Column width="10rem">
                                         <m:Label text="{i18n>ID}" />
                                         <table:template>
-                                            <m:Link text="{model>id}" />
+                                            <m:Link text="{model>tenant/id}" />
                                         </table:template>
                                     </table:Column>
 
                                     <table:Column width="200px">
                                         <m:Label text="{i18n>Name}" />
-                                        <table:template>
-                                            <m:ComboBox
-                                                width="100%"
-                                                loadItems="handlerLoadTenants"
-                                                selectionChange="onTenantSelectionChange"
-                                                selectedKey="{model>id}"
-                                                busy="{model>isBusy}"
-                                                items="{model>/tenants}">
-                                                <core:Item key="{model>id}" text="{model>db_name}"/>
-                                            </m:ComboBox>
+                                        <table:template> 
+                                            <m:ComboBox 
+                                                    change="handlerChangeTenant"
+                                                    selectedKey="{model>tenant_id}" 
+                                                    busy="{model>isBusy}"
+                                                    items="{ 
+                                                        path: 'model>/tenants',
+                                                        templateShareable: false
+                                                    }"
+                                                    width="100%"
+                                                    loadItems="handlerLoadTenants"
+                                                >
+                                                    <core:ListItem
+                                                        key="{model>id}"
+                                                        text="{model>db_name}" />
+                                                </m:ComboBox> 
                                         </table:template>
                                     </table:Column>
                                     <table:Column>
@@ -233,9 +239,9 @@
                                                 alignItems="Center"
                                                 direction="Row">
                                                 <m:ObjectStatus
-                                                    text="{model>status}"
+                                                    text="{model>tenant/status}"
                                                     state="{
-                                                        path: 'model>status',
+                                                        path: 'model>tenant/status',
                                                         formatter:'.displayStatusState'
                                                     }" inverted="true"/>
                                             </m:FlexBox>

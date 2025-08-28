@@ -147,7 +147,7 @@
                                         <f:FormElement label="DB Password">
                                             <f:fields>
                                                 <m:Input
-                                                    required="{= ${model>/buttonSubmit} === 'Update' ? false : true }"
+                                                    required="true"
                                                     name="db_password"
                                                     change="handlerInputChange"
                                                     value="{model>/db_password}"/>

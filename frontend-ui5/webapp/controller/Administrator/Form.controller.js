@@ -78,8 +78,9 @@ sap.ui.define([
                 data: payload,
                 requiredFields: data.requiredFields
             })) return;
-
+            
             try {
+                BusyIndicator.show();
                 let res;
                 if (data.buttonSubmit === 'Update') res = await AdministratorRepository.update(data.id, payload);
                 else res = await AdministratorRepository.post(payload);
@@ -122,35 +123,23 @@ sap.ui.define([
             return _res;
         },
 
-        onTenantSelectionChange: function (oEvent) {
-            var oComboBox = oEvent.getSource();
-            var oModel = oComboBox.getModel("model"); // Assuming 'model' is your named model
+        handlerChangeTenant: function (oEvent) {
+            var oSource = oEvent.getSource();
+            var pKey = oSource.getProperty('name');
+            var oBindingContext = oSource.getBindingContext("model");
+            var sPath = oBindingContext.getPath();
+            var aParts = sPath.split("/");
+            var iIndex = aParts[aParts.length - 1];
 
-            var oRowContext = oComboBox.getBindingContext("model");
-            if (!oRowContext) return;
-
-            var sRowPath = oRowContext.getPath(); // e.g., "/2"
-            var iRowIndex = parseInt(sRowPath.split("/").pop());
-
-            var oSelectedItem = oEvent.getParameter("selectedItem");
-
-            // If ComboBox is cleared (no item selected)
-            if (!oSelectedItem) {
-                oModel.setProperty(`/doc_tenants/${iRowIndex}`, null);
-                return;
-            }
-
-            // Get the selected item's binding context and data
-            var oSelectedItemContext = oSelectedItem.getBindingContext("model");
-            if (!oSelectedItemContext) {
-                oModel.setProperty(`/doc_tenants/${iRowIndex}`, null);
-                return;
-            }
-
-            var oSelectedData = oSelectedItemContext.getObject();
-
-            // Update the doc_tenants array at the row index
-            oModel.setProperty(`/doc_tenants/${iRowIndex}`, oSelectedData);
+            var oSelectedItem = oSource.getSelectedItem();
+            if (oSelectedItem)
+            {
+                var oContext = oSelectedItem.getBindingContext("model");
+                var oSelectedObject = oContext.getObject(); 
+                
+                this.oModel.setProperty(`/doc_tenants/${ iIndex }/tenant`, oSelectedObject)
+                this.oModel.setProperty(`/doc_tenants/${iIndex}/tenant_id`, oSource.getSelectedKey());
+            } 
         },
 
         handlerRemoveTenants: function (oEvent) {

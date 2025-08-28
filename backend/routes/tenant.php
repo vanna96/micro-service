@@ -26,7 +26,7 @@ Route::middleware([
     InitializeTenancyByDomain::class,
     PreventAccessFromCentralDomains::class,
 ])->group(function ($r) {
-    $r->group([ 'prefix' => 'v1/tenant'], function ($r) {
+    $r->group([ 'prefix' => 'v1/api'], function ($r) {
         $r->group([ 'prefix' => 'user'], function ($r) {
             $r->post('register', [AuthController::class, 'register']);
             $r->post('login', [AuthController::class, 'login'])->middleware('tenant.active');

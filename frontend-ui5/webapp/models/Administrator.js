@@ -17,7 +17,10 @@ sap.ui.define([
                 gender: data['gender'],
                 dob: data['dob'],
                 status: data['status'],
-                profile: data?.attachments?.[0]?.SourcePath
+                profile: data?.attachments?.[0]?.SourcePath,
+                tenants: (data?.doc_tenants || [])
+                                .map(t => t.tenant_id)
+                                .filter(id => typeof id === undefined || !isNaN(id))
             }
             return json
         },
