@@ -3,19 +3,19 @@ sap.ui.define([
     "my/app/util/Cookie",
     "my/app/routes/index",
     "my/app/routes/master",
-    "my/app/util/HttpService",
-    "my/app/util/Crypto",
+    "my/app/util/HttpService", 
     "my/app/routes/administrator",
     "my/app/routes/tenant",
+    "my/app/routes/category",
 ], (
     UIComponent,
     Cookie,
     index,
     master,
-    HttpService,
-    Crypto,
+    HttpService, 
     administrator,
-    tenant
+    tenant,
+    category
 ) => {
     "use strict";
     return UIComponent.extend("my.app.Component", {
@@ -29,7 +29,10 @@ sap.ui.define([
             UIComponent.prototype.init.apply(this, arguments);
 
             const oRouter = this.getRouter();
-            const aRouteDefs = [index, master, administrator, tenant];
+            const aRouteDefs = [index, category, administrator, tenant];
+            // const isSubdomain = window.location.hostname.split('.').length > 2;
+            // if (!isSubdomain) aRouteDefs.push(administrator, tenant);
+
             aRouteDefs.forEach(oDef => {
                 oDef.routes.forEach(route => {
                     oRouter.addRoute(route);

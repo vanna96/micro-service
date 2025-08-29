@@ -214,20 +214,20 @@
                                         <m:Label text="{i18n>Name}" />
                                         <table:template> 
                                             <m:ComboBox 
-                                                    change="handlerChangeTenant"
-                                                    selectedKey="{model>tenant_id}" 
-                                                    busy="{model>isBusy}"
-                                                    items="{ 
-                                                        path: 'model>/tenants',
-                                                        templateShareable: false
-                                                    }"
-                                                    width="100%"
-                                                    loadItems="handlerLoadTenants"
-                                                >
-                                                    <core:ListItem
-                                                        key="{model>id}"
-                                                        text="{model>db_name}" />
-                                                </m:ComboBox> 
+                                                change="handlerChangeTenant"
+                                                selectedKey="{model>tenant_id}" 
+                                                busy="{model>isBusy}"
+                                                items="{ 
+                                                    path: 'model>/tenants',
+                                                    templateShareable: false
+                                                }"
+                                                width="100%"
+                                                loadItems="handlerLoadTenants"
+                                            >
+                                                <core:ListItem
+                                                    key="{model>id}"
+                                                    text="{model>db_name}" />
+                                            </m:ComboBox> 
                                         </table:template>
                                     </table:Column>
                                     <table:Column>

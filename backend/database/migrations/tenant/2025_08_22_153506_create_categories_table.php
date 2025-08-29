@@ -19,7 +19,7 @@ return new class extends Migration
             $table->integer('image_id')->nullable();
             $table->string('name')->nullable();
             $table->string('foreign_name')->nullable();
-            $table->enum('status', ['Active', 'Inactive'])->nullable();
+            $table->enum('status', ['Active', 'Inactive'])->nullable()->default('Active');
             $table->timestamps();
         });
     }

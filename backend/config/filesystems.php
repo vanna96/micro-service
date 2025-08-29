@@ -68,7 +68,8 @@ return [
             'use_path_style_endpoint' => true, 
         ],
 
-        'user' => $is_local ? disk_config("user") : ['root'  => 'user'] + ${env('STORAGE_DISK', 'public') . '_config'}
+        'user' => $is_local ? disk_config("user") : ['root'  => 'user'] + ${env('STORAGE_DISK', 'public') . '_config'},
+        'category' => $is_local ? disk_config("category") : ['root'  => 'category'] + ${env('STORAGE_DISK', 'public') . '_config'}
     ],
 
     /*

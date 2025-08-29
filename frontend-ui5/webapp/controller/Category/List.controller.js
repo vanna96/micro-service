@@ -1,34 +1,31 @@
 sap.ui.define([ 
     "my/app/controller/Base.controller",
     "my/app/repository/CategoryRepository",
-    "my/app/util/Pagination"
+    "my/app/util/Pagination",
+    "my/app/util/ToolbarList",
+    "my/app/util/Helper",
 ], function (
     BaseController,
     CategoryRepository,
-    Pagination
+    Pagination,
+    ToolbarList,
+    Helper
 ) {
     "use strict";
 
-    return BaseController.extend("my.app.controller.Category.List", {
-
+    return BaseController.extend("my.app.controller.Category.List", Object.assign(Pagination, ToolbarList, {
+        formatter: Helper,
         onInit: function () {
             BaseController.prototype.onInit.call(this);
-            document.title = "Category";  
-            this.oRouter.getRoute("category").attachPatternMatched(this.onListing, this); 
+            this.oRouter.getRoute("category").attachPatternMatched(this.onListing, this);
         },
 
-        onListing: async function () { 
+        onListing: async function () {
+            document.title = "Category";
             this.oModel.setData({
-                pagination: {
-                    currentPage: 1,
-                    pageSize: 20,
-                    totalItems: 0,
-                    totalPages: 0,
-                    hasPrevious: false,
-                    hasNext: false
-                },
+                pageSize: 20,
                 isLoading: false,
-                search: {}
+                search: ''
             });
 
             await this.loadData(1);
@@ -36,39 +33,26 @@ sap.ui.define([
 
         loadData: async function (pageNumber) {
             this.oModel.setProperty("/isLoading", true);
-            const pageSize = this.oModel.getProperty("/pagination/pageSize");
-            const search = this.oModel.getProperty("/search");
-            const skip = (pageNumber - 1) * pageSize;
-            const filters = [];
+            const pageSize = this.oModel.getProperty("/pageSize");
+            const search = this.oModel.getProperty("/search")
 
             const oParams = {
-                $top: pageSize,
-                $skip: skip,
-                $count: true
+                per_page: pageSize,
+                page: pageNumber,
+                search: search,
+                tenant: sessionStorage.getItem('tenant_id')
             };
 
-            if (search) {
-                // if (search.Search) filters.push(search.Search);
-                // if (search.CustomerName) filters.push(search.CustomerName);
-                // if (search.DocumentNo) filters.push(search.DocumentNo);
-                // if (search.SaleEmployee) filters.push(search.SaleEmployee);
-                // if (search.CustomerCode) filters.push(search.CustomerCode);
-                // if (search.Status) filters.push(search.Status);
-                // if (search.DocDate) filters.push(search.DocDate);
-            }
-
-            if (filters.length > 0) oParams.$filter = filters.join(' and ');
-
             try {
-                const data = await CategoryRepository.get(oParams);
-                const totalItems = data["odata.count"]; 
-                const paginationInfo = Pagination.getPaginationInfo(totalItems, pageSize, pageNumber);
-                this.oModel.setProperty("/data", data.value); 
+                const res = await CategoryRepository.get(oParams);
+                const totalItems = res["total"] ?? 0;
+                const paginationInfo = this.getPaginationInfo(totalItems, pageSize, pageNumber);
+                this.oModel.setProperty("/data", res['data'] ?? []);
                 this.oModel.setProperty("/pagination", paginationInfo);
 
             } catch (error) {
                 console.error("Error loading data:", error);
-            } finally{
+            } finally {
                 this.oModel.setProperty("/isLoading", false);
             }
         },
@@ -79,36 +63,8 @@ sap.ui.define([
             this.oRouter.navTo("category_edit", { id: sId });
         },
 
-        onNextPage: function() { 
-            var currentPage = this.oModel.getProperty("/pagination/currentPage");
-            var totalPages = this.oModel.getProperty("/pagination/totalPages");
-            
-            if (currentPage < totalPages) {
-                currentPage++;
-                this.loadData(currentPage);
-            }
-        },
-        
-        onPreviousPage: function() {
-            var currentPage = this.oModel.getProperty("/pagination/currentPage");
-            
-            if (currentPage > 1) {
-                currentPage--;
-                this.loadData(currentPage);
-            }
-        },
-
-        onFirstPage: function () {
-            this.loadData(1);
-        },
-
-        onLastPage: function () {
-            var totalPages = this.oModel.getProperty("/pagination/totalPages");
-            this.loadData(totalPages);
-        },
-
-        handlerCreate: function(){
+        handlerCreate: function () {
             this.oRouter.navTo("category_create");
         }
-    });
+    }));
 });

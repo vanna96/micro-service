@@ -32,7 +32,7 @@ sap.ui.define([
         hanlderCreateForm: function () {
             document.title = "";
             this.oModel.setData({
-                titleForm: 'Form Create',
+                titleForm: 'Administrator Form Create',
                 buttonSubmit: 'Save',
                 DocumentDate: this.formatDisplayDate(new Date()),
                 status: 'Active',
@@ -52,6 +52,8 @@ sap.ui.define([
             const oParams = oEvent.getParameter("arguments");
             const res = await AdministratorRepository.find(oParams?.id ?? 0)
             const data = await AdministratorModel.toModel(res.data);
+            const tenants = await this.handlerLoadTenants();
+
             this.oModel.setData({
                 titleForm: 'Form Edit',
                 buttonSubmit: 'Update',
@@ -60,7 +62,8 @@ sap.ui.define([
                     { key: "username", msg: "Username is required!" },
                     { key: "name", msg: "Name is required" },
                     { key: "phone", msg: "Phone is required" },
-                ]
+                ],
+                tenants
             });
             BusyIndicator.hide();
         },
@@ -101,31 +104,26 @@ sap.ui.define([
             let doc_tenants = this.oModel.getProperty('/doc_tenants') || [];
             doc_tenants.push({});
             this.oModel.setProperty('/doc_tenants', doc_tenants);
-            // let _tenants = this.oModel.getProperty('/tenants');
-            // if (!_tenants) _tenants = await this.handlerLoadTenants();
-
         },
 
         handlerLoadTenants: async function (oEvent) {
-            var oComboBox = oEvent.getSource();
-            var oContext = oComboBox.getBindingContext("model");
-
-            if (!oContext) return;
-            oContext.setProperty("isBusy", true);
+            var oComboBox = oEvent?.getSource();
+            var oContext = oComboBox?.getBindingContext("model");
+            
+            oContext?.setProperty("isBusy", true);
 
             let _res = await TenantRepository.get({
                 per_page: 1000000
             });
             _res = (_res.data || []).map((result) => new TenantModel.toModel(result))
-
-            oContext.setProperty("isBusy", false);
+            
+            oContext?.setProperty("isBusy", false);
             this.oModel.setProperty('/tenants', _res);
             return _res;
         },
 
         handlerChangeTenant: function (oEvent) {
             var oSource = oEvent.getSource();
-            var pKey = oSource.getProperty('name');
             var oBindingContext = oSource.getBindingContext("model");
             var sPath = oBindingContext.getPath();
             var aParts = sPath.split("/");

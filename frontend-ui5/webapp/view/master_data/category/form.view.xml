@@ -54,11 +54,9 @@
                             <f:Form>
                                 <f:layout>
                                     <f:ResponsiveGridLayout
-                                        labelSpanXL="2"
-                                        labelSpanL="3"
-                                        labelSpanM="12"
-                                        labelSpanS="12"
-                                        adjustLabelSpan="false"
+                                        labelSpanXL="4"
+                                        labelSpanL="4"
+                                        labelSpanM="4"
                                         emptySpanXL="0"
                                         emptySpanL="0"
                                         emptySpanM="0"
@@ -71,12 +69,23 @@
                                 <f:FormContainer title="">
                                     <f:formElements> 
                                         <f:FormElement label="Parent">
-                                            <f:fields>
-                                                <m:ComboBox
-                                                    items="{model>/parents}"
-                                                    loadItems="handlerLoadCategory">
-                                                    <core:Item key="{key}" text="{text}" />
-                                                </m:ComboBox>
+                                            <f:fields> 
+                                                <m:ComboBox 
+                                                    name="parent"
+                                                    change="handlerInputChange"
+                                                    busy="{model>/isBusyParent}"
+                                                    selectedKey="{model>/parent}"  
+                                                    items="{ 
+                                                        path: 'model>/parents',
+                                                        templateShareable: false
+                                                    }"
+                                                    width="100%"
+                                                    loadItems="handlerLoadCategories"
+                                                >
+                                                    <core:ListItem
+                                                        key="{model>id}"
+                                                        text="{model>name}" />
+                                                </m:ComboBox> 
                                             </f:fields>
                                         </f:FormElement>
                                         <f:FormElement label="Name">

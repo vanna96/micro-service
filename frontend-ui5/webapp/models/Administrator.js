@@ -75,7 +75,12 @@ sap.ui.define([
                 dob: data['dob'],
                 status: data['status'],
                 DocumentDate: data['created_at'],
-                attachments: attachments
+                attachments: attachments,
+                doc_tenants: (data?.tenants || [])
+                                .map(tenant => ({
+                                    tenant_id: tenant.id,
+                                    tenant
+                                }))
             };
         }
 

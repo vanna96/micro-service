@@ -16,4 +16,20 @@ class Category extends Model
         'foreign_name',
         'status',
     ];
+    
+    public function galleries()
+    {
+        return $this->morphMany(Gallery::class, 'gallarieable');
+    }
+
+    public function parent()
+    {
+        return $this->belongsTo(Category::class, 'parent_id');
+    }
+
+    public function children()
+    {
+        return $this->hasMany(Category::class, 'parent_id');
+    }
+
 }

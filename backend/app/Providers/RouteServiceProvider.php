@@ -38,8 +38,7 @@ class RouteServiceProvider extends ServiceProvider
                 ->group(base_path('routes/web.php'));
 
             // Tenant domains
-            Route::middleware('api')
-                ->prefix('v1/api')
+            Route::middleware('api') 
                 ->group(function () {
                     Route::group([
                         'domain' => '{tenant}.localhost',

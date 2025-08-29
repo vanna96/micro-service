@@ -134,12 +134,12 @@ class AuthController extends Controller
             'device_ip'   => $request->ip(),
             'user_agent'  => $request->userAgent(),
         ])->save();
-
+       
         return response()->json([
             'success' => true,
             'message' => translate('Login successful', request('lng')),
             'data' => [
-                'user'      => $user,
+                'user'      => $user->load('tenants'),
                 'token'     => $plainTextToken,
                 'timeout'   => $timeout
             ]

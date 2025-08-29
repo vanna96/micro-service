@@ -1,15 +1,11 @@
 <?php
 
-use App\Http\Controllers\API\V1\AdministratorController;
-use Illuminate\Http\Request;
+use App\Http\Controllers\API\V1\AdministratorController; 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\V1\AuthController;
-use App\Http\Controllers\API\V1\TenantController;
-use Stancl\Tenancy\Middleware\InitializeTenancyByPath;
-use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
-use Stancl\Tenancy\Middleware\InitializeTenancyByRequestData;
-use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
-use Laravel\Sanctum\PersonalAccessToken;
+use App\Http\Controllers\API\V1\TenantController; 
+use Stancl\Tenancy\Middleware\InitializeTenancyByRequestData; 
+use App\Http\Controllers\API\V1\CategoryController; 
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -51,24 +47,16 @@ Route::middleware(['api'])->group(function () {
 
 });
 
-// Route::middleware([ InitializeTenancyByRequestData::class, 'api'])->prefix('tenant')->group(function () {
-//     Route::get('/test', function () {
-//         $accessToken = request()->bearerToken();
-//         if (!$accessToken || !str_contains($accessToken, '|')) return response()->json(['message' => 'Invalid token format'], 401);
+Route::middleware([ 
+        'api',
+        InitializeTenancyByRequestData::class,
+        'tenant.active',
+        'tenant.access'
+    ])->group(function ($r) {
 
-//         [$id, $token] = explode('|', $accessToken, 2);
-//         $tokenModel = PersonalAccessToken::on('central')->find($id);
-
-//         if (!$tokenModel) return response()->json(['message' => 'Unauthenticated.'], 401);
-//         if (!hash_equals($tokenModel->token, hash('sha256', $token))) return response()->json(['message' => 'Unauthenticated.'], 401);
-
-//         $user = $tokenModel->tokenable;
-//         auth()->setUser($user);
-
-//         App\Models\Category::create(['name' => 'Test Category from tenant route']);
-//         return [
-//             'user' => $user,
-//             'tenant_id' => tenant('id'),
-//         ];
-//     });
-// });
+    $r->prefix('category')
+        ->group(function () {
+            Route::get('list', [CategoryController::class, 'list']);
+            Route::post('store', [CategoryController::class, 'store']);
+        });
+});

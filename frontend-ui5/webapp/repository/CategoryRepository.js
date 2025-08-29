@@ -4,61 +4,31 @@ sap.ui.define([
     "use strict";
 
     return {
-        endPoint: "Category",
+        endPoint: "category",
         get: async function (queryParams) {
-            function toQueryString(params){
+            function toQueryString(params) {
                 return Object.keys(params)
-                    .map(function (key){
+                    .map(function (key) {
                         return encodeURIComponent(key) + "=" + encodeURIComponent(params[key]);
                     })
                     .join("&");
             }
-            return {
-                "odata.count": 100,
-                "value": [
-                    {
-                        'id' : 1,
-                        'name' : 'អាវដៃវែង',
-                        'foreign_name': 'Long Shirt',
-                        'status': 'Active',
-                        'created_at': '2025-02-17'
-                    },
-                    {
-                        'id' : 2,
-                        'name' : 'អាវដៃខ្លី',
-                        'foreign_name': 'Short Shirt',
-                        'status': 'Inactive',
-                        'created_at': '2025-02-18'
-                    },
-                    {
-                        'id' : 3,
-                        'name' : 'បញ្ចុះតម្លៃ១០%',
-                        'foreign_name': 'Discount 10%',
-                        'status': 'Active',
-                        'created_at': '2025-02-19'
-                    },
-                    {
-                        'id' : 4,
-                        'name' : 'បញ្ចុះតម្លៃ១០%',
-                        'foreign_name': 'Discount 10%',
-                        'parent': 'បញ្ចុះតម្លៃ',
-                        'status': 'Active'
-                    },
-                    {
-                        'id' : 5,
-                        'name' : 'បញ្ចុះតម្លៃ',
-                        'foreign_name': 'Discount',
-                        'status': 'Active',
-                        'created_at': '2025-02-20'
-                    }
-                ]
-            };
             const queryString = queryParams ? "?" + toQueryString(queryParams) : "";
-            return await HttpService.callApi("GET", HttpService.getUrl(`${this.endPoint}${queryString}`)); 
+            return await HttpService.callApi("GET", HttpService.getUrl(`${this.endPoint}/list${queryString}`));
         },
-        count: async function (queryParams) {
-            const res =  await HttpService.callApi("GET", `https://jsonplaceholder.typicode.com/posts`);  
-            return res.length ?? 0;
+
+        find: async function (id) {
+            if (!id) return;
+            return await HttpService.callApi("GET", HttpService.getUrl(`${this.endPoint}/edit/${id}?tenant=${sessionStorage.getItem('tenant_id')}`));
+        },
+
+        post: async function (payload) {
+            return await HttpService.callApi("POST", HttpService.getUrl(`${this.endPoint}/store?tenant=${sessionStorage.getItem('tenant_id')}`), payload);
+        },
+
+        update: async function (id, payload) {
+            if (!id) return;
+            return await HttpService.callApi("PATCH", HttpService.getUrl(`${this.endPoint}/update/${id}?tenant=${sessionStorage.getItem('tenant_id')}`), payload);
         },
     };
 });

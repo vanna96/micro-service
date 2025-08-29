@@ -19,7 +19,8 @@ sap.ui.define([], () => {
 
                 default:
                     if (
-                        pKey === 'gender'
+                        pKey === 'gender' ||
+                        pKey === 'parent'
                     ) pValue = oSource.getSelectedKey();
                     else pValue = oSource.getValue();
                     break;

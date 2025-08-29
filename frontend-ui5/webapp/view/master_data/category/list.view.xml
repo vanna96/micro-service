@@ -12,7 +12,7 @@
             <f:DynamicPageTitle>
                 <f:content>
                     <m:OverflowToolbar>
-                        <m:SearchField width="300px" search="handlerSearch" placeholder="Search"/>
+                        <m:SearchField width="300px" value="{model>/search}" change="handlerSearchChange" search="handlerSearch" placeholder="Search"/>
                     </m:OverflowToolbar>
                 </f:content>
                 <f:actions>
@@ -34,6 +34,25 @@
                     <m:OverflowToolbar>
                         <m:Title text="Categories ({model>/pagination/totalItems})" level="H2" />
                         <m:ToolbarSpacer />
+                        <m:Button text="{i18n>Refresh}" press="handlerRefreshList"/>
+                        <m:Button text="{i18n>Reset}" press="handlerResetList"/>
+                        <m:OverflowToolbarMenuButton
+                            tooltip="Export"
+                            type="Transparent"
+                            text="{i18n>Export}"
+                            buttonMode="Split"
+                            icon="sap-icon://download"
+                            defaultAction="onDefaultActionAccept"
+                            beforeMenuOpen="onBeforeMenuOpen"
+                            useDefaultActionOnly="true">
+                            <m:menu>
+                                <m:Menu itemSelected="onMenuAction">
+                                    <m:MenuItem text="Export as PDF" icon="sap-icon://pdf-attachment" />
+                                    <m:MenuItem text="Export to Excel" icon="sap-icon://excel-attachment" />
+                                </m:Menu>
+                            </m:menu>
+                        </m:OverflowToolbarMenuButton>
+                        <m:ToolbarSeparator />
                         <m:Button icon="sap-icon://close-command-field" press="onFirstPage"
                             tooltip="First" enabled="{model>/pagination/hasPrevious}" />
                         <m:Button icon="sap-icon://navigation-left-arrow" press="onPreviousPage"
