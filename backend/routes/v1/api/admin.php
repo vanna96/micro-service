@@ -1,11 +1,11 @@
 <?php
 
-use App\Http\Controllers\API\V1\AdministratorController; 
+use App\Http\Controllers\API\V1\AdministratorController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\V1\AuthController;
-use App\Http\Controllers\API\V1\TenantController; 
-use Stancl\Tenancy\Middleware\InitializeTenancyByRequestData; 
-use App\Http\Controllers\API\V1\CategoryController; 
+use App\Http\Controllers\API\V1\TenantController;
+use Stancl\Tenancy\Middleware\InitializeTenancyByRequestData;
+use App\Http\Controllers\API\V1\CategoryController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -47,7 +47,7 @@ Route::middleware(['api'])->group(function () {
 
 });
 
-Route::middleware([ 
+Route::middleware([
         'api',
         InitializeTenancyByRequestData::class,
         'tenant.active',
@@ -58,5 +58,6 @@ Route::middleware([
         ->group(function () {
             Route::get('list', [CategoryController::class, 'list']);
             Route::post('store', [CategoryController::class, 'store']);
+            // Route::post('edit/{category}', [CategoryController::class, 'edit']);
         });
 });

@@ -81,7 +81,7 @@ sap.ui.define([
                 data: payload,
                 requiredFields: data.requiredFields
             })) return;
-            
+
             try {
                 BusyIndicator.show();
                 let res;
@@ -109,14 +109,14 @@ sap.ui.define([
         handlerLoadTenants: async function (oEvent) {
             var oComboBox = oEvent?.getSource();
             var oContext = oComboBox?.getBindingContext("model");
-            
+
             oContext?.setProperty("isBusy", true);
 
             let _res = await TenantRepository.get({
                 per_page: 1000000
             });
             _res = (_res.data || []).map((result) => new TenantModel.toModel(result))
-            
+
             oContext?.setProperty("isBusy", false);
             this.oModel.setProperty('/tenants', _res);
             return _res;
@@ -130,14 +130,13 @@ sap.ui.define([
             var iIndex = aParts[aParts.length - 1];
 
             var oSelectedItem = oSource.getSelectedItem();
-            if (oSelectedItem)
-            {
+            if (oSelectedItem) {
                 var oContext = oSelectedItem.getBindingContext("model");
-                var oSelectedObject = oContext.getObject(); 
-                
-                this.oModel.setProperty(`/doc_tenants/${ iIndex }/tenant`, oSelectedObject)
+                var oSelectedObject = oContext.getObject();
+
+                this.oModel.setProperty(`/doc_tenants/${iIndex}/tenant`, oSelectedObject)
                 this.oModel.setProperty(`/doc_tenants/${iIndex}/tenant_id`, oSource.getSelectedKey());
-            } 
+            }
         },
 
         handlerRemoveTenants: function (oEvent) {

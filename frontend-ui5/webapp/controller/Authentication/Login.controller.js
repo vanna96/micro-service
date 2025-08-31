@@ -50,7 +50,7 @@ sap.ui.define([
                 }];
                 const userTenants = res.data?.user?.tenants || [];
 
-                if(tenants.length > 0) { 
+                if (tenants.length > 0) {
                     tenants.push(...userTenants)
                     new Funtion.smgDialog({
                         title: 'Tanents',
@@ -71,7 +71,7 @@ sap.ui.define([
                         },
                         onCancel: () => oRouter.navTo("dashboard"),
                     })
-                }else setTimeout(() => oRouter.navTo("dashboard"), 1000)
+                } else setTimeout(() => oRouter.navTo("dashboard"), 1000)
             } catch (error) {
                 console.error(error)
                 let errorMessage = "Unknown error occurred.";

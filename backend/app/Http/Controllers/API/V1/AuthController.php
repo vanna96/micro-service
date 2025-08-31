@@ -46,7 +46,7 @@ class AuthController extends Controller
         try {
             $user = User::create($validated);
 
-            if ($profile) { 
+            if ($profile) {
                 $matches = [];
                 $extension =  'png';
                 // Try to match "data:image/png;base64,"
@@ -57,10 +57,10 @@ class AuthController extends Controller
                 }
                 $base64Data = preg_replace("/^data:image\/\w+;base64,/", '', $profile);
                 $imageData = base64_decode($base64Data);
-                $fileName = "user_".uniqid().".".$extension;
+                $fileName = "user_" . uniqid() . "." . $extension;
                 \Storage::disk('user')->put($fileName, $imageData);
 
-                $gallery = $user->galleries()->create([ 
+                $gallery = $user->galleries()->create([
                     'type' => "thumbnail",
                     'status' => "Active",
                     'name' => $fileName
@@ -134,7 +134,7 @@ class AuthController extends Controller
             'device_ip'   => $request->ip(),
             'user_agent'  => $request->userAgent(),
         ])->save();
-       
+
         return response()->json([
             'success' => true,
             'message' => translate('Login successful', request('lng')),
@@ -149,7 +149,7 @@ class AuthController extends Controller
     public function auth(Request $request)
     {
         return response()->json([
-            'user' => $request->user()
+            'user' => $request->user()->load('tenants'),
         ]);
     }
 

@@ -23,6 +23,15 @@
 
 			<ToolbarSpacer />
             <Button
+				icon="sap-icon://retail-store"
+				tooltip="Tenants"
+				press="handlerChangeTenant"
+				type="Transparent">
+                 <layoutData>
+                    <OverflowToolbarLayoutData priority="NeverOverflow"/>
+                </layoutData>
+			</Button>
+            <Button
 				icon="sap-icon://translate"
 				tooltip="Translate"
 				press="handlerChangeLanguage"

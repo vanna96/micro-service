@@ -19,8 +19,9 @@ sap.ui.define([
                 status: data['status'],
                 profile: data?.attachments?.[0]?.SourcePath,
                 tenants: (data?.doc_tenants || [])
-                                .map(t => t.tenant_id)
-                                .filter(id => typeof id === undefined || !isNaN(id))
+                    .filter(({ tenant_id }) => tenant_id)
+                    .map(t => t.tenant_id)
+
             }
             return json
         },
@@ -77,10 +78,10 @@ sap.ui.define([
                 DocumentDate: data['created_at'],
                 attachments: attachments,
                 doc_tenants: (data?.tenants || [])
-                                .map(tenant => ({
-                                    tenant_id: tenant.id,
-                                    tenant
-                                }))
+                    .map(tenant => ({
+                        tenant_id: tenant.id,
+                        tenant
+                    }))
             };
         }
 

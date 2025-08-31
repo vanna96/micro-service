@@ -16,7 +16,9 @@ sap.ui.define([
     'my/app/repository/PermissionRepository',
     "my/app/util/HttpService",
     "my/app/util/Funtion",
-    "my/app/util/Helper"
+    "my/app/util/Helper",
+    "my/app/util/Crypto",
+    "sap/ui/core/BusyIndicator",
 ], (
     Device,
     Controller,
@@ -35,7 +37,9 @@ sap.ui.define([
     PermissionRepository,
     HttpService,
     Funtion,
-    Helper
+    Helper,
+    Crypto,
+    BusyIndicator
 ) => {
     "use strict";
 
@@ -324,8 +328,41 @@ sap.ui.define([
                     oComponent.setLanguage(selectedLang);
                 }
             });
-        }
+        },
 
+        handlerChangeTenant: async function () {
+            BusyIndicator.show();
+            var that = this;
+            that.selectedTenantId = sessionStorage.getItem('tenant_id');
+            const res = await HttpService.callApi("GET", HttpService.getUrl('user/auth'));
+            const tenants = [{
+                id: null,
+                db_name: 'Select Tenant'
+            }];
+            BusyIndicator.hide();
+            const userTenants = res.user.tenants || [];
+
+            if (tenants.length > 0) {
+                tenants.push(...userTenants)
+                console.log(tenants);
+                new Funtion.smgDialog({
+                    title: 'Tanents',
+                    content: new sap.m.Select({
+                        width: "100%",
+                        selectedKey: that.selectedTenantId,
+                        items: tenants.map(tenant => new sap.ui.core.Item({
+                            key: tenant.id,
+                            text: tenant.db_name
+                        })),
+                        change: function (oEvent) {
+                            that.selectedTenantId = oEvent.getSource().getSelectedKey();
+                            that.oMenuModel.setProperty('/tenant_id', that.selectedTenantId);
+                        }
+                    }),
+                    onOk: () => sessionStorage.setItem('tenant_id', that.selectedTenantId)
+                })
+            }
+        }
 
     });
 

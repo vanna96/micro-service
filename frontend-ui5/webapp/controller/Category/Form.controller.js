@@ -1,4 +1,4 @@
-sap.ui.define([ 
+sap.ui.define([
     "my/app/controller/Base.controller",
     "my/app/repository/CategoryRepository",
     "my/app/util/Pagination",
@@ -71,7 +71,7 @@ sap.ui.define([
                 data: payload,
                 requiredFields: data.requiredFields
             })) return;
-            
+
             try {
                 BusyIndicator.show();
                 let res;
@@ -88,19 +88,22 @@ sap.ui.define([
                 Funtion.errMessageDialog.call(this, error)
                 BusyIndicator.hide();
             }
-        }, 
+        },
 
-        handlerLoadCategories: async function (oEvent) { 
-            this.oModel.setProperty('/isBusyParent', true);
-            let _res = await CategoryRepository.get({
-                per_page: 1000000,
-                tenant: sessionStorage.getItem('tenant_id')
-            });
-            _res = (_res.data || []).map((result) => new CategoryModel.toModel(result))
-            
-            this.oModel.setProperty('/isBusyParent', false);
-            this.oModel.setProperty('/parents', _res);
-            return _res;
+        handlerLoadCategories: async function (oEvent) {
+            try {
+                this.oModel.setProperty('/isBusyParent', true);
+                let _res = await CategoryRepository.get({
+                    per_page: 1000000,
+                    tenant: sessionStorage.getItem('tenant_id')
+                });
+                _res = (_res.data || []).map((result) => new CategoryModel.toModel(result))
+
+                this.oModel.setProperty('/parents', _res);
+                return _res;
+            } catch (error) {
+                this.oModel.setProperty('/isBusyParent', false);
+            }
         }
 
     }, FileHelper, Funtion));

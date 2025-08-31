@@ -1,15 +1,17 @@
-sap.ui.define([ 
+sap.ui.define([
     "my/app/controller/Base.controller",
     "my/app/repository/CategoryRepository",
     "my/app/util/Pagination",
     "my/app/util/ToolbarList",
     "my/app/util/Helper",
+    "sap/m/MessageBox",
 ], function (
     BaseController,
     CategoryRepository,
     Pagination,
     ToolbarList,
-    Helper
+    Helper,
+    MessageBox
 ) {
     "use strict";
 
@@ -52,6 +54,16 @@ sap.ui.define([
 
             } catch (error) {
                 console.error("Error loading data:", error);
+                this.oModel.setProperty("/data", []);
+                this.oModel.setProperty("/pagination", null);
+                let errorMessage = "Unknown error occurred.";
+                if (error && error.responseJSON) {
+                    if (error.responseJSON && error.responseJSON.message) {
+                        errorMessage = error.responseJSON.message;
+                    }
+                }
+
+                MessageBox.error(errorMessage);
             } finally {
                 this.oModel.setProperty("/isLoading", false);
             }

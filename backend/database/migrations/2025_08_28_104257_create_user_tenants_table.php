@@ -16,7 +16,7 @@ return new class extends Migration
         Schema::create('user_tenants', function (Blueprint $table) {
             $table->id();
             $table->integer('user_id')->nullable();
-            $table->integer('tenant_id')->nullable(); 
+            $table->string('tenant_id')->nullable();
             $table->timestamps();
         });
     }
