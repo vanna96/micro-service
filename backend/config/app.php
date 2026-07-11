@@ -154,7 +154,7 @@ return [
     |
     */
 
-    'providers' => [
+    'providers' => array_values(array_filter([
 
         /*
          * Laravel Framework Service Providers...
@@ -194,10 +194,11 @@ return [
         // App\Providers\BroadcastServiceProvider::class,
         App\Providers\EventServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
+        env('TELESCOPE_ENABLED', true) ? App\Providers\TelescopeServiceProvider::class : null,
 
         // Tenancy
         App\Providers\TenancyServiceProvider::class
-    ],
+    ])),
 
     /*
     |--------------------------------------------------------------------------

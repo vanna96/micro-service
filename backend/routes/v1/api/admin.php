@@ -6,6 +6,9 @@ use App\Http\Controllers\API\V1\AuthController;
 use App\Http\Controllers\API\V1\TenantController;
 use Stancl\Tenancy\Middleware\InitializeTenancyByRequestData;
 use App\Http\Controllers\API\V1\CategoryController;
+use App\Http\Controllers\API\V1\ItemController;
+use App\Http\Controllers\API\V1\BranchController;
+use App\Http\Controllers\API\V1\CartPricingController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -58,6 +61,31 @@ Route::middleware([
         ->group(function () {
             Route::get('list', [CategoryController::class, 'list']);
             Route::post('store', [CategoryController::class, 'store']);
-            // Route::post('edit/{category}', [CategoryController::class, 'edit']);
+            Route::get('edit/{category}', [CategoryController::class, 'edit']);
+            Route::match(['put', 'patch'], 'update/{category}', [CategoryController::class, 'update']);
+            Route::delete('delete/{category}', [CategoryController::class, 'delete']);
+        });
+
+    $r->prefix('branch')
+        ->group(function () {
+            Route::get('list', [BranchController::class, 'list']);
+            Route::post('store', [BranchController::class, 'store']);
+            Route::get('edit/{branch}', [BranchController::class, 'edit']);
+            Route::match(['put', 'patch'], 'update/{branch}', [BranchController::class, 'update']);
+            Route::delete('delete/{branch}', [BranchController::class, 'delete']);
+        });
+
+    $r->prefix('item')
+        ->group(function () {
+            Route::get('list', [ItemController::class, 'list']);
+            Route::post('store', [ItemController::class, 'store']);
+            Route::get('edit/{item}', [ItemController::class, 'edit']);
+            Route::match(['put', 'patch'], 'update/{item}', [ItemController::class, 'update']);
+            Route::delete('delete/{item}', [ItemController::class, 'delete']);
+        });
+
+    $r->prefix('cart')
+        ->group(function () {
+            Route::post('price', [CartPricingController::class, 'price']);
         });
 });

@@ -190,3 +190,230 @@ if (!function_exists('disk_config')) {
         ];
     }
 }
+
+if (! function_exists('admin_auth_scope')) {
+    function admin_auth_scope(): string
+    {
+        if (! app()->bound('session')) {
+            return 'administrator';
+        }
+
+        return (string) session('auth_user_scope', 'administrator');
+    }
+}
+
+if (! function_exists('admin_is_tenant_user')) {
+    function admin_is_tenant_user(): bool
+    {
+        return admin_auth_scope() === 'tenant';
+    }
+}
+
+if (! function_exists('admin_can_manage_administrators')) {
+    function admin_can_manage_administrators(): bool
+    {
+        return ! admin_is_tenant_user();
+    }
+}
+
+if (! function_exists('admin_can_switch_tenant')) {
+    function admin_can_switch_tenant(): bool
+    {
+        return ! admin_is_tenant_user();
+    }
+}
+
+if (! function_exists('admin_auth_tenant_id')) {
+    function admin_auth_tenant_id(): ?string
+    {
+        if (! app()->bound('session')) {
+            return null;
+        }
+
+        $tenantId = (string) session('auth_tenant_id', '');
+
+        return $tenantId !== '' ? $tenantId : null;
+    }
+}
+
+if (! function_exists('admin_accessible_tenants')) {
+    function admin_accessible_tenants()
+    {
+        if (! auth()->check()) {
+            return collect();
+        }
+
+        if (admin_is_tenant_user()) {
+            $tenantId = admin_auth_tenant_id();
+
+            if (! $tenantId) {
+                return collect();
+            }
+
+            return \App\Models\Tenant::query()
+                ->where('id', $tenantId)
+                ->where('status', 'Active')
+                ->get();
+        }
+
+        return auth()->user()
+            ->tenants()
+            ->where('status', 'Active')
+            ->orderBy('id')
+            ->get();
+    }
+}
+
+if (! function_exists('admin_current_tenant')) {
+    function admin_current_tenant(): ?\App\Models\Tenant
+    {
+        $tenantOptions = admin_accessible_tenants();
+        $selectedTenantId = (string) session('admin_selected_tenant_id', admin_auth_tenant_id() ?: '');
+
+        if ($selectedTenantId === '') {
+            return null;
+        }
+
+        return $tenantOptions->firstWhere('id', $selectedTenantId);
+    }
+}
+
+if (! function_exists('admin_tenant_display_name')) {
+    function admin_tenant_display_name(?\App\Models\Tenant $tenant): string
+    {
+        if (! $tenant) {
+            return '';
+        }
+
+        $dbName = trim((string) ($tenant->db_name ?? ''));
+
+        return $dbName !== '' ? $dbName : (string) $tenant->id;
+    }
+}
+
+if (! function_exists('tenant_currency_query')) {
+    function tenant_currency_query(): \Illuminate\Database\Eloquent\Builder
+    {
+        $currency = new \App\Models\Currency();
+        $currentTenant = tenant() ?: admin_current_tenant();
+
+        if ($currentTenant && filled($currentTenant->database_connection_name ?? null)) {
+            $currency->setConnection($currentTenant->database_connection_name);
+        }
+
+        return $currency->newQuery();
+    }
+}
+
+if (! function_exists('tenant_base_currency')) {
+    function tenant_base_currency(?\App\Models\Tenant $tenantModel = null): ?\App\Models\Currency
+    {
+        $tenantModel = $tenantModel ?: tenant() ?: admin_current_tenant();
+        $currencyCode = strtoupper(trim((string) data_get($tenantModel?->general_settings, 'currency', '')));
+
+        if ($currencyCode === '') {
+            return null;
+        }
+
+        return tenant_currency_query()
+            ->where('status', 'Active')
+            ->where('code', $currencyCode)
+            ->first();
+    }
+}
+
+if (! function_exists('currency_decimal_places')) {
+    function currency_decimal_places(?\App\Models\Currency $currency = null, int $fallback = 2): int
+    {
+        if (! $currency) {
+            return max($fallback, 0);
+        }
+
+        return max((int) ($currency->decimal_places ?? $fallback), 0);
+    }
+}
+
+if (! function_exists('currency_input_step')) {
+    function currency_input_step(?\App\Models\Currency $currency = null, int $fallback = 2): string
+    {
+        $decimalPlaces = currency_decimal_places($currency, $fallback);
+
+        if ($decimalPlaces === 0) {
+            return '1';
+        }
+
+        return '0.' . str_repeat('0', $decimalPlaces - 1) . '1';
+    }
+}
+
+if (! function_exists('currency_decimal_count')) {
+    function currency_decimal_count($value): int
+    {
+        $normalizedValue = trim((string) $value);
+
+        if ($normalizedValue === '') {
+            return 0;
+        }
+
+        if (preg_match('/^\+?\d+(?:\.(\d+))?$/', $normalizedValue, $matches) !== 1) {
+            return 0;
+        }
+
+        return strlen($matches[1] ?? '');
+    }
+}
+
+if (! function_exists('round_currency_amount')) {
+    function round_currency_amount($amount, ?\App\Models\Currency $currency = null, int $fallback = 2): float
+    {
+        return round((float) $amount, currency_decimal_places($currency, $fallback));
+    }
+}
+
+if (! function_exists('format_currency_amount')) {
+    function format_currency_amount($amount, ?\App\Models\Currency $currency = null, bool $includeCode = true, int $fallback = 2): string
+    {
+        $decimalPlaces = currency_decimal_places($currency, $fallback);
+        $formattedAmount = number_format(
+            round_currency_amount($amount, $currency, $fallback),
+            $decimalPlaces,
+            '.',
+            ','
+        );
+
+        $currencyCode = strtoupper(trim((string) ($currency?->code ?? '')));
+
+        if (! $includeCode || $currencyCode === '') {
+            return $formattedAmount;
+        }
+
+        return $currencyCode . ' ' . $formattedAmount;
+    }
+}
+
+if (! function_exists('tenant_permission_groups')) {
+    function tenant_permission_groups(): \Illuminate\Support\Collection
+    {
+        return collect(config('tenant_permissions.permissions', []))
+            ->groupBy('group');
+    }
+}
+
+if (! function_exists('admin_has_permission')) {
+    function admin_has_permission(string $permission): bool
+    {
+        if (! auth()->check()) {
+            return false;
+        }
+
+        if (! admin_is_tenant_user()) {
+            return true;
+        }
+
+        $user = auth()->user();
+
+        return $user && method_exists($user, 'hasTenantPermission')
+            ? $user->hasTenantPermission($permission)
+            : false;
+    }
+}

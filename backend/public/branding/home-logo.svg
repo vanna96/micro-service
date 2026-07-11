@@ -1,0 +1,18 @@
+<svg width="1600" height="500" viewBox="0 0 1600 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="500" fill="white"/>
+
+  <g stroke="#191919" stroke-width="34" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M170 120V380"/>
+    <path d="M320 120V380"/>
+    <path d="M170 250H320"/>
+
+    <ellipse cx="550" cy="250" rx="120" ry="130"/>
+
+    <path d="M760 380V120L890 255L1020 120V380"/>
+
+    <path d="M1140 120V380"/>
+    <path d="M1140 120H1400"/>
+    <path d="M1140 250H1360"/>
+    <path d="M1140 380H1400"/>
+  </g>
+</svg>

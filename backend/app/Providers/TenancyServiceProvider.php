@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use Closure;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
-use Stancl\JobPipeline\JobPipeline;
+use Laravel\Telescope\Contracts\ClearableRepository as TelescopeClearableRepository;
+use Laravel\Telescope\Contracts\EntriesRepository as TelescopeEntriesRepository;
+use Laravel\Telescope\Contracts\PrunableRepository as TelescopePrunableRepository;
+use Laravel\Telescope\Storage\DatabaseEntriesRepository as TelescopeDatabaseEntriesRepository;
 use Stancl\Tenancy\Events;
 use Stancl\Tenancy\Jobs;
 use Stancl\Tenancy\Listeners;
@@ -24,17 +28,7 @@ class TenancyServiceProvider extends ServiceProvider
             // Tenant events
             Events\CreatingTenant::class => [],
             Events\TenantCreated::class => [
-                JobPipeline::make([
-                    Jobs\CreateDatabase::class,
-                    Jobs\MigrateDatabase::class,
-                    // Jobs\SeedDatabase::class,
-
-                    // Your own jobs to prepare the tenant.
-                    // Provision API keys, create S3 buckets, anything you want!
-
-                ])->send(function (Events\TenantCreated $event) {
-                    return $event->tenant;
-                })->shouldBeQueued(false), // `false` by default, but you probably want to make this `true` for production.
+                $this->tenantCreatedListener(),
             ],
             Events\SavingTenant::class => [],
             Events\TenantSaved::class => [],
@@ -42,11 +36,7 @@ class TenancyServiceProvider extends ServiceProvider
             Events\TenantUpdated::class => [],
             Events\DeletingTenant::class => [],
             Events\TenantDeleted::class => [
-                JobPipeline::make([
-                    Jobs\DeleteDatabase::class,
-                ])->send(function (Events\TenantDeleted $event) {
-                    return $event->tenant;
-                })->shouldBeQueued(false), // `false` by default, but you probably want to make this `true` for production.
+                $this->tenantDeletedListener(),
             ],
 
             // Domain events
@@ -70,11 +60,13 @@ class TenancyServiceProvider extends ServiceProvider
             Events\InitializingTenancy::class => [],
             Events\TenancyInitialized::class => [
                 Listeners\BootstrapTenancy::class,
+                $this->useTenantTelescopeStorage(),
             ],
 
             Events\EndingTenancy::class => [],
             Events\TenancyEnded::class => [
                 Listeners\RevertToCentralContext::class,
+                $this->useCentralTelescopeStorage(),
             ],
 
             Events\BootstrappingTenancy::class => [],
@@ -109,12 +101,67 @@ class TenancyServiceProvider extends ServiceProvider
     {
         foreach ($this->events() as $event => $listeners) {
             foreach ($listeners as $listener) {
-                if ($listener instanceof JobPipeline) {
-                    $listener = $listener->toListener();
-                }
-
                 Event::listen($event, $listener);
             }
+        }
+    }
+
+    protected function tenantCreatedListener(): Closure
+    {
+        return function (Events\TenantCreated $event): void {
+            foreach ([Jobs\CreateDatabase::class, Jobs\MigrateDatabase::class] as $jobClass) {
+                $result = app()->call([new $jobClass($event->tenant), 'handle']);
+
+                if ($result === false) {
+                    break;
+                }
+            }
+        };
+    }
+
+    protected function tenantDeletedListener(): Closure
+    {
+        return function (Events\TenantDeleted $event): void {
+            app()->call([new Jobs\DeleteDatabase($event->tenant), 'handle']);
+        };
+    }
+
+    protected function useTenantTelescopeStorage(): Closure
+    {
+        return function (): void {
+            if (! class_exists(TelescopeDatabaseEntriesRepository::class)) {
+                return;
+            }
+
+            config()->set('telescope.storage.database.connection', 'tenant');
+            $this->forgetTelescopeRepositories();
+        };
+    }
+
+    protected function useCentralTelescopeStorage(): Closure
+    {
+        return function (): void {
+            if (! class_exists(TelescopeDatabaseEntriesRepository::class)) {
+                return;
+            }
+
+            config()->set(
+                'telescope.storage.database.connection',
+                config('tenancy.database.central_connection', config('database.default', 'central'))
+            );
+            $this->forgetTelescopeRepositories();
+        };
+    }
+
+    protected function forgetTelescopeRepositories(): void
+    {
+        foreach ([
+            TelescopeEntriesRepository::class,
+            TelescopeClearableRepository::class,
+            TelescopePrunableRepository::class,
+            TelescopeDatabaseEntriesRepository::class,
+        ] as $abstract) {
+            $this->app->forgetInstance($abstract);
         }
     }
 

@@ -69,7 +69,12 @@ return [
         ],
 
         'user' => $is_local ? disk_config("user") : ['root'  => 'user'] + ${env('STORAGE_DISK', 'public') . '_config'},
-        'category' => $is_local ? disk_config("category") : ['root'  => 'category'] + ${env('STORAGE_DISK', 'public') . '_config'}
+        'category' => $is_local ? disk_config("category") : ['root'  => 'category'] + ${env('STORAGE_DISK', 'public') . '_config'},
+        'item' => $is_local ? disk_config("item") : ['root'  => 'item'] + ${env('STORAGE_DISK', 'public') . '_config'},
+        'slider' => $is_local ? disk_config("slider") : ['root'  => 'slider'] + ${env('STORAGE_DISK', 'public') . '_config'},
+        'promotion' => $is_local ? disk_config("promotion") : ['root'  => 'promotion'] + ${env('STORAGE_DISK', 'public') . '_config'},
+        'customer' => $is_local ? disk_config("customer") : ['root'  => 'customer'] + ${env('STORAGE_DISK', 'public') . '_config'},
+        'file_manager' => $is_local ? disk_config("file_manager") : ['root'  => 'file_manager'] + ${env('STORAGE_DISK', 'public') . '_config'}
     ],
 
     /*

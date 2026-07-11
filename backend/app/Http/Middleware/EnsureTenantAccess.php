@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Laravel\Sanctum\PersonalAccessToken;
 
 class EnsureTenantAccess
@@ -43,6 +44,14 @@ class EnsureTenantAccess
                 'message' => 'Unauthorized tenant access',
             ], 403);
         }
+
+        if (method_exists($user, 'withAccessToken')) {
+            $user = $user->withAccessToken($tokenModel);
+        }
+
+        Auth::setUser($user);
+        $request->setUserResolver(static fn () => $user);
+
         return $next($request);
     }
 }

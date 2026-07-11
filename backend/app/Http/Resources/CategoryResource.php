@@ -16,9 +16,12 @@ class CategoryResource extends JsonResource
     {
         return [
             "id" => $this->id,
+            "parent_id" => $this->parent_id,
             "name" => $this->name,
             "foreign_name" => $this->foreign_name, 
             "status" => $this->status,
+            "thumbnail_url" => $this->image_url,
+            "image_url" => $this->image_url,
             "created_at" => $this->created_at?->format('d M, Y'),
             "parent" => $this->parent
                         ? implode(' / ', array_filter([$this->parent->name, $this->parent->foreign_name]))
@@ -27,7 +30,7 @@ class CategoryResource extends JsonResource
                 return [
                     'id' => $child->id,
                     'name' => $child->name,
-                    'image_url' => \Storage::disk('user')->url($child->name),
+                    'image_url' => \Storage::disk('category')->url($child->name),
                     'created_at' => $child->created_at->format('d M, Y'),
                     // 'tmp_image' => \Storage::disk('minio-temporaryurls')->temporaryUrl($child->name, now()->addMinutes(30))
                 ];

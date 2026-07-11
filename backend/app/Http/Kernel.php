@@ -33,6 +33,7 @@ class Kernel extends HttpKernel
             \App\Http\Middleware\EncryptCookies::class,
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
             \Illuminate\Session\Middleware\StartSession::class,
+            \App\Http\Middleware\InitializeTenantUserSessionTenancy::class,
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
             \App\Http\Middleware\VerifyCsrfToken::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
@@ -65,5 +66,9 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'tenant.active' => \App\Http\Middleware\EnsureTenantIsActive::class,
         'tenant.access' => \App\Http\Middleware\EnsureTenantAccess::class,
+        'admin.tenant' => \App\Http\Middleware\EnsureAdminTenantSelected::class,
+        'admin.tenancy' => \App\Http\Middleware\InitializeAdminTenancy::class,
+        'admin.administrator' => \App\Http\Middleware\EnsureAdministratorAccess::class,
+        'admin.permission' => \App\Http\Middleware\EnsureTenantPermission::class,
     ];
 }
