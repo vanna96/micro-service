@@ -71,6 +71,11 @@
     <title>@yield('title', config('app.name', 'Laravel'))</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    @if (config('services.mapbox.access_token'))
+        <script>
+            window.mapboxAccessToken = @json(config('services.mapbox.access_token'));
+        </script>
+    @endif
 
     <link rel="shortcut icon" href="{{ global_asset('minible/assets/images/favicon.ico') }}">
     <link href="{{ global_asset('minible/assets/css/bootstrap.min.css') }}" id="bootstrap-style" rel="stylesheet"
