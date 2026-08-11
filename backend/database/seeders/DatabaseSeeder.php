@@ -17,8 +17,13 @@ class DatabaseSeeder extends Seeder
         if (tenant()) {
             $this->call([
                 TenantAdminSeeder::class,
-                TenantCategorySeeder::class,
             ]);
+
+            return;
         }
+
+        $this->call([
+            CentralAdminSeeder::class,
+        ]);
     }
 }

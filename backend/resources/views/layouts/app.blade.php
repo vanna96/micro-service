@@ -18,6 +18,7 @@
         $layoutCanViewCustomers = auth()->check() ? admin_has_permission('customers.view') : false;
         $layoutCanViewBranches = auth()->check() ? admin_has_permission('branches.view') : false;
         $layoutCanViewCategories = auth()->check() ? admin_has_permission('categories.view') : false;
+        $layoutCanViewUnitsOfMeasure = auth()->check() ? admin_has_permission('units_of_measure.view') : false;
         $layoutCanViewItems = auth()->check() ? admin_has_permission('items.view') : false;
         $layoutCanViewPriceLists = auth()->check() ? admin_has_permission('price_lists.view') : false;
         $layoutCanViewPos = auth()->check() ? admin_has_permission('pos.view') : false;
@@ -37,6 +38,7 @@
             || $layoutCanViewActivityLogs);
         $layoutHasMasterDataMenu = $layoutTenantAreaUnlocked && ($layoutCanViewBranches
             || $layoutCanViewCategories
+            || $layoutCanViewUnitsOfMeasure
             || $layoutCanViewItems
             || $layoutCanViewPriceLists
             || $layoutCanViewSliders);
@@ -269,7 +271,7 @@
                                         @endif
                                         @if ($layoutHasMasterDataMenu)
                                             <li class="nav-item dropdown">
-                                                <a class="nav-link dropdown-toggle arrow-none {{ request()->routeIs('admin.branches.*') || request()->routeIs('admin.categories.*') || request()->routeIs('admin.items.*') || request()->routeIs('admin.price-lists.*') || request()->routeIs('admin.sliders.*') ? 'active' : '' }}"
+                                                <a class="nav-link dropdown-toggle arrow-none {{ request()->routeIs('admin.branches.*') || request()->routeIs('admin.categories.*') || request()->routeIs('admin.uom-groups.*') || request()->routeIs('admin.units-of-measure.*') || request()->routeIs('admin.items.*') || request()->routeIs('admin.price-lists.*') || request()->routeIs('admin.sliders.*') ? 'active' : '' }}"
                                                     href="#" id="topnav-master-data" role="button" data-bs-toggle="dropdown"
                                                     aria-haspopup="true" aria-expanded="false">
                                                     <i class="uil-database me-2"></i>{{ __('Master Data') }}
@@ -286,6 +288,16 @@
                                                         <a class="dropdown-item {{ request()->routeIs('admin.categories.*') ? 'active' : '' }}"
                                                             href="{{ route('admin.categories.index') }}">
                                                             {{ __('Category') }}
+                                                        </a>
+                                                    @endif
+                                                    @if ($layoutCanViewUnitsOfMeasure)
+                                                        <a class="dropdown-item {{ request()->routeIs('admin.units-of-measure.*') ? 'active' : '' }}"
+                                                            href="{{ route('admin.units-of-measure.index') }}">
+                                                            {{ __('Unit of Measure') }}
+                                                        </a>
+                                                        <a class="dropdown-item {{ request()->routeIs('admin.uom-groups.*') ? 'active' : '' }}"
+                                                            href="{{ route('admin.uom-groups.index') }}">
+                                                            {{ __('UOM Group') }}
                                                         </a>
                                                     @endif
                                                     @if ($layoutCanViewItems)

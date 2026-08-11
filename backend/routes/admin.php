@@ -19,6 +19,8 @@ use App\Http\Controllers\Admin\SliderController;
 use App\Http\Controllers\Admin\TenantContextController;
 use App\Http\Controllers\Admin\TenantController;
 use App\Http\Controllers\Admin\TenantUserController;
+use App\Http\Controllers\Admin\UnitOfMeasureController;
+use App\Http\Controllers\Admin\UomGroupController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\HomeController;
@@ -66,6 +68,8 @@ Route::middleware(['auth', 'admin.tenant', 'admin.tenancy'])->prefix('admin')->n
     Route::resource('tenant-users', TenantUserController::class)->except('show');
     Route::resource('branches', BranchController::class)->except('show');
     Route::resource('categories', CategoryController::class)->except('show');
+    Route::resource('uom-groups', UomGroupController::class)->except('show');
+    Route::resource('units-of-measure', UnitOfMeasureController::class)->except('show');
     Route::resource('customers', CustomerController::class)->except('show');
     Route::delete('items/{item}/gallery/{gallery}', [ItemController::class, 'destroyGallery'])->name('items.gallery.destroy');
     Route::resource('items', ItemController::class)->except('show');
