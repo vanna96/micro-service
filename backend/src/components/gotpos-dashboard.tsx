@@ -83,6 +83,9 @@ export function GotPosDashboard() {
   const [configQty, setConfigQty] = useState<number>(1);
   const [cashReceived, setCashReceived] = useState<string>("");
 
+
+
+
   // Invoices History (Static for now)
   const [invoices] = useState<Invoice[]>(INITIAL_INVOICES);
 
@@ -219,6 +222,7 @@ export function GotPosDashboard() {
 
   return (
     <div className="pos-container">
+
       <PosTopbar
         currentDate={currentDate}
         currentTime={currentTime}
@@ -232,7 +236,7 @@ export function GotPosDashboard() {
         }
       />
 
-      <div className="d-flex flex-grow-1 overflow-hidden">
+      <div className="d-flex flex-column flex-lg-row flex-grow-1 overflow-hidden">
         <PosCategoryRail
           activeCategory={activeCategory}
           onSelectCategory={(c) => dispatch(setActiveCategory(c))}

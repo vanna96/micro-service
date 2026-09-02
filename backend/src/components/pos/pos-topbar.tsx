@@ -65,7 +65,7 @@ export function PosTopbar({
         </div>
 
         {/* Compact Clock on Tablets (768px - 1199px) */}
-        <div className="d-none d-md-flex d-xl-none align-items-center gap-2 text-muted fs-12 font-monospace fw-semibold flex-shrink-0">
+        <div className="d-none d-lg-flex d-xl-none align-items-center gap-2 text-muted fs-12 font-monospace fw-semibold flex-shrink-0">
           <span
             className="d-inline-block rounded-circle bg-success"
             style={{ width: "7px", height: "7px" }}
@@ -78,7 +78,7 @@ export function PosTopbar({
       {/* Top Controls with Clean Responsive Gaps */}
       <div className="pos-topbar-controls flex-shrink-0">
         {/* Shift Status Badge */}
-        <span className="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1 fs-12 d-none d-sm-inline-flex align-items-center gap-1.5 flex-shrink-0">
+        <span className="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1 fs-12 d-none d-lg-inline-flex align-items-center gap-1.5 flex-shrink-0">
           <span
             className="d-inline-block rounded-circle bg-success"
             style={{ width: "6px", height: "6px" }}

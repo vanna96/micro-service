@@ -111,6 +111,42 @@ trait BuildsMobilePayloads
             ] : null,
             'thumbnail_url' => $item->image_url,
             'image_url' => $item->image_url,
+            'has_variations' => $item->relationLoaded('optionGroups')
+                ? $item->optionGroups->where('type', 'variant')->isNotEmpty()
+                : false,
+            'option_groups' => $item->relationLoaded('optionGroups')
+                ? $item->optionGroups->map(fn ($group) => [
+                    'id' => (int) $group->id,
+                    'name' => (string) $group->name,
+                    'foreign_name' => (string) ($group->foreign_name ?? ''),
+                    'type' => (string) $group->type,
+                    'selection_type' => (string) $group->selection_type,
+                    'is_required' => (bool) $group->is_required,
+                    'min_selections' => (int) $group->min_selections,
+                    'max_selections' => $group->max_selections !== null ? (int) $group->max_selections : null,
+                    'values' => $group->values->map(fn ($value) => [
+                        'id' => (int) $value->id,
+                        'name' => (string) $value->name,
+                        'foreign_name' => (string) ($value->foreign_name ?? ''),
+                        'color_hex' => $value->color_hex,
+                        'price_adjustment' => (float) $value->price_adjustment,
+                        'is_default' => (bool) $value->is_default,
+                    ])->values()->all(),
+                ])->values()->all()
+                : [],
+            'variants' => $item->relationLoaded('variants')
+                ? $item->variants->map(fn ($variant) => [
+                    'id' => (int) $variant->id,
+                    'sku' => (string) $variant->sku,
+                    'barcode' => $variant->barcode,
+                    'name' => (string) ($variant->name ?? ''),
+                    'price' => $variant->price !== null ? (float) $variant->price : null,
+                    'resolved_price' => (float) ($variant->price ?? $item->price),
+                    'stock' => (int) $variant->stock,
+                    'is_default' => (bool) $variant->is_default,
+                    'option_value_ids' => $variant->optionValues->pluck('id')->map(fn ($id) => (int) $id)->values()->all(),
+                ])->values()->all()
+                : [],
             'galleries' => $item->relationLoaded('galleries')
                 ? $item->galleries
                     ->where('type', 'galleries')
@@ -145,11 +181,14 @@ trait BuildsMobilePayloads
         return [
             'id' => (int) $line->id,
             'item_id' => $line->item_id ? (int) $line->item_id : null,
+            'item_variant_id' => $line->item_variant_id ? (int) $line->item_variant_id : null,
             'sku' => (string) ($line->sku ?? ''),
             'name' => (string) $line->name,
             'image_url' => $line->image_url,
+            'selected_options' => $line->selected_options ?? [],
             'quantity' => (int) $line->quantity,
             'unit_price' => (float) $line->unit_price,
+            'option_total' => (float) $line->option_total,
             'line_subtotal' => (float) $line->line_subtotal,
             'discount_amount' => (float) $line->discount_amount,
             'line_total' => (float) $line->line_total,

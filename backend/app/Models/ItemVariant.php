@@ -7,41 +7,31 @@ use App\Models\Concerns\UsesQueryCache;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Rennokki\QueryCache\Traits\QueryCacheable;
 
-class OrderItem extends Model
+class ItemVariant extends Model
 {
     use HasFactory, QueryCacheable, UsesQueryCache, LogsTenantActivity;
 
-    protected $table = 'order_items';
-
     protected $fillable = [
-        'order_id',
         'item_id',
-        'item_variant_id',
         'sku',
+        'barcode',
         'name',
-        'image_url',
-        'selected_options',
-        'quantity',
-        'unit_price',
-        'option_total',
-        'line_subtotal',
-        'discount_amount',
-        'line_total',
+        'price',
+        'stock',
+        'is_default',
+        'sort_order',
+        'status',
     ];
 
     protected $casts = [
-        'order_id' => 'integer',
         'item_id' => 'integer',
-        'item_variant_id' => 'integer',
-        'selected_options' => 'array',
-        'quantity' => 'integer',
-        'unit_price' => 'float',
-        'option_total' => 'float',
-        'line_subtotal' => 'float',
-        'discount_amount' => 'float',
-        'line_total' => 'float',
+        'price' => 'decimal:8',
+        'stock' => 'integer',
+        'is_default' => 'boolean',
+        'sort_order' => 'integer',
     ];
 
     protected function getCacheBaseTags(): array
@@ -60,18 +50,23 @@ class OrderItem extends Model
         }
     }
 
-    public function order(): BelongsTo
-    {
-        return $this->belongsTo(Order::class, 'order_id');
-    }
-
     public function item(): BelongsTo
     {
         return $this->belongsTo(Item::class);
     }
 
-    public function variant(): BelongsTo
+    public function optionValues(): BelongsToMany
     {
-        return $this->belongsTo(ItemVariant::class, 'item_variant_id');
+        return $this->belongsToMany(
+            ItemOptionValue::class,
+            'item_variant_option_values',
+            'item_variant_id',
+            'item_option_value_id'
+        )->with('group')->orderBy('item_option_values.sort_order')->orderBy('item_option_values.id');
+    }
+
+    public function getResolvedPriceAttribute(): float
+    {
+        return (float) ($this->price ?? $this->item?->price ?? 0);
     }
 }

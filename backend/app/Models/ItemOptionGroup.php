@@ -7,41 +7,34 @@ use App\Models\Concerns\UsesQueryCache;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Rennokki\QueryCache\Traits\QueryCacheable;
 
-class OrderItem extends Model
+class ItemOptionGroup extends Model
 {
     use HasFactory, QueryCacheable, UsesQueryCache, LogsTenantActivity;
 
-    protected $table = 'order_items';
-
     protected $fillable = [
-        'order_id',
         'item_id',
-        'item_variant_id',
-        'sku',
+        'item_variation_id',
         'name',
-        'image_url',
-        'selected_options',
-        'quantity',
-        'unit_price',
-        'option_total',
-        'line_subtotal',
-        'discount_amount',
-        'line_total',
+        'foreign_name',
+        'type',
+        'selection_type',
+        'is_required',
+        'min_selections',
+        'max_selections',
+        'sort_order',
+        'status',
     ];
 
     protected $casts = [
-        'order_id' => 'integer',
         'item_id' => 'integer',
-        'item_variant_id' => 'integer',
-        'selected_options' => 'array',
-        'quantity' => 'integer',
-        'unit_price' => 'float',
-        'option_total' => 'float',
-        'line_subtotal' => 'float',
-        'discount_amount' => 'float',
-        'line_total' => 'float',
+        'item_variation_id' => 'integer',
+        'is_required' => 'boolean',
+        'min_selections' => 'integer',
+        'max_selections' => 'integer',
+        'sort_order' => 'integer',
     ];
 
     protected function getCacheBaseTags(): array
@@ -60,18 +53,18 @@ class OrderItem extends Model
         }
     }
 
-    public function order(): BelongsTo
-    {
-        return $this->belongsTo(Order::class, 'order_id');
-    }
-
     public function item(): BelongsTo
     {
         return $this->belongsTo(Item::class);
     }
 
-    public function variant(): BelongsTo
+    public function variation(): BelongsTo
     {
-        return $this->belongsTo(ItemVariant::class, 'item_variant_id');
+        return $this->belongsTo(ItemVariation::class, 'item_variation_id');
+    }
+
+    public function values(): HasMany
+    {
+        return $this->hasMany(ItemOptionValue::class)->orderBy('sort_order')->orderBy('id');
     }
 }

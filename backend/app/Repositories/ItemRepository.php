@@ -5,6 +5,9 @@ namespace App\Repositories;
 use App\Models\Branch;
 use App\Models\Gallery;
 use App\Models\Item;
+use App\Models\ItemOptionGroup;
+use App\Models\ItemOptionValue;
+use App\Models\ItemVariant;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
@@ -15,6 +18,7 @@ use Illuminate\Support\Str;
 class ItemRepository extends RepositoryBase
 {
     protected $repositoryId = 'rinvex.repository.id';
+
     protected $model = 'App\Models\Item';
 
     public function list()
@@ -22,7 +26,7 @@ class ItemRepository extends RepositoryBase
         $table = $this->itemModel()->getTable();
 
         return $this->select("{$table}.*")
-            ->with(['branch', 'category', 'currency', 'galleries', 'image']);
+            ->with(['branch', 'category', 'currency', 'galleries', 'image', 'optionGroups.values', 'variants.optionValues']);
     }
 
     public function getAdminListing(string $search = ''): Collection
@@ -65,7 +69,7 @@ class ItemRepository extends RepositoryBase
     {
         $query = $this->itemModel()
             ->newQuery()
-            ->with(['branch', 'category', 'currency', 'galleries', 'image'])
+            ->with(['branch', 'category', 'currency', 'galleries', 'image', 'optionGroups.values', 'variants.optionValues'])
             ->whereKey($itemId);
 
         $this->reportCacheState($query, 'admin.items.edit');
@@ -77,8 +81,13 @@ class ItemRepository extends RepositoryBase
     {
         $image = $attributes['image'] ?? null;
         $galleryImages = $attributes['gallery_images'] ?? [];
+        $hasConfiguration = array_key_exists('option_groups', $attributes) || array_key_exists('variants', $attributes);
+        $optionGroups = $attributes['option_groups'] ?? [];
+        $variants = $attributes['variants'] ?? [];
         unset($attributes['image']);
         unset($attributes['gallery_images']);
+        unset($attributes['option_groups']);
+        unset($attributes['variants']);
 
         /** @var \App\Models\Item $item */
         $item = $this->itemModel();
@@ -86,25 +95,84 @@ class ItemRepository extends RepositoryBase
         $item->save();
         $this->syncImageUpload($item, $image);
         $this->syncGalleryUploads($item, $galleryImages);
+        if ($hasConfiguration) {
+            $this->syncConfiguration($item, $optionGroups, $variants);
+        }
         Item::flushQueryCache();
 
-        return $item;
+        return $item->load(['optionGroups.values', 'variants.optionValues']);
     }
 
     public function updateForAdmin(Item $item, array $attributes): Item
     {
         $image = $attributes['image'] ?? null;
         $galleryImages = $attributes['gallery_images'] ?? [];
+        $hasConfiguration = array_key_exists('option_groups', $attributes) || array_key_exists('variants', $attributes);
+        $optionGroups = $attributes['option_groups'] ?? [];
+        $variants = $attributes['variants'] ?? [];
         unset($attributes['image']);
         unset($attributes['gallery_images']);
+        unset($attributes['option_groups']);
+        unset($attributes['variants']);
 
         $item->fill($this->syncBranchAttributes($attributes));
         $item->save();
         $this->syncImageUpload($item, $image);
         $this->syncGalleryUploads($item, $galleryImages);
+        if ($hasConfiguration) {
+            $this->syncConfiguration($item, $optionGroups, $variants);
+        }
         Item::flushQueryCache();
 
-        return $item;
+        return $item->load(['optionGroups.values', 'variants.optionValues']);
+    }
+
+    /**
+     * Replace an item's complete configuration from one validated API payload.
+     * Order lines retain JSON snapshots, so replacing configuration is safe for order history.
+     */
+    protected function syncConfiguration(Item $item, array $optionGroups, array $variants): void
+    {
+        $item->variants()->delete();
+        $item->optionGroups()->delete();
+
+        $optionValueIdsByKey = [];
+
+        foreach ($optionGroups as $groupAttributes) {
+            $groupKey = (string) $groupAttributes['key'];
+            $values = $groupAttributes['values'] ?? [];
+            unset($groupAttributes['key'], $groupAttributes['values']);
+
+            /** @var ItemOptionGroup $group */
+            $group = $item->optionGroups()->create($groupAttributes);
+
+            foreach ($values as $valueAttributes) {
+                $valueKey = (string) $valueAttributes['key'];
+                unset($valueAttributes['key']);
+
+                /** @var ItemOptionValue $value */
+                $value = $group->values()->create($valueAttributes);
+                $optionValueIdsByKey[$valueKey] = $value->id;
+            }
+        }
+
+        foreach ($variants as $variantAttributes) {
+            $optionValueKeys = $variantAttributes['option_value_keys'] ?? [];
+            unset($variantAttributes['option_value_keys']);
+
+            /** @var ItemVariant $variant */
+            $variant = $item->variants()->create($variantAttributes);
+            $variant->optionValues()->sync(
+                collect($optionValueKeys)
+                    ->map(fn (string $key) => $optionValueIdsByKey[$key])
+                    ->values()
+                    ->all()
+            );
+        }
+
+        ItemOptionGroup::flushQueryCache();
+        ItemOptionValue::flushQueryCache();
+        ItemVariant::flushQueryCache();
     }
 
     public function deleteForAdmin(Item $item): void
@@ -123,7 +191,7 @@ class ItemRepository extends RepositoryBase
     protected function itemListingCacheTags(): array
     {
         $tenantTag = tenant()
-            ? 'tenant-item-listing:' . tenant()->getTenantKey()
+            ? 'tenant-item-listing:'.tenant()->getTenantKey()
             : 'tenant-item-listing:central';
 
         return [
@@ -138,7 +206,7 @@ class ItemRepository extends RepositoryBase
             ? (string) tenant()->getTenantKey()
             : 'central';
 
-        return (string) config('query-cache.prefix', 'micro_service_backend') . ':item-listing:' . $tenantKey;
+        return (string) config('query-cache.prefix', 'micro_service_backend').':item-listing:'.$tenantKey;
     }
 
     protected function syncImageUpload(Item $item, $image): void
@@ -222,7 +290,7 @@ class ItemRepository extends RepositoryBase
     {
         if ($image instanceof UploadedFile) {
             $extension = strtolower($image->getClientOriginalExtension() ?: $image->extension() ?: 'jpg');
-            $fileName = $prefix . Str::uuid()->toString() . '.' . $extension;
+            $fileName = $prefix.Str::uuid()->toString().'.'.$extension;
 
             Storage::disk($disk)->putFileAs('', $image, $fileName);
 
@@ -240,7 +308,7 @@ class ItemRepository extends RepositoryBase
             return null;
         }
 
-        $fileName = $prefix . Str::uuid()->toString() . '.' . $extension;
+        $fileName = $prefix.Str::uuid()->toString().'.'.$extension;
         Storage::disk($disk)->put($fileName, $imageData);
 
         return $fileName;

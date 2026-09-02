@@ -1,15 +1,16 @@
 <?php
 
-use App\Http\Controllers\Admin\BranchController;
 use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\AddressController;
+use App\Http\Controllers\Admin\BranchController;
 use App\Http\Controllers\Admin\CategoryController;
-use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\CurrencyController;
+use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\FileManagerController;
 use App\Http\Controllers\Admin\GeneralSettingController;
 use App\Http\Controllers\Admin\ItemController;
-use App\Http\Controllers\Admin\MasterDataController;
+use App\Http\Controllers\Admin\ItemOptionController;
+use App\Http\Controllers\Admin\ItemVariationController;
 use App\Http\Controllers\Admin\PosController;
 use App\Http\Controllers\Admin\PriceListController;
 use App\Http\Controllers\Admin\PromotionController;
@@ -68,6 +69,8 @@ Route::middleware(['auth', 'admin.tenant', 'admin.tenancy'])->prefix('admin')->n
     Route::resource('tenant-users', TenantUserController::class)->except('show');
     Route::resource('branches', BranchController::class)->except('show');
     Route::resource('categories', CategoryController::class)->except('show');
+    Route::resource('item-variations', ItemVariationController::class)->except('show');
+    Route::resource('item-options', ItemOptionController::class)->except('show');
     Route::resource('uom-groups', UomGroupController::class)->except('show');
     Route::resource('units-of-measure', UnitOfMeasureController::class)->except('show');
     Route::resource('customers', CustomerController::class)->except('show');

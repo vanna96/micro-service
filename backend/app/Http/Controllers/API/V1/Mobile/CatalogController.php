@@ -16,7 +16,9 @@ class CatalogController extends Controller
 {
     use BuildsMobilePayloads;
 
-    public function __construct(protected PromotionPricingService $promotionPricing) {}
+    public function __construct(protected PromotionPricingService $promotionPricing)
+    {
+    }
 
     public function branches()
     {
@@ -82,7 +84,17 @@ class CatalogController extends Controller
         $sort = (string) $request->get('sort', 'latest');
 
         $products = Item::query()
-            ->with(['category', 'branch', 'currency', 'image', 'galleries'])
+            ->with([
+                'category',
+                'branch',
+                'currency',
+                'image',
+                'galleries',
+                'optionGroups' => fn ($query) => $query->where('status', 'Active'),
+                'optionGroups.values' => fn ($query) => $query->where('status', 'Active'),
+                'variants' => fn ($query) => $query->where('status', 'Active'),
+                'variants.optionValues',
+            ])
             ->where('status', 'Active')
             ->when($request->filled('category_id'), fn ($query) => $query->where('category_id', (int) $request->get('category_id')))
             ->when($request->filled('branch_id'), fn ($query) => $query->where('branch_id', (int) $request->get('branch_id')))
@@ -127,7 +139,17 @@ class CatalogController extends Controller
     public function show(string $item)
     {
         $product = Item::query()
-            ->with(['category', 'branch', 'currency', 'image', 'galleries'])
+            ->with([
+                'category',
+                'branch',
+                'currency',
+                'image',
+                'galleries',
+                'optionGroups' => fn ($query) => $query->where('status', 'Active'),
+                'optionGroups.values' => fn ($query) => $query->where('status', 'Active'),
+                'variants' => fn ($query) => $query->where('status', 'Active'),
+                'variants.optionValues',
+            ])
             ->where('status', 'Active')
             ->findOrFail((int) $item);
 
@@ -142,6 +164,9 @@ class CatalogController extends Controller
         $validated = $request->validate([
             'items' => ['required', 'array', 'min:1'],
             'items.*.item_id' => ['required', 'integer', Rule::exists((new Item())->getTable(), 'id')],
+            'items.*.variant_id' => ['nullable', 'integer', 'min:1'],
+            'items.*.option_value_ids' => ['nullable', 'array'],
+            'items.*.option_value_ids.*' => ['required', 'integer', 'min:1', 'distinct'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
         ]);
 

@@ -42,6 +42,24 @@
             || $layoutCanViewItems
             || $layoutCanViewPriceLists
             || $layoutCanViewSliders);
+        // Sidebar groups stay expanded (metisMenu mm-active/mm-show) while one of their children is the current route.
+        $layoutMasterDataActive = request()->routeIs('admin.branches.*')
+            || request()->routeIs('admin.categories.*')
+            || request()->routeIs('admin.uom-groups.*')
+            || request()->routeIs('admin.units-of-measure.*')
+            || request()->routeIs('admin.item-variations.*')
+            || request()->routeIs('admin.item-options.*')
+            || request()->routeIs('admin.items.*')
+            || request()->routeIs('admin.price-lists.*')
+            || request()->routeIs('admin.sliders.*');
+        $layoutUserManagementActive = request()->routeIs('admin.tenant-users.*')
+            || request()->routeIs('admin.roles.*')
+            || request()->routeIs('admin.activity-logs.*')
+            || request()->routeIs('admin.addresses.*');
+        $layoutSettingsActive = request()->routeIs('admin.general-settings.*')
+            || request()->routeIs('admin.currencies.*')
+            || request()->routeIs('admin.rate-index.*')
+            || request()->routeIs('admin.file-manager.*');
         $layoutNotifications = collect([
             session('status')
             ? [
@@ -88,7 +106,7 @@
     @stack('styles')
 </head>
 
-<body @auth data-layout="horizontal" data-topbar="colored" @else class="@yield('body_class', 'authentication-bg')"
+<body @auth data-sidebar="colored" @else class="@yield('body_class', 'authentication-bg')"
 @endauth @hasSection('body_style') style="@yield('body_style')" @endif>
     @guest
         @yield('content')
@@ -124,8 +142,7 @@
                             </div>
 
                             <button type="button"
-                                class="btn btn-sm px-3 font-size-16 d-lg-none header-item waves-effect waves-light"
-                                data-bs-toggle="collapse" data-bs-target="#topnav-menu-content">
+                                class="btn btn-sm px-3 font-size-16 header-item waves-effect waves-light vertical-menu-btn">
                                 <i class="fa fa-fw fa-bars"></i>
                             </button>
 
@@ -220,191 +237,269 @@
                                         <i class="uil uil-sign-out-alt font-size-18 align-middle me-1 text-muted"></i>
                                         <span class="align-middle">{{ __('Sign out') }}</span>
                                     </a>
-                                    <form id="logout-form" action="{{ route('admin.logout') }}" method="POST" class="d-none">
-                                        @csrf
-                                    </form>
                                 </div>
                             </div>
                         </div>
                     </div>
+                </header>
 
-                    <div class="container-fluid">
-                        <div class="topnav">
-                            <nav class="navbar navbar-light navbar-expand-lg topnav-menu">
-                                <div class="collapse navbar-collapse" id="topnav-menu-content">
-                                    <ul class="navbar-nav">
-                                        <li class="nav-item">
-                                            <a class="nav-link {{ request()->routeIs('home') ? 'active' : '' }}"
-                                                href="{{ route('home') }}">
-                                                <i class="uil-home-alt me-2"></i>{{ __('Dashboard') }}
-                                            </a>
-                                        </li>
-                                        @if ($layoutCanManageAdministrators)
-                                            <li class="nav-item">
-                                                <a class="nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}"
-                                                    href="{{ route('admin.users.index') }}">
-                                                    <i class="uil-users-alt me-2"></i>{{ __('Administrator') }}
-                                                </a>
-                                            </li>
-                                            <li class="nav-item">
-                                                <a class="nav-link {{ request()->routeIs('admin.tenants.*') ? 'active' : '' }}"
-                                                    href="{{ route('admin.tenants.index') }}">
-                                                    <i class="uil-server-network me-2"></i>{{ __('Tenants') }}
-                                                </a>
-                                            </li>
-                                        @endif
-                                        @if ($layoutTenantAreaUnlocked && $layoutCanViewPos)
-                                            <li class="nav-item">
-                                                <a class="nav-link {{ request()->routeIs('admin.pos.*') ? 'active' : '' }}"
-                                                    href="{{ route('admin.pos.index') }}">
-                                                    <i class="uil-calculator-alt me-2"></i>{{ __('POS') }}
-                                                </a>
-                                            </li>
-                                        @endif
-                                        @if ($layoutTenantAreaUnlocked && $layoutCanViewCustomers)
-                                            <li class="nav-item">
-                                                <a class="nav-link {{ request()->routeIs('admin.customers.*') ? 'active' : '' }}"
-                                                    href="{{ route('admin.customers.index') }}">
-                                                    <i class="uil-user-square me-2"></i>{{ __('Customer') }}
-                                                </a>
-                                            </li>
-                                        @endif
-                                        @if ($layoutHasMasterDataMenu)
-                                            <li class="nav-item dropdown">
-                                                <a class="nav-link dropdown-toggle arrow-none {{ request()->routeIs('admin.branches.*') || request()->routeIs('admin.categories.*') || request()->routeIs('admin.uom-groups.*') || request()->routeIs('admin.units-of-measure.*') || request()->routeIs('admin.items.*') || request()->routeIs('admin.price-lists.*') || request()->routeIs('admin.sliders.*') ? 'active' : '' }}"
-                                                    href="#" id="topnav-master-data" role="button" data-bs-toggle="dropdown"
-                                                    aria-haspopup="true" aria-expanded="false">
-                                                    <i class="uil-database me-2"></i>{{ __('Master Data') }}
-                                                    <div class="arrow-down"></div>
-                                                </a>
-                                                <div class="dropdown-menu" aria-labelledby="topnav-master-data">
-                                                    @if ($layoutCanViewBranches)
-                                                        <a class="dropdown-item {{ request()->routeIs('admin.branches.*') ? 'active' : '' }}"
-                                                            href="{{ route('admin.branches.index') }}">
-                                                            {{ __('Branch') }}
-                                                        </a>
-                                                    @endif
-                                                    @if ($layoutCanViewCategories)
-                                                        <a class="dropdown-item {{ request()->routeIs('admin.categories.*') ? 'active' : '' }}"
-                                                            href="{{ route('admin.categories.index') }}">
-                                                            {{ __('Category') }}
-                                                        </a>
-                                                    @endif
-                                                    @if ($layoutCanViewUnitsOfMeasure)
-                                                        <a class="dropdown-item {{ request()->routeIs('admin.units-of-measure.*') ? 'active' : '' }}"
-                                                            href="{{ route('admin.units-of-measure.index') }}">
-                                                            {{ __('Unit of Measure') }}
-                                                        </a>
-                                                        <a class="dropdown-item {{ request()->routeIs('admin.uom-groups.*') ? 'active' : '' }}"
-                                                            href="{{ route('admin.uom-groups.index') }}">
-                                                            {{ __('UOM Group') }}
-                                                        </a>
-                                                    @endif
-                                                    @if ($layoutCanViewItems)
-                                                        <a class="dropdown-item {{ request()->routeIs('admin.items.*') ? 'active' : '' }}"
-                                                            href="{{ route('admin.items.index') }}">
-                                                            {{ __('Item') }}
-                                                        </a>
-                                                    @endif
-                                                    @if ($layoutCanViewPriceLists)
-                                                        <a class="dropdown-item {{ request()->routeIs('admin.price-lists.*') ? 'active' : '' }}"
-                                                            href="{{ route('admin.price-lists.index') }}">
-                                                            {{ __('Price List') }}
-                                                        </a>
-                                                    @endif
-                                                    @if ($layoutCanViewSliders)
-                                                        <a class="dropdown-item {{ request()->routeIs('admin.sliders.*') ? 'active' : '' }}"
-                                                            href="{{ route('admin.sliders.index') }}">
-                                                            {{ __('Slider') }}
-                                                        </a>
-                                                    @endif
-                                                </div>
-                                            </li>
-                                        @endif
-                                        @if ($layoutHasUserManagementMenu)
-                                            <li class="nav-item dropdown">
-                                                <a class="nav-link dropdown-toggle arrow-none {{ request()->routeIs('admin.tenant-users.*') || request()->routeIs('admin.roles.*') || request()->routeIs('admin.activity-logs.*') || request()->routeIs('admin.addresses.*') ? 'active' : '' }}"
-                                                    href="#" id="topnav-user-management" role="button" data-bs-toggle="dropdown"
-                                                    aria-haspopup="true" aria-expanded="false">
-                                                    <i class="uil-users-alt me-2"></i>{{ __('User Setting') }}
-                                                    <div class="arrow-down"></div>
-                                                </a>
-                                                <div class="dropdown-menu" aria-labelledby="topnav-user-management">
-                                                    @if ($layoutCanViewAddresses)
-                                                        <a class="dropdown-item {{ request()->routeIs('admin.addresses.*') ? 'active' : '' }}"
-                                                            href="{{ route('admin.addresses.index') }}">
-                                                            {{ __('Address') }}
-                                                        </a>
-                                                    @endif
-                                                    @if ($layoutCanViewTenantUsers)
-                                                        <a class="dropdown-item {{ request()->routeIs('admin.tenant-users.*') ? 'active' : '' }}"
-                                                            href="{{ route('admin.tenant-users.index') }}">
-                                                            {{ __('User') }}
-                                                        </a>
-                                                    @endif
-                                                    @if ($layoutCanViewRoles)
-                                                        <a class="dropdown-item {{ request()->routeIs('admin.roles.*') ? 'active' : '' }}"
-                                                            href="{{ route('admin.roles.index') }}">
-                                                            {{ __('Roles') }}
-                                                        </a>
-                                                    @endif
-                                                    @if ($layoutCanViewActivityLogs)
-                                                        <a class="dropdown-item {{ request()->routeIs('admin.activity-logs.*') ? 'active' : '' }}"
-                                                            href="{{ route('admin.activity-logs.index') }}">
-                                                            {{ __('Activity Logs') }}
-                                                        </a>
-                                                    @endif
-                                                </div>
-                                            </li>
-                                        @endif
-                                        @if ($layoutTenantAreaUnlocked && $layoutCanViewPromotions)
-                                            <li class="nav-item">
-                                                <a class="nav-link {{ request()->routeIs('admin.promotions.*') ? 'active' : '' }}"
-                                                    href="{{ route('admin.promotions.index') }}">
-                                                    <i class="uil-tag-alt me-2"></i>{{ __('Promotion') }}
-                                                </a>
-                                            </li>
-                                        @endif
-                                        @if ($layoutTenantAreaUnlocked)
-                                            <li class="nav-item dropdown">
-                                                <a class="nav-link dropdown-toggle arrow-none {{ request()->routeIs('admin.general-settings.*') || request()->routeIs('admin.currencies.*') || request()->routeIs('admin.rate-index.*') ? 'active' : '' }}"
-                                                    href="#" id="topnav-settings" role="button" data-bs-toggle="dropdown"
-                                                    aria-haspopup="true" aria-expanded="false">
-                                                    <i class="uil-cog me-2"></i>{{ __('Setting') }}
-                                                    <div class="arrow-down"></div>
-                                                </a>
-                                                <div class="dropdown-menu" aria-labelledby="topnav-settings">
-                                                    <a class="dropdown-item {{ request()->routeIs('admin.general-settings.*') ? 'active' : '' }}"
-                                                        href="{{ route('admin.general-settings.index') }}">
-                                                        {{ __('General') }}
+                <!-- ========== Left Sidebar Start ========== -->
+                <div class="vertical-menu">
+                    {{-- The copy in .navbar-header is hidden above 991.98px by ".navbar-header
+                         .navbar-brand-box{display:none}", so the vertical layout needs its own
+                         here. .sidebar-menu-scroll already reserves the top 70px for it. --}}
+                    <div class="navbar-brand-box">
+                        <a href="{{ route('home') }}" class="logo logo-dark">
+                            <span class="logo-sm">
+                                <img src="{{ global_asset('minible/assets/images/logo-sm.png') }}" alt="" height="22">
+                            </span>
+                            <span class="logo-lg">
+                                <img src="{{ global_asset('minible/assets/images/logo-dark.png') }}" alt="" height="20">
+                            </span>
+                        </a>
+
+                        <a href="{{ route('home') }}" class="logo logo-light">
+                            <span class="logo-sm">
+                                <img src="{{ global_asset('minible/assets/images/logo-sm.png') }}" alt="" height="22">
+                            </span>
+                            <span class="logo-lg">
+                                <img src="{{ global_asset('minible/assets/images/logo-light.png') }}" alt="" height="20">
+                            </span>
+                        </a>
+                    </div>
+
+                    <button type="button" class="btn btn-sm px-3 font-size-16 header-item waves-effect vertical-menu-btn">
+                        <i class="fa fa-fw fa-bars"></i>
+                    </button>
+
+                    <div data-simplebar class="h-100 sidebar-menu-scroll">
+                        <div id="sidebar-menu">
+                            <ul class="metismenu list-unstyled" id="side-menu">
+                                <li class="menu-title">{{ __('Menu') }}</li>
+
+                                <li>
+                                    <a href="{{ route('home') }}"
+                                        class="waves-effect {{ request()->routeIs('home') ? 'active' : '' }}">
+                                        <i class="uil-home-alt"></i>
+                                        <span>{{ __('Dashboard') }}</span>
+                                    </a>
+                                </li>
+
+                                @if ($layoutCanManageAdministrators)
+                                    <li>
+                                        <a href="{{ route('admin.users.index') }}"
+                                            class="waves-effect {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
+                                            <i class="uil-users-alt"></i>
+                                            <span>{{ __('Administrator') }}</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ route('admin.tenants.index') }}"
+                                            class="waves-effect {{ request()->routeIs('admin.tenants.*') ? 'active' : '' }}">
+                                            <i class="uil-server-network"></i>
+                                            <span>{{ __('Tenants') }}</span>
+                                        </a>
+                                    </li>
+                                @endif
+
+                                @if ($layoutTenantAreaUnlocked && $layoutCanViewPos)
+                                    <li>
+                                        <a href="{{ route('admin.pos.index') }}"
+                                            class="waves-effect {{ request()->routeIs('admin.pos.*') ? 'active' : '' }}">
+                                            <i class="uil-calculator-alt"></i>
+                                            <span>{{ __('POS') }}</span>
+                                        </a>
+                                    </li>
+                                @endif
+
+                                @if ($layoutTenantAreaUnlocked && $layoutCanViewCustomers)
+                                    <li>
+                                        <a href="{{ route('admin.customers.index') }}"
+                                            class="waves-effect {{ request()->routeIs('admin.customers.*') ? 'active' : '' }}">
+                                            <i class="uil-user-square"></i>
+                                            <span>{{ __('Customer') }}</span>
+                                        </a>
+                                    </li>
+                                @endif
+
+                                @if ($layoutHasMasterDataMenu)
+                                    <li class="{{ $layoutMasterDataActive ? 'mm-active' : '' }}">
+                                        <a href="javascript: void(0);" class="has-arrow waves-effect">
+                                            <i class="uil-database"></i>
+                                            <span>{{ __('Master Data') }}</span>
+                                        </a>
+                                        <ul class="sub-menu {{ $layoutMasterDataActive ? 'mm-show' : '' }}"
+                                            aria-expanded="{{ $layoutMasterDataActive ? 'true' : 'false' }}">
+                                            @if ($layoutCanViewBranches)
+                                                <li>
+                                                    <a href="{{ route('admin.branches.index') }}"
+                                                        class="{{ request()->routeIs('admin.branches.*') ? 'active' : '' }}">
+                                                        {{ __('Branch') }}
                                                     </a>
-                                                    @if ($layoutCanViewCurrencies)
-                                                        <a class="dropdown-item {{ request()->routeIs('admin.currencies.*') ? 'active' : '' }}"
-                                                            href="{{ route('admin.currencies.index') }}">
-                                                            {{ __('Currency') }}
-                                                        </a>
-                                                    @endif
-                                                    @if ($layoutCanViewRateIndexes)
-                                                        <a class="dropdown-item {{ request()->routeIs('admin.rate-index.*') ? 'active' : '' }}"
-                                                            href="{{ route('admin.rate-index.index') }}">
-                                                            {{ __('Rate Index') }}
-                                                        </a>
-                                                    @endif
-                                                    @if ($layoutCanViewFileManager)
-                                                        <a class="dropdown-item {{ request()->routeIs('admin.file-manager.*') ? 'active' : '' }}"
-                                                            href="{{ route('admin.file-manager.index') }}">
-                                                            {{ __('File Manager') }}
-                                                        </a>
-                                                    @endif
-                                                </div>
+                                                </li>
+                                            @endif
+                                            @if ($layoutCanViewCategories)
+                                                <li>
+                                                    <a href="{{ route('admin.categories.index') }}"
+                                                        class="{{ request()->routeIs('admin.categories.*') ? 'active' : '' }}">
+                                                        {{ __('Category') }}
+                                                    </a>
+                                                </li>
+                                            @endif
+                                            @if ($layoutCanViewUnitsOfMeasure)
+                                                <li>
+                                                    <a href="{{ route('admin.units-of-measure.index') }}"
+                                                        class="{{ request()->routeIs('admin.units-of-measure.*') ? 'active' : '' }}">
+                                                        {{ __('Unit of Measure') }}
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a href="{{ route('admin.uom-groups.index') }}"
+                                                        class="{{ request()->routeIs('admin.uom-groups.*') ? 'active' : '' }}">
+                                                        {{ __('UOM Group') }}
+                                                    </a>
+                                                </li>
+                                            @endif
+                                            @if ($layoutCanViewItems)
+                                                <li>
+                                                    <a href="{{ route('admin.item-variations.index') }}"
+                                                        class="{{ request()->routeIs('admin.item-variations.*') ? 'active' : '' }}">
+                                                        {{ __('Variation Master') }}
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a href="{{ route('admin.item-options.index') }}"
+                                                        class="{{ request()->routeIs('admin.item-options.*') ? 'active' : '' }}">
+                                                        {{ __('Option Master') }}
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a href="{{ route('admin.items.index') }}"
+                                                        class="{{ request()->routeIs('admin.items.*') ? 'active' : '' }}">
+                                                        {{ __('Item') }}
+                                                    </a>
+                                                </li>
+                                            @endif
+                                            @if ($layoutCanViewPriceLists)
+                                                <li>
+                                                    <a href="{{ route('admin.price-lists.index') }}"
+                                                        class="{{ request()->routeIs('admin.price-lists.*') ? 'active' : '' }}">
+                                                        {{ __('Price List') }}
+                                                    </a>
+                                                </li>
+                                            @endif
+                                            @if ($layoutCanViewSliders)
+                                                <li>
+                                                    <a href="{{ route('admin.sliders.index') }}"
+                                                        class="{{ request()->routeIs('admin.sliders.*') ? 'active' : '' }}">
+                                                        {{ __('Slider') }}
+                                                    </a>
+                                                </li>
+                                            @endif
+                                        </ul>
+                                    </li>
+                                @endif
+
+                                @if ($layoutHasUserManagementMenu)
+                                    <li class="{{ $layoutUserManagementActive ? 'mm-active' : '' }}">
+                                        <a href="javascript: void(0);" class="has-arrow waves-effect">
+                                            <i class="uil-users-alt"></i>
+                                            <span>{{ __('User Setting') }}</span>
+                                        </a>
+                                        <ul class="sub-menu {{ $layoutUserManagementActive ? 'mm-show' : '' }}"
+                                            aria-expanded="{{ $layoutUserManagementActive ? 'true' : 'false' }}">
+                                            @if ($layoutCanViewAddresses)
+                                                <li>
+                                                    <a href="{{ route('admin.addresses.index') }}"
+                                                        class="{{ request()->routeIs('admin.addresses.*') ? 'active' : '' }}">
+                                                        {{ __('Address') }}
+                                                    </a>
+                                                </li>
+                                            @endif
+                                            @if ($layoutCanViewTenantUsers)
+                                                <li>
+                                                    <a href="{{ route('admin.tenant-users.index') }}"
+                                                        class="{{ request()->routeIs('admin.tenant-users.*') ? 'active' : '' }}">
+                                                        {{ __('User') }}
+                                                    </a>
+                                                </li>
+                                            @endif
+                                            @if ($layoutCanViewRoles)
+                                                <li>
+                                                    <a href="{{ route('admin.roles.index') }}"
+                                                        class="{{ request()->routeIs('admin.roles.*') ? 'active' : '' }}">
+                                                        {{ __('Roles') }}
+                                                    </a>
+                                                </li>
+                                            @endif
+                                            @if ($layoutCanViewActivityLogs)
+                                                <li>
+                                                    <a href="{{ route('admin.activity-logs.index') }}"
+                                                        class="{{ request()->routeIs('admin.activity-logs.*') ? 'active' : '' }}">
+                                                        {{ __('Activity Logs') }}
+                                                    </a>
+                                                </li>
+                                            @endif
+                                        </ul>
+                                    </li>
+                                @endif
+
+                                @if ($layoutTenantAreaUnlocked && $layoutCanViewPromotions)
+                                    <li>
+                                        <a href="{{ route('admin.promotions.index') }}"
+                                            class="waves-effect {{ request()->routeIs('admin.promotions.*') ? 'active' : '' }}">
+                                            <i class="uil-tag-alt"></i>
+                                            <span>{{ __('Promotion') }}</span>
+                                        </a>
+                                    </li>
+                                @endif
+
+                                @if ($layoutTenantAreaUnlocked)
+                                    <li class="{{ $layoutSettingsActive ? 'mm-active' : '' }}">
+                                        <a href="javascript: void(0);" class="has-arrow waves-effect">
+                                            <i class="uil-cog"></i>
+                                            <span>{{ __('Setting') }}</span>
+                                        </a>
+                                        <ul class="sub-menu {{ $layoutSettingsActive ? 'mm-show' : '' }}"
+                                            aria-expanded="{{ $layoutSettingsActive ? 'true' : 'false' }}">
+                                            <li>
+                                                <a href="{{ route('admin.general-settings.index') }}"
+                                                    class="{{ request()->routeIs('admin.general-settings.*') ? 'active' : '' }}">
+                                                    {{ __('General') }}
+                                                </a>
                                             </li>
-                                        @endif
-                                    </ul>
-                                </div>
-                            </nav>
+                                            @if ($layoutCanViewCurrencies)
+                                                <li>
+                                                    <a href="{{ route('admin.currencies.index') }}"
+                                                        class="{{ request()->routeIs('admin.currencies.*') ? 'active' : '' }}">
+                                                        {{ __('Currency') }}
+                                                    </a>
+                                                </li>
+                                            @endif
+                                            @if ($layoutCanViewRateIndexes)
+                                                <li>
+                                                    <a href="{{ route('admin.rate-index.index') }}"
+                                                        class="{{ request()->routeIs('admin.rate-index.*') ? 'active' : '' }}">
+                                                        {{ __('Rate Index') }}
+                                                    </a>
+                                                </li>
+                                            @endif
+                                            @if ($layoutCanViewFileManager)
+                                                <li>
+                                                    <a href="{{ route('admin.file-manager.index') }}"
+                                                        class="{{ request()->routeIs('admin.file-manager.*') ? 'active' : '' }}">
+                                                        {{ __('File Manager') }}
+                                                    </a>
+                                                </li>
+                                            @endif
+                                        </ul>
+                                    </li>
+                                @endif
+                            </ul>
                         </div>
                     </div>
-                </header>
+                </div>
+                <!-- ========== Left Sidebar End ========== -->
 
                 <div class="main-content">
                     <div class="page-content">
@@ -430,7 +525,7 @@
                                 </div>
                                 <div class="col-sm-6">
                                     <div class="text-sm-end d-none d-sm-block">
-                                        {{ __('Minible horizontal admin template') }}
+                                        {{ __('Minible vertical admin template') }}
                                     </div>
                                 </div>
                             </div>
@@ -438,6 +533,10 @@
                     </footer>
                 </div>
             </div>
+
+            <form id="logout-form" action="{{ route('admin.logout') }}" method="POST" class="d-none">
+                @csrf
+            </form>
 
             @if ($layoutCanSwitchTenant)
                 <div class="modal fade" id="tenantSelectionModal" tabindex="-1" aria-labelledby="tenantSelectionModalLabel"

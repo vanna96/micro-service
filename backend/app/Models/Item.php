@@ -5,8 +5,9 @@ namespace App\Models;
 use App\Models\Concerns\LogsTenantActivity;
 use App\Models\Concerns\UsesQueryCache;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 use Rennokki\QueryCache\Traits\QueryCacheable;
 
@@ -102,6 +103,16 @@ class Item extends Model
     public function priceListItems()
     {
         return $this->hasMany(PriceListItem::class);
+    }
+
+    public function optionGroups(): HasMany
+    {
+        return $this->hasMany(ItemOptionGroup::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    public function variants(): HasMany
+    {
+        return $this->hasMany(ItemVariant::class)->orderBy('sort_order')->orderBy('id');
     }
 
     public function getImageUrlAttribute(): ?string

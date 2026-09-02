@@ -8,6 +8,10 @@ use Illuminate\Support\Collection;
 
 class PromotionPricingService
 {
+    public function __construct(protected ItemConfigurationService $itemConfiguration)
+    {
+    }
+
     public function price(array $payloadLines): array
     {
         $cartLines = $this->buildCartLines($payloadLines);
@@ -15,15 +19,18 @@ class PromotionPricingService
         $winner = $this->resolveWinningPromotion($cartLines, $subtotal);
         $discounts = $winner['line_discounts'] ?? [];
         $responseLines = $cartLines->map(function (array $line) use ($discounts) {
-            $discountAmount = round((float) ($discounts[$line['item_id']] ?? 0), 2);
+            $discountAmount = round((float) ($discounts[$line['line_key']] ?? 0), 2);
             $lineTotal = round(max(0, $line['line_subtotal'] - $discountAmount), 2);
 
             return [
                 'item_id' => $line['item_id'],
+                'item_variant_id' => $line['item_variant_id'],
                 'sku' => $line['sku'],
                 'name' => $line['name'],
+                'selected_options' => $line['selected_options'],
                 'quantity' => $line['quantity'],
                 'unit_price' => (float) $line['unit_price'],
+                'option_total' => (float) $line['option_total'],
                 'line_subtotal' => (float) $line['line_subtotal'],
                 'discount_amount' => (float) $discountAmount,
                 'line_total' => (float) $lineTotal,
@@ -50,33 +57,41 @@ class PromotionPricingService
 
     protected function buildCartLines(array $payloadLines): Collection
     {
-        $aggregated = collect($payloadLines)
-            ->groupBy('item_id')
-            ->map(fn (Collection $lines, $itemId) => [
-                'item_id' => (int) $itemId,
-                'quantity' => (int) $lines->sum('quantity'),
-            ])
-            ->filter(fn (array $line) => $line['quantity'] > 0);
+        $payload = collect($payloadLines)->values();
 
         $items = Item::query()
-            ->whereIn('id', $aggregated->pluck('item_id'))
+            ->with(['optionGroups.values', 'variants.optionValues'])
+            ->whereIn('id', $payload->pluck('item_id')->unique())
             ->get()
             ->keyBy('id');
 
-        return $aggregated->map(function (array $line) use ($items) {
-            /** @var \App\Models\Item $item */
-            $item = $items->get($line['item_id']);
-            $unitPrice = round((float) $item->price, 2);
+        return $payload
+            ->map(function (array $line) use ($items): array {
+                /** @var \App\Models\Item $item */
+                $item = $items->get($line['item_id']);
+                $configuration = $this->itemConfiguration->resolve(
+                    $item,
+                    isset($line['variant_id']) ? (int) $line['variant_id'] : null,
+                    $line['option_value_ids'] ?? []
+                );
 
-            return [
-                'item_id' => $item->id,
-                'sku' => $item->sku,
-                'name' => $item->name,
-                'quantity' => $line['quantity'],
-                'unit_price' => $unitPrice,
-                'line_subtotal' => round($unitPrice * $line['quantity'], 2),
-            ];
-        })->values();
+                return array_merge(
+                    ['item_id' => $item->id],
+                    $configuration,
+                    ['quantity' => (int) $line['quantity']]
+                );
+            })
+            ->groupBy('line_key')
+            ->map(function (Collection $lines): array {
+                $line = $lines->first();
+                $quantity = (int) $lines->sum('quantity');
+
+                return array_merge($line, [
+                    'quantity' => $quantity,
+                    'line_subtotal' => round($line['unit_price'] * $quantity, 2),
+                ]);
+            })
+            ->values();
     }
 
     protected function resolveWinningPromotion(Collection $cartLines, float $subtotal): ?array
@@ -121,26 +136,21 @@ class PromotionPricingService
         $discounts = [];
 
         foreach ($promotion->activeLines as $line) {
-            $cartLine = $cartLines->firstWhere('item_id', $line->item_id);
+            $cartLines->where('item_id', $line->item_id)->each(function (array $cartLine) use ($line, &$discounts) {
+                $baseTotal = $cartLine['line_subtotal'];
 
-            if (! $cartLine) {
-                continue;
-            }
+                if ($line->pricing_method === 'fixed') {
+                    $configuredFixedPrice = (float) ($line->fixed_price ?? 0) + (float) $cartLine['option_total'];
+                    $candidateTotal = round($configuredFixedPrice * $cartLine['quantity'], 2);
+                    $discount = round(max(0, $baseTotal - $candidateTotal), 2);
+                } else {
+                    $discount = round($baseTotal * ((int) ($line->discount_percent ?? 0) / 100), 2);
+                }
 
-            $baseTotal = $cartLine['line_subtotal'];
-
-            if ($line->pricing_method === 'fixed') {
-                $candidateTotal = round((float) ($line->fixed_price ?? 0) * $cartLine['quantity'], 2);
-                $discount = round(max(0, $baseTotal - $candidateTotal), 2);
-            } else {
-                $discount = round($baseTotal * ((int) ($line->discount_percent ?? 0) / 100), 2);
-            }
-
-            if ($discount <= 0) {
-                continue;
-            }
-
-            $discounts[$line->item_id] = round(($discounts[$line->item_id] ?? 0) + $discount, 2);
+                if ($discount > 0) {
+                    $discounts[$cartLine['line_key']] = round(($discounts[$cartLine['line_key']] ?? 0) + $discount, 2);
+                }
+            });
         }
 
         return $this->buildCandidate($promotion, $discounts);
@@ -196,7 +206,7 @@ class PromotionPricingService
             }
 
             return $this->buildCandidate($promotion, [
-                $getLine->item_id => round($discountedQuantity * $buyCartLine['unit_price'], 2),
+                $buyCartLine['line_key'] => round($discountedQuantity * $buyCartLine['unit_price'], 2),
             ]);
         }
 
@@ -209,7 +219,7 @@ class PromotionPricingService
         }
 
         return $this->buildCandidate($promotion, [
-            $getLine->item_id => round($discountedQuantity * $getCartLine['unit_price'], 2),
+            $getCartLine['line_key'] => round($discountedQuantity * $getCartLine['unit_price'], 2),
         ]);
     }
 
@@ -241,12 +251,12 @@ class PromotionPricingService
 
         foreach ($cartLines->values() as $index => $line) {
             if ($index === $lineCount - 1) {
-                $allocated[$line['item_id']] = round($remaining, 2);
+                $allocated[$line['line_key']] = round($remaining, 2);
                 break;
             }
 
             $share = round($discountTotal * ($line['line_subtotal'] / max(0.01, $cartLines->sum('line_subtotal'))), 2);
-            $allocated[$line['item_id']] = $share;
+            $allocated[$line['line_key']] = $share;
             $remaining = round($remaining - $share, 2);
         }
 

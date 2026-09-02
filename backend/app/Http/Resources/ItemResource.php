@@ -37,18 +37,65 @@ class ItemResource extends JsonResource
             'sort_order' => (int) $this->sort_order,
             'thumbnail_url' => $this->image_url,
             'image_url' => $this->image_url,
+            'has_variations' => $this->relationLoaded('optionGroups')
+                ? $this->optionGroups->where('type', 'variant')->isNotEmpty()
+                : $this->optionGroups()->where('type', 'variant')->exists(),
+            'option_groups' => $this->whenLoaded('optionGroups', fn () => $this->optionGroups->map(fn ($group) => [
+                'id' => (int) $group->id,
+                'name' => (string) $group->name,
+                'foreign_name' => (string) ($group->foreign_name ?? ''),
+                'type' => (string) $group->type,
+                'selection_type' => (string) $group->selection_type,
+                'is_required' => (bool) $group->is_required,
+                'min_selections' => (int) $group->min_selections,
+                'max_selections' => $group->max_selections !== null ? (int) $group->max_selections : null,
+                'sort_order' => (int) $group->sort_order,
+                'status' => (string) $group->status,
+                'values' => $group->values->map(fn ($value) => [
+                    'id' => (int) $value->id,
+                    'name' => (string) $value->name,
+                    'foreign_name' => (string) ($value->foreign_name ?? ''),
+                    'sku_suffix' => (string) ($value->sku_suffix ?? ''),
+                    'color_hex' => $value->color_hex,
+                    'price_adjustment' => (float) $value->price_adjustment,
+                    'formatted_price_adjustment' => format_currency_amount($value->price_adjustment, $this->currency),
+                    'is_default' => (bool) $value->is_default,
+                    'sort_order' => (int) $value->sort_order,
+                    'status' => (string) $value->status,
+                ])->values(),
+            ])->values()),
+            'variants' => $this->whenLoaded('variants', fn () => $this->variants->map(fn ($variant) => [
+                'id' => (int) $variant->id,
+                'sku' => (string) $variant->sku,
+                'barcode' => $variant->barcode,
+                'name' => (string) ($variant->name ?? ''),
+                'price' => $variant->price !== null ? (float) $variant->price : null,
+                'resolved_price' => (float) ($variant->price ?? $this->price),
+                'formatted_resolved_price' => format_currency_amount($variant->price ?? $this->price, $this->currency),
+                'stock' => (int) $variant->stock,
+                'is_default' => (bool) $variant->is_default,
+                'sort_order' => (int) $variant->sort_order,
+                'status' => (string) $variant->status,
+                'option_values' => $variant->optionValues->map(fn ($value) => [
+                    'id' => (int) $value->id,
+                    'group_id' => (int) $value->item_option_group_id,
+                    'group_name' => (string) ($value->group?->name ?? ''),
+                    'name' => (string) $value->name,
+                    'color_hex' => $value->color_hex,
+                ])->values(),
+            ])->values()),
             'created_at' => $this->created_at?->format('d M, Y'),
             'galleries' => $this->galleries
                 ->where('type', 'galleries')
                 ->values()
                 ->map(function ($gallery) {
-                return [
-                    'id' => $gallery->id,
-                    'name' => $gallery->name,
-                    'image_url' => \Storage::disk('item')->url($gallery->name),
-                    'created_at' => $gallery->created_at?->format('d M, Y'),
-                ];
-            }),
+                    return [
+                        'id' => $gallery->id,
+                        'name' => $gallery->name,
+                        'image_url' => \Storage::disk('item')->url($gallery->name),
+                        'created_at' => $gallery->created_at?->format('d M, Y'),
+                    ];
+                }),
         ];
     }
 }

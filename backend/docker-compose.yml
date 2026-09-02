@@ -62,8 +62,30 @@ services:
         condition: service_healthy
       app2:
         condition: service_healthy
+      nextjs:
+        condition: service_started
     networks:
       - app-network
+
+  nextjs:
+    image: node:24-alpine
+    container_name: laravel_nextjs
+    working_dir: /var/www/html
+    restart: always
+    command: sh -lc "npm install && npm run next:dev"
+    environment:
+      LARAVEL_API_URL: http://nginx/v1/api
+      NEXT_PUBLIC_API_URL: /v1/api
+    volumes:
+      - .:/var/www/html
+      - next_node_modules:/var/www/html/node_modules
+      - next_cache:/var/www/html/.next
+    networks:
+      - app-network
+
+volumes:
+  next_node_modules:
+  next_cache:
 
 networks:
   app-network:

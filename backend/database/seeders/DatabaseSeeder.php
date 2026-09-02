@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
         if (tenant()) {
             $this->call([
                 TenantAdminSeeder::class,
+                TenantCatalogSeeder::class,
             ]);
 
             return;

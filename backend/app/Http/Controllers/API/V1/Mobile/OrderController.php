@@ -20,7 +20,9 @@ class OrderController extends Controller
     use BuildsMobilePayloads;
     use InteractsWithMobileUsers;
 
-    public function __construct(protected PromotionPricingService $promotionPricing) {}
+    public function __construct(protected PromotionPricingService $promotionPricing)
+    {
+    }
 
     public function index(Request $request)
     {
@@ -85,6 +87,9 @@ class OrderController extends Controller
             'address_id' => ['nullable', 'integer', Rule::exists((new Address())->getTable(), 'id')],
             'items' => ['required', 'array', 'min:1'],
             'items.*.item_id' => ['required', 'integer', Rule::exists((new Item())->getTable(), 'id')],
+            'items.*.variant_id' => ['nullable', 'integer', 'min:1'],
+            'items.*.option_value_ids' => ['nullable', 'array'],
+            'items.*.option_value_ids.*' => ['required', 'integer', 'min:1', 'distinct'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'note' => ['nullable', 'string', 'max:1000'],
             'payment_method' => ['nullable', 'string', 'max:64'],
@@ -131,11 +136,14 @@ class OrderController extends Controller
 
                 $order->items()->create([
                     'item_id' => (int) $line['item_id'],
+                    'item_variant_id' => $line['item_variant_id'] ? (int) $line['item_variant_id'] : null,
                     'sku' => (string) ($line['sku'] ?? ''),
                     'name' => (string) $line['name'],
                     'image_url' => $item?->image_url,
+                    'selected_options' => $line['selected_options'] ?? [],
                     'quantity' => (int) $line['quantity'],
                     'unit_price' => (float) $line['unit_price'],
+                    'option_total' => (float) ($line['option_total'] ?? 0),
                     'line_subtotal' => (float) $line['line_subtotal'],
                     'discount_amount' => (float) $line['discount_amount'],
                     'line_total' => (float) $line['line_total'],
@@ -146,7 +154,7 @@ class OrderController extends Controller
                 'user_id' => $centralUser->id,
                 'type' => 'Order',
                 'title' => 'Order placed',
-                'message' => 'Your order ' . $order->order_number . ' was placed successfully.',
+                'message' => 'Your order '.$order->order_number.' was placed successfully.',
                 'data' => [
                     'order_id' => $order->id,
                     'order_number' => $order->order_number,
@@ -167,6 +175,6 @@ class OrderController extends Controller
 
     private function generateOrderNumber(): string
     {
-        return 'ORD-' . now()->format('Ymd') . '-' . Str::upper(Str::random(6));
+        return 'ORD-'.now()->format('Ymd').'-'.Str::upper(Str::random(6));
     }
 }
