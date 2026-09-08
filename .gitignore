@@ -18,3 +18,6 @@ file-storage/.env
 
 #database
 database/.env
+
+# Local assistant settings
+.claude/

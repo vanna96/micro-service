@@ -18,7 +18,7 @@ export function ModalConfirmClear({ onConfirm, onClose }: ModalConfirmClearProps
           </div>
           <h6 className="fw-bolder mb-1">Clear Current Cart?</h6>
           <p className="text-muted fs-12 mb-4">
-            All items in order #GOT-1698 will be removed.
+            All items in the current cart will be removed.
           </p>
           <div className="d-flex gap-2">
             <button type="button" className="btn btn-light flex-fill" onClick={onClose}>

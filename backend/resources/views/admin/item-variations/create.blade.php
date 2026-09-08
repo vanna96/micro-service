@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
-@section('title', 'Create Variation Master')
-@section('page_title', 'Create Variation Master')
+@section('title', 'Create Variation')
+@section('page_title', 'Create Variation')
 
 @section('content')
 <form method="POST" action="{{ route('admin.item-variations.store') }}">

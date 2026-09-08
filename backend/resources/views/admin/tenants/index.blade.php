@@ -39,7 +39,7 @@
                     <table id="datatable-tenants" class="table table-bordered dt-responsive nowrap w-100">
                         <thead>
                             <tr>
-                                <th>ID</th>
+                                <th>Alias</th>
                                 <th>Database</th>
                                 <th>Connection</th>
                                 <th>Status</th>
@@ -50,7 +50,10 @@
                         <tbody>
                             @foreach ($tenants as $tenant)
                                 <tr>
-                                    <td>{{ $tenant->id }}</td>
+                                    <td>
+                                        <div class="fw-semibold">{{ $tenant->alias ?: $tenant->id }}</div>
+                                        <div class="text-muted fs-7">ID: {{ $tenant->id }}</div>
+                                    </td>
                                     <td>
                                         <div class="fw-semibold">{{ $tenant->db_name }}</div>
                                         <div class="text-muted font-size-12">{{ $tenant->db_host }}:{{ $tenant->db_port }}</div>

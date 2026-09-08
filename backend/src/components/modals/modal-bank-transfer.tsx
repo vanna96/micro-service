@@ -28,11 +28,11 @@ export function ModalBankTransfer({
             </div>
             <div className="mb-3">
               <label className="form-label fs-12 fw-medium text-muted">Bank Name</label>
-              <input type="text" className="form-control" defaultValue="JPMorgan Chase Bank" />
+              <input type="text" className="form-control" placeholder="Enter bank name" />
             </div>
             <div className="mb-3">
               <label className="form-label fs-12 fw-medium text-muted">UTR / Reference No.</label>
-              <input type="text" className="form-control" defaultValue="UTR-992019482" />
+              <input type="text" className="form-control" placeholder="Enter reference number" />
             </div>
             <div className="d-flex gap-2 mt-4">
               <button type="button" className="btn btn-light w-50" onClick={onClose}>

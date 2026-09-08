@@ -80,6 +80,7 @@ class TenantController extends Controller
         $tenantTable = 'central.' . (new Tenant())->getTable();
 
         $rules = [
+            'alias' => ['required', 'string', 'max:63', 'regex:/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/'],
             'db_connection' => ['required', 'string', 'max:255'],
             'db_port' => ['required', 'string', 'max:20'],
             'db_name' => ['required', 'string', 'max:255'],
@@ -92,6 +93,8 @@ class TenantController extends Controller
         if ($includeId) {
             $rules['id'] = ['required', 'string', 'max:255', Rule::unique($tenantTable, 'id')];
         }
+
+        $rules['alias'][] = Rule::unique($tenantTable, 'alias')->ignore($request->route('tenant'));
 
         return $request->validate($rules);
     }

@@ -20,10 +20,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(response.status).json(body);
   } catch {
-    return res.status(202).json({
-      order_number: `LOCAL-${Date.now()}`,
-      status: "active",
-      items: req.body.items ?? [],
-    });
+    return res.status(502).json({ message: "Order service is unavailable" });
   }
 }

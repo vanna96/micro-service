@@ -17,6 +17,8 @@ class Item extends Model
 
     protected $fillable = [
         'category_id',
+        'item_type',
+        'uom_group_id',
         'branch_id',
         'price_list_id',
         'currency_id',
@@ -40,6 +42,7 @@ class Item extends Model
     ];
 
     protected $casts = [
+        'uom_group_id' => 'integer',
         'currency_id' => 'integer',
         'price' => 'decimal:8',
         'rating' => 'decimal:2',
@@ -68,6 +71,11 @@ class Item extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function uomGroup(): BelongsTo
+    {
+        return $this->belongsTo(UomGroup::class);
     }
 
     public function branch(): BelongsTo
@@ -120,6 +128,14 @@ class Item extends Model
         $image = $this->relationLoaded('image')
             ? $this->getRelation('image')
             : $this->image()->first();
+
+        if ($image && str_starts_with((string) $image->name, 'assets/') && is_file(public_path($image->name))) {
+            $baseUrl = app()->runningInConsole()
+                ? rtrim((string) config('app.url'), '/')
+                : request()->getSchemeAndHttpHost();
+
+            return $baseUrl.'/'.ltrim($image->name, '/');
+        }
 
         if ($image && filled($image->name) && Storage::disk('item')->exists($image->name)) {
             return Storage::disk('item')->url($image->name);

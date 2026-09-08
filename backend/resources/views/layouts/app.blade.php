@@ -364,13 +364,13 @@
                                                 <li>
                                                     <a href="{{ route('admin.item-variations.index') }}"
                                                         class="{{ request()->routeIs('admin.item-variations.*') ? 'active' : '' }}">
-                                                        {{ __('Variation Master') }}
+                                                        {{ __('Variation') }}
                                                     </a>
                                                 </li>
                                                 <li>
                                                     <a href="{{ route('admin.item-options.index') }}"
                                                         class="{{ request()->routeIs('admin.item-options.*') ? 'active' : '' }}">
-                                                        {{ __('Option Master') }}
+                                                        {{ __('Option') }}
                                                     </a>
                                                 </li>
                                                 <li>

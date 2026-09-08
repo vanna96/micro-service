@@ -7,14 +7,15 @@ use App\Http\Controllers\API\V1\Mobile\FavoriteController;
 use App\Http\Controllers\API\V1\Mobile\HomeController;
 use App\Http\Controllers\API\V1\Mobile\NotificationController;
 use App\Http\Controllers\API\V1\Mobile\OrderController;
+use App\Http\Controllers\API\V1\Mobile\PosCustomerController;
 use App\Http\Controllers\API\V1\Mobile\ProfileController;
 use Illuminate\Support\Facades\Route;
-use Stancl\Tenancy\Middleware\InitializeTenancyByRequestData;
+use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 
 Route::prefix('mobile')
     ->middleware([
         'api',
-        InitializeTenancyByRequestData::class,
+        InitializeTenancyByDomain::class,
         'tenant.active',
     ])->group(function () {
         Route::prefix('auth')->group(function () {
@@ -29,6 +30,7 @@ Route::prefix('mobile')
         Route::get('products', [CatalogController::class, 'products']);
         Route::get('products/{item}', [CatalogController::class, 'show']);
         Route::post('cart/price', [CatalogController::class, 'priceCart']);
+        Route::get('pos/customers', [PosCustomerController::class, 'index']);
 
         Route::middleware(['tenant.access'])->group(function () {
             Route::prefix('auth')->group(function () {

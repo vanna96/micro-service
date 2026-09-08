@@ -14,6 +14,7 @@ use Illuminate\Support\Str;
 class CustomerRepository extends RepositoryBase
 {
     protected $repositoryId = 'rinvex.repository.id';
+
     protected $model = 'App\Models\Customer';
 
     public function getAdminListing(string $search = ''): Collection
@@ -23,7 +24,7 @@ class CustomerRepository extends RepositoryBase
             ->cacheFor($this->customerCacheTtl())
             ->cachePrefix($this->customerListingCachePrefix())
             ->cacheTags($this->customerListingCacheTags())
-            ->with('profile')
+            ->with(['profile', 'priceList'])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($innerQuery) use ($search) {
                     $innerQuery->where('code', 'like', "%{$search}%")
@@ -32,7 +33,10 @@ class CustomerRepository extends RepositoryBase
                         ->orWhere('phone', 'like', "%{$search}%")
                         ->orWhere('address', 'like', "%{$search}%")
                         ->orWhere('notes', 'like', "%{$search}%")
-                        ->orWhere('status', 'like', "%{$search}%");
+                        ->orWhere('status', 'like', "%{$search}%")
+                        ->orWhereHas('priceList', fn ($priceListQuery) => $priceListQuery
+                            ->where('name', 'like', "%{$search}%")
+                            ->orWhere('code', 'like', "%{$search}%"));
                 });
             })
             ->orderBy('name')
@@ -47,7 +51,7 @@ class CustomerRepository extends RepositoryBase
     {
         $query = $this->customerModel()
             ->newQuery()
-            ->with(['galleries', 'profile'])
+            ->with(['galleries', 'profile', 'priceList'])
             ->whereKey($customerId);
 
         $this->reportCacheState($query, 'admin.customers.edit');
@@ -98,7 +102,7 @@ class CustomerRepository extends RepositoryBase
         $this->deleteProfileImage($customer);
 
         $extension = strtolower($profile->getClientOriginalExtension() ?: $profile->extension() ?: 'jpg');
-        $fileName = 'customer_' . Str::uuid()->toString() . '.' . $extension;
+        $fileName = 'customer_'.Str::uuid()->toString().'.'.$extension;
 
         Storage::disk('customer')->putFileAs('', $profile, $fileName);
 
@@ -141,7 +145,7 @@ class CustomerRepository extends RepositoryBase
     protected function customerListingCacheTags(): array
     {
         $tenantTag = tenant()
-            ? 'tenant-customer-listing:' . tenant()->getTenantKey()
+            ? 'tenant-customer-listing:'.tenant()->getTenantKey()
             : 'tenant-customer-listing:central';
 
         return [
@@ -156,7 +160,7 @@ class CustomerRepository extends RepositoryBase
             ? (string) tenant()->getTenantKey()
             : 'central';
 
-        return (string) config('query-cache.prefix', 'micro_service_backend') . ':customer-listing:' . $tenantKey;
+        return (string) config('query-cache.prefix', 'micro_service_backend').':customer-listing:'.$tenantKey;
     }
 
     protected function customerModel(): Customer

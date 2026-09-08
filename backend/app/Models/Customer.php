@@ -5,8 +5,8 @@ namespace App\Models;
 use App\Models\Concerns\LogsTenantActivity;
 use App\Models\Concerns\UsesQueryCache;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 use Rennokki\QueryCache\Traits\QueryCacheable;
 
@@ -16,6 +16,7 @@ class Customer extends Model
 
     protected $fillable = [
         'profile_id',
+        'price_list_id',
         'code',
         'name',
         'email',
@@ -49,6 +50,11 @@ class Customer extends Model
     public function profile(): BelongsTo
     {
         return $this->belongsTo(Gallery::class, 'profile_id');
+    }
+
+    public function priceList(): BelongsTo
+    {
+        return $this->belongsTo(PriceList::class);
     }
 
     public function getProfileImageUrlAttribute(): ?string

@@ -9,8 +9,8 @@ services:
       - .:/var/www/html
       - ./bootstrap/cache:/var/www/html/bootstrap/cache
     healthcheck:
-      # Fail if the source code bind mount is stale/empty (WSL2 race)
-      test: ["CMD-SHELL", "test -f /var/www/html/public/index.php || exit 1"]
+      # Confirm both the source mount and PHP-FPM are ready before Nginx starts.
+      test: ["CMD-SHELL", "test -f /var/www/html/public/index.php && php -r 'exit(@fsockopen(\"127.0.0.1\", 9000) ? 0 : 1);'"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,8 +28,8 @@ services:
       - .:/var/www/html
       - ./bootstrap/cache:/var/www/html/bootstrap/cache
     healthcheck:
-      # Fail if the source code bind mount is stale/empty (WSL2 race)
-      test: ["CMD-SHELL", "test -f /var/www/html/public/index.php || exit 1"]
+      # Confirm both the source mount and PHP-FPM are ready before Nginx starts.
+      test: ["CMD-SHELL", "test -f /var/www/html/public/index.php && php -r 'exit(@fsockopen(\"127.0.0.1\", 9000) ? 0 : 1);'"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -56,14 +56,15 @@ services:
       - "${RUNNING_PORT}:80"
     volumes:
       - .:/var/www/html
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      # Directory mounts remain valid when an editor replaces default.conf in WSL.
+      - ./nginx:/etc/nginx/conf.d:ro
     depends_on:
       app1:
         condition: service_healthy
       app2:
         condition: service_healthy
       nextjs:
-        condition: service_started
+        condition: service_healthy
     networks:
       - app-network
 
@@ -80,6 +81,12 @@ services:
       - .:/var/www/html
       - next_node_modules:/var/www/html/node_modules
       - next_cache:/var/www/html/.next
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/').then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
     networks:
       - app-network
 

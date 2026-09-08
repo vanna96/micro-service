@@ -10,10 +10,12 @@ use App\Models\ItemVariant;
 use App\Models\ItemVariation;
 use App\Models\PriceList;
 use App\Models\Tenant;
+use App\Models\UomGroup;
 use App\Repositories\BranchRepository;
 use App\Repositories\CurrencyRepository;
 use App\Repositories\ItemRepository;
 use App\Repositories\PriceListRepository;
+use App\Repositories\UomGroupRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,16 +33,20 @@ class ItemController extends Controller
 
     protected PriceListRepository $priceLists;
 
+    protected UomGroupRepository $uomGroups;
+
     public function __construct(
         ItemRepository $items,
         BranchRepository $branches,
         CurrencyRepository $currencies,
-        PriceListRepository $priceLists
+        PriceListRepository $priceLists,
+        UomGroupRepository $uomGroups
     ) {
         $this->items = $items;
         $this->branches = $branches;
         $this->currencies = $currencies;
         $this->priceLists = $priceLists;
+        $this->uomGroups = $uomGroups;
         $this->middleware('admin.permission:items.view')->only(['index']);
         $this->middleware('admin.permission:items.manage')->except(['index']);
     }
@@ -65,6 +71,7 @@ class ItemController extends Controller
         return view('admin.items.create', [
             'item' => new Item([
                 'status' => 'Active',
+                'item_type' => 'uom',
                 'is_try_on_enabled' => true,
                 'currency_id' => $baseCurrency?->id,
             ]),
@@ -72,6 +79,7 @@ class ItemController extends Controller
             'priceListOptions' => $this->priceLists->getOptions(),
             'currencyOptions' => $this->currencies->getActiveOptions(),
             'categoryOptions' => Category::query()->orderBy('name')->get(),
+            'uomGroupOptions' => $this->uomGroups->getOptions(),
             'variationMasters' => $this->variationMasters(),
             'selectedTenant' => $selectedTenant,
         ]);
@@ -101,6 +109,7 @@ class ItemController extends Controller
             'priceListOptions' => $this->priceLists->getOptions($itemModel->price_list_id),
             'currencyOptions' => $this->currencies->getActiveOptions(),
             'categoryOptions' => Category::query()->orderBy('name')->get(),
+            'uomGroupOptions' => $this->uomGroups->getOptions($itemModel->uom_group_id),
             'variationMasters' => $this->variationMasters(),
             'selectedTenant' => $selectedTenant,
         ]);
@@ -152,9 +161,17 @@ class ItemController extends Controller
         $currencyTable = $this->currencyValidationTable();
         $priceListTable = $this->priceListValidationTable();
         $variationTable = $this->variationValidationTable();
+        $uomGroupTable = $this->uomGroupValidationTable();
 
         $validator = Validator::make($request->all(), [
             'category_id' => ['nullable', 'integer', Rule::exists($categoryTable, 'id')],
+            'item_type' => ['required', Rule::in(['uom', 'variation'])],
+            'uom_group_id' => [
+                'nullable',
+                'required_if:item_type,uom',
+                'integer',
+                Rule::exists($uomGroupTable, 'id'),
+            ],
             'branch_id' => ['nullable', 'integer', Rule::exists($branchTable, 'id')],
             'price_list_id' => ['nullable', 'integer', Rule::exists($priceListTable, 'id')],
             'currency_id' => [
@@ -404,6 +421,17 @@ class ItemController extends Controller
         return 'central.'.$table;
     }
 
+    private function uomGroupValidationTable(): string
+    {
+        $table = (new UomGroup())->getTable();
+
+        if (tenant()) {
+            return tenant()->database_connection_name.'.'.$table;
+        }
+
+        return 'central.'.$table;
+    }
+
     private function requiredTenant(Request $request): Tenant
     {
         $tenant = admin_current_tenant();
@@ -415,9 +443,12 @@ class ItemController extends Controller
 
     private function normalizeFlags(Request $request): void
     {
-        $configurationEnabled = $request->boolean('configuration_enabled');
+        $itemType = (string) $request->input('item_type', 'uom');
+        $configurationEnabled = $itemType === 'variation';
 
         $request->merge([
+            'item_type' => $itemType,
+            'uom_group_id' => $configurationEnabled ? null : $request->input('uom_group_id'),
             'is_premium' => $request->boolean('is_premium'),
             'is_featured' => $request->boolean('is_featured'),
             'is_new_arrival' => $request->boolean('is_new_arrival'),

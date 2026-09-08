@@ -21,7 +21,7 @@ export function ModalHeldOrders({
   onClose,
 }: ModalHeldOrdersProps) {
   const [tab, setTab] = useState<"list" | "park">("list");
-  const [refInput, setRefInput] = useState<string>("Table 03 - Walk-in");
+  const [refInput, setRefInput] = useState<string>("");
   const [noteInput, setNoteInput] = useState<string>("");
 
   return (
@@ -203,7 +203,7 @@ export function ModalHeldOrders({
                       Current Active Cart
                     </span>
                     <h6 className="fw-bold mb-0 text-body">
-                      {cartCount} Items • Order #GOT-1698
+                      {cartCount} Items
                     </h6>
                   </div>
                   <h5 className="fw-bolder text-primary mb-0 font-monospace">
@@ -219,7 +219,7 @@ export function ModalHeldOrders({
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="e.g. Table 05 - David / Drive-thru #02"
+                    placeholder="Enter a reference name or table number"
                     value={refInput}
                     onChange={(e) => setRefInput(e.target.value)}
                     autoFocus
@@ -233,7 +233,7 @@ export function ModalHeldOrders({
                   <textarea
                     className="form-control"
                     rows={2}
-                    placeholder="e.g. Customer stepped away to grab cash from ATM..."
+                    placeholder="Enter an optional note"
                     value={noteInput}
                     onChange={(e) => setNoteInput(e.target.value)}
                   ></textarea>

@@ -10,11 +10,11 @@ interface PosState {
 }
 
 const initialState: PosState = {
-  discountPercent: 10,
+  discountPercent: 0,
   taxPercent: 0,
   serviceFee: 0,
   orderType: 'Takeaway',
-  heldOrders: [], // will initialize this with demo data if needed, or empty
+  heldOrders: [],
 };
 
 export const posSlice = createSlice({

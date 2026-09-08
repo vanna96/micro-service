@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Models\PriceList;
 use App\Models\Tenant;
 use App\Repositories\CustomerRepository;
+use App\Repositories\PriceListRepository;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -15,9 +17,12 @@ class CustomerController extends Controller
 {
     protected CustomerRepository $customers;
 
-    public function __construct(CustomerRepository $customers)
+    protected PriceListRepository $priceLists;
+
+    public function __construct(CustomerRepository $customers, PriceListRepository $priceLists)
     {
         $this->customers = $customers;
+        $this->priceLists = $priceLists;
         $this->middleware('admin.permission:customers.view')->only(['index']);
         $this->middleware('admin.permission:customers.manage')->except(['index']);
     }
@@ -42,6 +47,7 @@ class CustomerController extends Controller
             'customer' => new Customer([
                 'status' => 'Active',
             ]),
+            'priceLists' => $this->priceLists->getOptions(),
             'selectedTenant' => $selectedTenant,
         ]);
     }
@@ -61,9 +67,11 @@ class CustomerController extends Controller
     public function edit(Request $request, string $customer): View
     {
         $selectedTenant = $this->requiredTenant($request);
+        $customerModel = $this->customers->loadForAdminEdit((int) $customer);
 
         return view('admin.customers.edit', [
-            'customer' => $this->customers->loadForAdminEdit((int) $customer),
+            'customer' => $customerModel,
+            'priceLists' => $this->priceLists->getOptions($customerModel->price_list_id),
             'selectedTenant' => $selectedTenant,
         ]);
     }
@@ -99,6 +107,7 @@ class CustomerController extends Controller
 
         return $request->validate([
             'code' => ['required', 'string', 'max:64', Rule::unique($customerTable, 'code')->ignore($customerId)],
+            'price_list_id' => ['nullable', 'integer', Rule::exists($this->priceListValidationTable(), 'id')],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255', Rule::unique($customerTable, 'email')->ignore($customerId)],
             'phone' => ['nullable', 'string', 'max:20', Rule::unique($customerTable, 'phone')->ignore($customerId)],
@@ -114,10 +123,21 @@ class CustomerController extends Controller
         $table = (new Customer())->getTable();
 
         if (tenant()) {
-            return tenant()->database_connection_name . '.' . $table;
+            return tenant()->database_connection_name.'.'.$table;
         }
 
-        return 'central.' . $table;
+        return 'central.'.$table;
+    }
+
+    private function priceListValidationTable(): string
+    {
+        $table = (new PriceList())->getTable();
+
+        if (tenant()) {
+            return tenant()->database_connection_name.'.'.$table;
+        }
+
+        return 'central.'.$table;
     }
 
     private function requiredTenant(Request $request): Tenant

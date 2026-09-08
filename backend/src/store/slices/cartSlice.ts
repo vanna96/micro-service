@@ -1,13 +1,12 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Product, CartItem, ProductUOM, VariantValue } from '@/types/pos-types';
-import { INITIAL_CART } from '@/data/pos-data';
 
 interface CartState {
   items: CartItem[];
 }
 
 const initialState: CartState = {
-  items: INITIAL_CART,
+  items: [],
 };
 
 export const cartSlice = createSlice({

@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
-@section('title', 'Edit Variation Master')
-@section('page_title', 'Edit Variation Master')
+@section('title', 'Edit Variation')
+@section('page_title', 'Edit Variation')
 
 @section('content')
 <form method="POST" action="{{ route('admin.item-variations.update', $variation->id) }}">

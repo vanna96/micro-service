@@ -10,14 +10,26 @@
                 <div class="row g-2">
                     @if (! $tenant->exists)
                         <div class="col-md-6">
-                            <label class="form-label required">Tenant ID</label>
+                            <label class="form-label required">Tenant Alias</label>
+                            <input type="text" name="alias" value="{{ old('alias', $tenant->alias) }}" class="form-control @error('alias') is-invalid @enderror" placeholder="rechna" />
+                            <div class="form-text">Used in the public tenant address.</div>
+                            @error('alias')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label required">Internal Tenant ID</label>
                             <input type="text" name="id" value="{{ old('id', $tenant->id) }}" class="form-control @error('id') is-invalid @enderror" />
-                            <div class="form-text">This becomes the tenant subdomain prefix.</div>
+                            <div class="form-text">Private tenancy key; it is not used as the public host.</div>
                             @error('id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                     @else
                         <div class="col-md-6">
-                            <label class="form-label">Tenant ID</label>
+                            <label class="form-label required">Tenant Alias</label>
+                            <input type="text" name="alias" value="{{ old('alias', $tenant->alias) }}" class="form-control @error('alias') is-invalid @enderror" />
+                            <div class="form-text">Used in the public tenant address.</div>
+                            @error('alias')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Internal Tenant ID</label>
                             <input type="text" value="{{ $tenant->id }}" class="form-control" disabled />
                         </div>
                     @endif
@@ -85,7 +97,7 @@
                         <div class="d-flex flex-stack flex-grow-1">
                             <div class="fw-semibold">
                                 <div class="fs-6 text-gray-700">Domain</div>
-                                <div class="fw-bold text-gray-900">{{ optional($tenant->domains->first())->domain ?: ($tenant->id . '.' . env('TENANT_HOST', 'localhost')) }}</div>
+                                <div class="fw-bold text-gray-900">{{ optional($tenant->domains->first())->domain ?: (($tenant->alias ?: 'tenant') . '.' . env('TENANT_HOST', 'localhost')) }}</div>
                             </div>
                         </div>
                     </div>

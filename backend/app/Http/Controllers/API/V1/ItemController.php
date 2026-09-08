@@ -10,6 +10,7 @@ use App\Models\Currency;
 use App\Models\Item;
 use App\Models\ItemVariant;
 use App\Models\PriceList;
+use App\Models\UomGroup;
 use App\Repositories\CurrencyRepository;
 use App\Repositories\ItemRepository;
 use App\Rules\Base64Image;
@@ -90,7 +91,7 @@ class ItemController extends Controller
         return response()->json([
             'success' => true,
             'message' => translate('Item created successfully.', request('lng')),
-            'data' => new ItemResource($item->load(['category', 'galleries', 'image', 'optionGroups.values', 'variants.optionValues'])),
+            'data' => new ItemResource($item->load(['category', 'uomGroup', 'galleries', 'image', 'optionGroups.values', 'variants.optionValues'])),
         ], 200);
     }
 
@@ -111,7 +112,7 @@ class ItemController extends Controller
         return response()->json([
             'success' => true,
             'message' => translate('Item updated successfully.', request('lng')),
-            'data' => new ItemResource($itemModel->load(['category', 'currency', 'galleries', 'image', 'optionGroups.values', 'variants.optionValues'])),
+            'data' => new ItemResource($itemModel->load(['category', 'currency', 'uomGroup', 'galleries', 'image', 'optionGroups.values', 'variants.optionValues'])),
         ], 200);
     }
 
@@ -135,9 +136,17 @@ class ItemController extends Controller
         $categoryTable = $this->categoryValidationTable();
         $currencyTable = $this->currencyValidationTable();
         $priceListTable = $this->priceListValidationTable();
+        $uomGroupTable = $this->uomGroupValidationTable();
 
         $validator = Validator::make($request->all(), [
             'category_id' => ['nullable', 'integer', Rule::exists($categoryTable, 'id')],
+            'item_type' => [$item ? 'sometimes' : 'nullable', Rule::in(['uom', 'variation'])],
+            'uom_group_id' => [
+                'nullable',
+                Rule::requiredIf(fn () => $request->input('item_type') === 'uom'),
+                'integer',
+                Rule::exists($uomGroupTable, 'id'),
+            ],
             'branch_id' => ['nullable', 'integer', Rule::exists($branchTable, 'id')],
             'price_list_id' => ['nullable', 'integer', Rule::exists($priceListTable, 'id')],
             'currency_id' => [
@@ -325,6 +334,11 @@ class ItemController extends Controller
 
     protected function prepareItemPayload(Request $request, array $validated): array
     {
+        if ($request->has('item_type')) {
+            $isVariation = $validated['item_type'] === 'variation';
+            $validated['uom_group_id'] = $isVariation ? null : ($validated['uom_group_id'] ?? null);
+        }
+
         if (array_key_exists('branch_id', $validated)) {
             if (! empty($validated['branch_id'])) {
                 $branch = Branch::query()->find($validated['branch_id']);
@@ -373,6 +387,11 @@ class ItemController extends Controller
                 'sort_order' => (int) ($variant['sort_order'] ?? $index),
                 'status' => $variant['status'] ?? 'Active',
             ]))->all();
+        }
+
+        if ($request->input('item_type') === 'uom') {
+            $validated['option_groups'] = [];
+            $validated['variants'] = [];
         }
 
         return $validated;
@@ -425,6 +444,17 @@ class ItemController extends Controller
     protected function priceListValidationTable(): string
     {
         $table = (new PriceList())->getTable();
+
+        if (tenant()) {
+            return tenant()->database_connection_name.'.'.$table;
+        }
+
+        return 'central.'.$table;
+    }
+
+    protected function uomGroupValidationTable(): string
+    {
+        $table = (new UomGroup())->getTable();
 
         if (tenant()) {
             return tenant()->database_connection_name.'.'.$table;

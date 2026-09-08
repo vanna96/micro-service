@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
-@section('title', 'Create Option Master')
-@section('page_title', 'Create Option Master')
+@section('title', 'Create Option')
+@section('page_title', 'Create Option')
 
 @section('content')
 <form method="POST" action="{{ route('admin.item-options.store') }}">

@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { PRODUCTS, INITIAL_INVOICES } from "@/data/pos-data";
-import { Product, ProductUOM, VariantValue, HeldOrder, Invoice } from "@/types/pos-types";
+import { fetchPosCatalog, fetchPosCustomers } from "@/lib/pos-api";
+import { Category, Customer, CustomerPriceList, Product, ProductUOM, VariantValue, HeldOrder, Invoice } from "@/types/pos-types";
 
 // Custom Hooks & Redux
 import { useLiveClock } from "@/hooks/use-live-clock";
@@ -33,7 +33,7 @@ import {
   setIsFullscreen,
   setSelectedPayMethod
 } from "@/store/slices/uiSlice";
-import { setCustomer } from "@/store/slices/customerSlice";
+import { emptyCustomer, setCustomer } from "@/store/slices/customerSlice";
 
 // Modular POS Subcomponents
 import { PosTopbar } from "./pos/pos-topbar";
@@ -82,19 +82,80 @@ export function GotPosDashboard() {
   const [selectedVariants, setSelectedVariants] = useState<Record<string, VariantValue>>({});
   const [configQty, setConfigQty] = useState<number>(1);
   const [cashReceived, setCashReceived] = useState<string>("");
+  const [categories, setCategories] = useState<Category[]>([
+    { id: "all", name: "All" },
+  ]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isCatalogLoading, setIsCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [catalogVersion, setCatalogVersion] = useState(0);
+  const [invoices] = useState<Invoice[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [priceLists, setPriceLists] = useState<CustomerPriceList[]>([]);
+  const [isCustomerLoading, setIsCustomerLoading] = useState(true);
+  const [customerError, setCustomerError] = useState<string | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
 
+    fetchPosCatalog()
+      .then((catalog) => {
+        if (cancelled) return;
+        setCategories(catalog.categories);
+        setProducts(catalog.products);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setCatalogError(
+          error instanceof Error ? error.message : "Unable to load the product catalog"
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setIsCatalogLoading(false);
+      });
 
+    return () => {
+      cancelled = true;
+    };
+  }, [catalogVersion]);
 
-  // Invoices History (Static for now)
-  const [invoices] = useState<Invoice[]>(INITIAL_INVOICES);
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchPosCustomers()
+      .then((data) => {
+        if (cancelled) return;
+        setCustomers(data.customers);
+        setPriceLists(data.priceLists);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setCustomerError(
+          error instanceof Error ? error.message : "Unable to load customers"
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setIsCustomerLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Keyboard Shortcuts & Click Outside Handlers
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "F12" || (e.key === "Enter" && (e.ctrlKey || e.metaKey))) {
         e.preventDefault();
-        if (cart.length > 0) dispatch(setActiveModal("payment_success"));
+        const paymentModal = {
+          Cash: "cash",
+          Card: "card",
+          UPI: "upi",
+          Bank: "bank",
+          Split: "split",
+        }[selectedPayMethod];
+        if (cart.length > 0 && paymentModal) dispatch(setActiveModal(paymentModal));
       }
       if (e.key === "Escape") {
         dispatch(setActiveModal(null));
@@ -112,7 +173,7 @@ export function GotPosDashboard() {
       window.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("click", handleClickOutside);
     };
-  }, [cart, dispatch]);
+  }, [cart, dispatch, selectedPayMethod]);
 
   // Fullscreen toggle
   const toggleFullscreen = () => {
@@ -129,7 +190,7 @@ export function GotPosDashboard() {
 
   // Filtered Products Memo
   const filteredProducts = useMemo(() => {
-    return PRODUCTS.filter((product) => {
+    return products.filter((product) => {
       const matchCategory = activeCategory === "all" || product.category === activeCategory;
       const matchSearch =
         searchQuery.trim() === "" ||
@@ -147,7 +208,7 @@ export function GotPosDashboard() {
       if (stockFilter === "price-high") return b.price - a.price;
       return 0;
     });
-  }, [activeCategory, searchQuery, stockFilter]);
+  }, [activeCategory, products, searchQuery, stockFilter]);
 
   // Product Click Handler
   const handleProductClick = (product: Product) => {
@@ -238,6 +299,8 @@ export function GotPosDashboard() {
 
       <div className="d-flex flex-column flex-lg-row flex-grow-1 overflow-hidden">
         <PosCategoryRail
+          categories={categories}
+          products={products}
           activeCategory={activeCategory}
           onSelectCategory={(c) => dispatch(setActiveCategory(c))}
         />
@@ -251,7 +314,32 @@ export function GotPosDashboard() {
             onOpenScanModal={() => dispatch(setActiveModal("upi"))}
           />
 
-          {filteredProducts.length === 0 ? (
+          {isCatalogLoading ? (
+            <div className="d-flex flex-column align-items-center justify-content-center flex-grow-1 py-5 text-muted">
+              <div className="spinner-border spinner-border-sm text-primary mb-3" role="status">
+                <span className="visually-hidden">Loading products</span>
+              </div>
+              <span className="fs-12">Loading catalog...</span>
+            </div>
+          ) : catalogError ? (
+            <div className="bg-white rounded-3 border p-5 text-center my-4">
+              <i className="ri-cloud-off-line fs-1 text-danger d-block mb-2"></i>
+              <h6 className="fw-bold">Could not load the catalog</h6>
+              <p className="text-muted small mb-3">{catalogError}</p>
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={() => {
+                  setIsCatalogLoading(true);
+                  setCatalogError(null);
+                  setCatalogVersion((version) => version + 1);
+                }}
+              >
+                <i className="ri-refresh-line me-1"></i>
+                Try Again
+              </button>
+            </div>
+          ) : filteredProducts.length === 0 ? (
             <div className="bg-white rounded-3 border p-5 text-center my-4">
               <img
                 src="/assets/no-order-CCjZwO4J.svg"
@@ -293,8 +381,7 @@ export function GotPosDashboard() {
           <div className="p-3 border-bottom bg-white">
             <div className="d-flex align-items-center justify-content-between mb-2">
               <div className="d-flex align-items-center gap-2">
-                <span className="fs-14 fw-bold font-monospace text-body">#GOT-1698</span>
-                <span className="badge bg-light border text-muted fs-11">Current Sale</span>
+                <span className="fs-14 fw-bold text-body">Current Sale</span>
               </div>
               <button
                 type="button"
@@ -322,15 +409,30 @@ export function GotPosDashboard() {
 
             <div className="d-flex align-items-center justify-content-between p-2 mt-2 bg-light bg-opacity-75 rounded-2 border">
               <div className="d-flex align-items-center gap-2 overflow-hidden">
-                <img
-                  src={customer.avatar}
-                  alt="Customer"
-                  className="rounded-circle"
-                  style={{ width: "28px", height: "28px", objectFit: "cover" }}
-                />
+                {customer.avatar ? (
+                  <img
+                    src={customer.avatar}
+                    alt="Customer"
+                    className="rounded-circle"
+                    style={{ width: "28px", height: "28px", objectFit: "cover" }}
+                  />
+                ) : (
+                  <span
+                    className="rounded-circle bg-white border d-flex align-items-center justify-content-center flex-shrink-0"
+                    style={{ width: "28px", height: "28px" }}
+                  >
+                    <i className="ri-user-line text-muted"></i>
+                  </span>
+                )}
                 <div className="overflow-hidden lh-1">
-                  <span className="fs-12 fw-semibold text-truncate d-block">{customer.name}</span>
-                  <small className="text-muted fs-10">{customer.points.toLocaleString()} Loyalty Pts</small>
+                  <span className="fs-12 fw-semibold text-truncate d-block">
+                    {customer.name || "No customer selected"}
+                  </span>
+                  <small className="text-muted fs-10">
+                    {customer.priceList
+                      ? `${customer.priceList.name}${customer.priceList.discountPercent > 0 ? ` | ${customer.priceList.discountPercent}% off` : ""}`
+                      : customer.code || "Walk-in sale"}
+                  </small>
                 </div>
               </div>
               <button
@@ -338,7 +440,7 @@ export function GotPosDashboard() {
                 className="btn btn-sm btn-light border px-2 py-0.5 fs-11 rounded"
                 onClick={() => dispatch(setActiveModal("edit_customer"))}
               >
-                Edit
+                {customer.name ? "Change" : "Select"}
               </button>
             </div>
           </div>
@@ -393,7 +495,11 @@ export function GotPosDashboard() {
             />
           )}
 
-          <PosBottomToolbar heldCount={heldOrders.length} onOpenModal={(m) => dispatch(setActiveModal(m))} />
+          <PosBottomToolbar
+            heldCount={heldOrders.length}
+            selectedPayMethod={selectedPayMethod}
+            onOpenModal={(m) => dispatch(setActiveModal(m))}
+          />
         </aside>
       </div>
 
@@ -468,14 +574,32 @@ export function GotPosDashboard() {
           selectedPayMethod={selectedPayMethod}
           currentDate={currentDate}
           onPrint={() => window.print()}
-          onNextSale={() => { dispatch(clearCart()); dispatch(setActiveModal(null)); }}
+          onNextSale={() => {
+            dispatch(clearCart());
+            dispatch(setCustomer(emptyCustomer));
+            dispatch(setDiscountPercent(0));
+            dispatch(setActiveModal(null));
+          }}
           onClose={() => dispatch(setActiveModal(null))}
         />
       )}
       {activeModal === "edit_customer" && (
         <ModalEditCustomer
           customer={customer}
-          onSaveCustomer={(updated) => { dispatch(setCustomer(updated)); dispatch(setActiveModal(null)); }}
+          customers={customers}
+          priceLists={priceLists}
+          isLoading={isCustomerLoading}
+          error={customerError}
+          onSaveCustomer={(updated) => {
+            dispatch(setCustomer(updated));
+            dispatch(setDiscountPercent(updated.priceList?.discountPercent || 0));
+            dispatch(setActiveModal(null));
+          }}
+          onClearCustomer={() => {
+            dispatch(setCustomer(emptyCustomer));
+            dispatch(setDiscountPercent(0));
+            dispatch(setActiveModal(null));
+          }}
           onClose={() => dispatch(setActiveModal(null))}
         />
       )}

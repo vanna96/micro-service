@@ -18,7 +18,8 @@ class TenantController extends Controller
         if (!in_array($search, [null, '', 'undefined', 'null'], true)) {
             $query->where(function ($q) use ($search) {
                 $q->where('data->db_name', 'like', "%{$search}%")
-                ->orWhere('id', 'like', "%{$search}%");
+                ->orWhere('id', 'like', "%{$search}%")
+                ->orWhere('alias', 'like', "%{$search}%");
             });
         }
 
@@ -59,6 +60,7 @@ class TenantController extends Controller
             $status
         ] = $this->customValidation($input, [
             'id'                => 'required|string|unique:tenants,id',
+            'alias'             => 'required|string|max:63|regex:/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/|unique:tenants,alias',
             'db_connection'     => 'required|string',
             'db_port'           => 'required|string',
             'db_name'           => 'required|string',
@@ -72,6 +74,7 @@ class TenantController extends Controller
 
         $tenant = Tenant::create([
             'id'   => $data['id'],
+            'alias' => $data['alias'],
             'status'   => $data['status'] ?? 'Active',
             'db_name'     => $data['db_name'],
             'db_host'     => $data['db_host'],
@@ -80,7 +83,7 @@ class TenantController extends Controller
             'db_connection' => $data['db_connection'],
             'db_port' => $data['db_port']
         ]);
-        $tenant->domains()->create(['domain' => $tenant->tenancy_db_name.'.'.env('TENANT_HOST', 'localhost')]);
+        $tenant->domains()->create(['domain' => $tenant->alias.'.'.env('TENANT_HOST', 'localhost')]);
 
         return response()->json([
             'success' => true,
@@ -98,6 +101,7 @@ class TenantController extends Controller
             $data,
             $status
         ] = $this->customValidation($input, [
+            'alias'             => 'required|string|max:63|regex:/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/|unique:tenants,alias,'.$tenant->id.',id',
             'db_connection'     => 'required|string',
             'db_port'           => 'required|string',
             'db_name'           => 'required|string',
@@ -112,6 +116,7 @@ class TenantController extends Controller
         $isDeactivating = isset($data['status']) && $data['status'] === 'Inactive' && $tenant->status !== 'Inactive';
 
         $tenant->update([
+            'alias'         => $data['alias'],
             'status'        => $data['status'],
             'db_name'       => $data['db_name'],
             'db_host'       => $data['db_host'],
@@ -120,6 +125,13 @@ class TenantController extends Controller
             'db_connection' => $data['db_connection'],
             'db_port'       => $data['db_port']
         ]);
+
+        $domain = $tenant->domains()->first();
+        if ($domain) {
+            $domain->update(['domain' => $tenant->alias.'.'.env('TENANT_HOST', 'localhost')]);
+        } else {
+            $tenant->domains()->create(['domain' => $tenant->alias.'.'.env('TENANT_HOST', 'localhost')]);
+        }
 
         // If deactivating the tenant, revoke all user tokens
         if ($isDeactivating) {

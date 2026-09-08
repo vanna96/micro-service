@@ -12,8 +12,8 @@ export function ModalSplitTender({
   onClose,
 }: ModalSplitTenderProps) {
   const [splitRows] = useState([
-    { id: 1, method: "Cash" },
-    { id: 2, method: "Card" },
+    { id: 1, method: "" },
+    { id: 2, method: "" },
   ]);
 
   return (
@@ -35,6 +35,7 @@ export function ModalSplitTender({
               <div key={row.id} className="row g-2 align-items-center mb-2">
                 <div className="col-4">
                   <select className="form-select form-select-sm" defaultValue={row.method}>
+                    <option value="" disabled>Select method</option>
                     <option value="Cash">Cash</option>
                     <option value="Card">Card</option>
                     <option value="UPI">UPI / QR</option>
@@ -46,11 +47,10 @@ export function ModalSplitTender({
                     type="number"
                     className="form-control form-control-sm font-monospace"
                     placeholder="0.00"
-                    defaultValue={(totalPayable / splitRows.length).toFixed(2)}
                   />
                 </div>
                 <div className="col-2 text-end">
-                  <span className="badge bg-success-subtle text-success">Applied</span>
+                  <span className="badge bg-light border text-muted">Pending</span>
                 </div>
               </div>
             ))}

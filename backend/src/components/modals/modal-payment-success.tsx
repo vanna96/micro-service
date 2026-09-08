@@ -33,14 +33,14 @@ export function ModalPaymentSuccess({
             <i className="ri-checkbox-circle-fill fs-36"></i>
           </div>
           <h5 className="fw-bolder text-body mb-1">Transaction Successful!</h5>
-          <p className="text-muted fs-12 mb-3">Order #GOT-1698 recorded successfully.</p>
+          <p className="text-muted fs-12 mb-3">The payment was recorded successfully.</p>
           <div className="bg-light p-3 rounded-3 mb-4 border">
             <span className="text-muted fs-12 d-block">Amount Charged</span>
             <h3 className="fw-bolder text-primary my-1 font-monospace">
               ${totalPayable.toFixed(2)}
             </h3>
             <small className="text-muted fs-11">
-              {currentDate || "18 Aug 2026"} • {selectedPayMethod}
+              {[currentDate, selectedPayMethod].filter(Boolean).join(" | ")}
             </small>
           </div>
           <div className="d-flex gap-2">

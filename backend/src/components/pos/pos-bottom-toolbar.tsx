@@ -2,19 +2,31 @@ import React from "react";
 
 interface PosBottomToolbarProps {
   heldCount: number;
+  selectedPayMethod: string;
   onOpenModal: (modal: string) => void;
 }
 
 export function PosBottomToolbar({
   heldCount,
+  selectedPayMethod,
   onOpenModal,
 }: PosBottomToolbarProps) {
+  const paymentModal = {
+    Cash: "cash",
+    Card: "card",
+    UPI: "upi",
+    Bank: "bank",
+    Split: "split",
+  }[selectedPayMethod];
+
   return (
     <div className="pos-bottom-features mt-auto">
       <button
         type="button"
         className="pos-tool-btn"
-        onClick={() => onOpenModal("payment_success")}
+        onClick={() => paymentModal && onOpenModal(paymentModal)}
+        disabled={!paymentModal}
+        title={paymentModal ? "Open selected payment method" : "Select a payment method"}
       >
         <div className="pos-tool-icon bg-purple-subtle text-purple">
           <i className="ri-money-dollar-box-line"></i>

@@ -13,6 +13,14 @@ export function PosPaymentGrid({
   onOpenModal,
   totalPayable,
 }: PosPaymentGridProps) {
+  const paymentModal = {
+    Cash: "cash",
+    Card: "card",
+    UPI: "upi",
+    Bank: "bank",
+    Split: "split",
+  }[selectedMethod];
+
   return (
     <div className="px-3 pb-2">
       <div className="pos-pay-grid">
@@ -77,11 +85,11 @@ export function PosPaymentGrid({
         </button>
       </div>
 
-      {/* Primary Charge Button */}
       <button
         type="button"
         className="btn btn-charge w-100 d-flex align-items-center justify-content-between"
-        onClick={() => onOpenModal("payment_success")}
+        onClick={() => paymentModal && onOpenModal(paymentModal)}
+        disabled={!paymentModal}
       >
         <span>Pay & Print [F12]</span>
         <span className="badge bg-white text-primary fs-13 font-monospace px-2 py-1">

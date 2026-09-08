@@ -26,7 +26,7 @@ export function ModalPayLater({
             </div>
             <div className="mb-3">
               <label className="form-label fs-12 fw-medium text-muted">Due Date</label>
-              <input type="date" className="form-control" defaultValue="2026-08-25" />
+              <input type="date" className="form-control" />
             </div>
             <div className="d-flex gap-2 mt-4">
               <button type="button" className="btn btn-light w-50" onClick={onClose}>

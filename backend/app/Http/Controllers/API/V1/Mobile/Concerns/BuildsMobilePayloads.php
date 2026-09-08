@@ -79,6 +79,7 @@ trait BuildsMobilePayloads
             'id' => (int) $item->id,
             'sku' => (string) $item->sku,
             'name' => (string) $item->name,
+            'item_type' => (string) ($item->item_type ?? 'uom'),
             'foreign_name' => (string) ($item->foreign_name ?? ''),
             'description' => (string) ($item->description ?? ''),
             'price' => (float) $item->price,
@@ -108,6 +109,24 @@ trait BuildsMobilePayloads
             'currency' => $item->currency ? [
                 'id' => (int) $item->currency->id,
                 'code' => (string) $item->currency->code,
+            ] : null,
+            'uom_group' => $item->relationLoaded('uomGroup') && $item->uomGroup ? [
+                'id' => (int) $item->uomGroup->id,
+                'code' => (string) $item->uomGroup->code,
+                'name' => (string) $item->uomGroup->name,
+                'units' => $item->uomGroup->relationLoaded('units')
+                    ? $item->uomGroup->units
+                        ->filter(fn ($groupUnit) => $groupUnit->unit)
+                        ->map(fn ($groupUnit) => [
+                            'id' => (int) $groupUnit->unit->id,
+                            'name' => (string) $groupUnit->unit->name,
+                            'code' => (string) $groupUnit->unit->code,
+                            'symbol' => (string) ($groupUnit->unit->symbol ?: $groupUnit->unit->code),
+                            'conversion_factor_to_base' => (float) $groupUnit->conversion_factor_to_base,
+                            'is_base_unit' => (bool) $groupUnit->is_base_unit,
+                            'price' => round((float) $item->price * (float) $groupUnit->conversion_factor_to_base, 2),
+                        ])->values()->all()
+                    : [],
             ] : null,
             'thumbnail_url' => $item->image_url,
             'image_url' => $item->image_url,

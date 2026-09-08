@@ -77,6 +77,18 @@
                         @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
                     <div class="col-md-6">
+                        <label class="form-label">Price List</label>
+                        <select name="price_list_id" class="form-select @error('price_list_id') is-invalid @enderror">
+                            <option value="">No assigned price list</option>
+                            @foreach ($priceLists as $priceListOption)
+                                <option value="{{ $priceListOption->id }}" @selected((string) old('price_list_id', $customer->price_list_id) === (string) $priceListOption->id)>
+                                    {{ $priceListOption->name }}{{ $priceListOption->header_pricing_summary ? ' - ' . $priceListOption->header_pricing_summary : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('price_list_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
+                    <div class="col-md-6">
                         <label class="form-label">Email</label>
                         <input type="email" name="email" value="{{ old('email', $customer->email) }}" class="form-control @error('email') is-invalid @enderror" />
                         @error('email')<div class="invalid-feedback">{{ $message }}</div>@enderror

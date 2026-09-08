@@ -48,6 +48,7 @@
                             <tr>
                                 <th>Code</th>
                                 <th>Name</th>
+                                <th>Price List</th>
                                 <th>Contact</th>
                                 <th>Address</th>
                                 <th>Status</th>
@@ -73,6 +74,14 @@
                                                 <div class="text-muted font-size-12">{{ \Illuminate\Support\Str::limit($customer->notes ?: 'No notes', 60) }}</div>
                                             </div>
                                         </div>
+                                    </td>
+                                    <td>
+                                        @if ($customer->priceList)
+                                            <div class="fw-semibold">{{ $customer->priceList->name }}</div>
+                                            <div class="text-muted font-size-12">{{ $customer->priceList->header_pricing_summary ?: 'Item pricing rules' }}</div>
+                                        @else
+                                            <span class="text-muted">Not assigned</span>
+                                        @endif
                                     </td>
                                     <td>
                                         <div>{{ $customer->email ?: 'No email' }}</div>

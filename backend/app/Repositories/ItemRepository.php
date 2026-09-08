@@ -26,7 +26,7 @@ class ItemRepository extends RepositoryBase
         $table = $this->itemModel()->getTable();
 
         return $this->select("{$table}.*")
-            ->with(['branch', 'category', 'currency', 'galleries', 'image', 'optionGroups.values', 'variants.optionValues']);
+            ->with(['branch', 'category', 'currency', 'uomGroup', 'galleries', 'image', 'optionGroups.values', 'variants.optionValues']);
     }
 
     public function getAdminListing(string $search = ''): Collection
@@ -36,7 +36,7 @@ class ItemRepository extends RepositoryBase
             ->cacheFor($this->itemCacheTtl())
             ->cachePrefix($this->itemListingCachePrefix())
             ->cacheTags($this->itemListingCacheTags())
-            ->with(['branch', 'category', 'currency', 'image'])
+            ->with(['branch', 'category', 'currency', 'uomGroup', 'image'])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($innerQuery) use ($search) {
                     $innerQuery->where('sku', 'like', "%{$search}%")
@@ -69,7 +69,7 @@ class ItemRepository extends RepositoryBase
     {
         $query = $this->itemModel()
             ->newQuery()
-            ->with(['branch', 'category', 'currency', 'galleries', 'image', 'optionGroups.values', 'variants.optionValues'])
+            ->with(['branch', 'category', 'currency', 'uomGroup', 'galleries', 'image', 'optionGroups.values', 'variants.optionValues'])
             ->whereKey($itemId);
 
         $this->reportCacheState($query, 'admin.items.edit');

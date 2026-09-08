@@ -62,16 +62,15 @@ export function ModalCardTerminal({
                   type="text"
                   className="form-control"
                   placeholder="•••• •••• •••• ••••"
-                  defaultValue="4242 •••• •••• 1234"
                 />
               </div>
               <div className="col-6">
                 <label className="form-label fs-12 fw-medium text-muted">Expiry</label>
-                <input type="text" className="form-control" defaultValue="12/28" />
+                <input type="text" className="form-control" placeholder="MM/YY" />
               </div>
               <div className="col-6">
                 <label className="form-label fs-12 fw-medium text-muted">CVV</label>
-                <input type="password" className="form-control" defaultValue="123" />
+                <input type="password" className="form-control" placeholder="CVV" />
               </div>
               <div className="col-12">
                 <div className="bg-light p-2.5 rounded-2 d-flex justify-content-between">

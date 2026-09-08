@@ -5,14 +5,20 @@ interface CustomerState {
   profile: Customer;
 }
 
+export const emptyCustomer: Customer = {
+  id: '',
+  code: '',
+  name: '',
+  email: '',
+  phone: '',
+  status: '',
+  avatar: '',
+  priceListId: null,
+  priceList: null,
+};
+
 const initialState: CustomerState = {
-  profile: {
-    name: 'Jonathan Michael',
-    tier: 'Platinum Member',
-    points: 2450,
-    status: 'Active',
-    avatar: '/assets/user-47-C1F3Gd9o.png',
-  },
+  profile: emptyCustomer,
 };
 
 export const customerSlice = createSlice({

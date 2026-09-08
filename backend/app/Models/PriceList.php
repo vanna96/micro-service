@@ -54,14 +54,19 @@ class PriceList extends Model
         return $this->lines()->where('status', 'Active');
     }
 
+    public function customers()
+    {
+        return $this->hasMany(Customer::class);
+    }
+
     public function getHeaderPricingSummaryAttribute(): ?string
     {
         if ($this->header_pricing_method === 'fixed' && $this->header_fixed_price !== null) {
-            return format_currency_amount($this->header_fixed_price, tenant_base_currency()) . ' for all items';
+            return format_currency_amount($this->header_fixed_price, tenant_base_currency()).' for all items';
         }
 
         if ($this->header_pricing_method === 'discount' && $this->header_discount_percent !== null) {
-            return (int) $this->header_discount_percent . '% off all items';
+            return (int) $this->header_discount_percent.'% off all items';
         }
 
         return null;

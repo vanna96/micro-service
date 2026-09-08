@@ -117,31 +117,6 @@
                 color: #6c757d;
             }
 
-            .item-config-mode {
-                display: inline-flex;
-                gap: 4px;
-                padding: 4px;
-                border: 1px solid #e2e7f0;
-                border-radius: 8px;
-                background: #f5f7fb;
-            }
-
-            .item-config-mode button {
-                min-width: 132px;
-                border: 0;
-                border-radius: 6px;
-                padding: 0.62rem 1rem;
-                background: transparent;
-                color: #68738a;
-                font-weight: 600;
-            }
-
-            .item-config-mode button.is-active {
-                background: #fff;
-                color: #1f2a44;
-                box-shadow: 0 2px 8px rgba(31, 42, 68, 0.09);
-            }
-
             .item-config-summary {
                 display: flex;
                 align-items: center;
@@ -345,15 +320,6 @@
                     grid-column: 1 / -1;
                 }
 
-                .item-config-mode {
-                    width: 100%;
-                }
-
-                .item-config-mode button {
-                    flex: 1;
-                    min-width: 0;
-                }
-
                 .item-option-value-head {
                     display: none;
                 }
@@ -475,6 +441,11 @@
                     width: '100%',
                     placeholder: 'Select price list',
                     allowClear: true
+                });
+
+                $('.item-uom-group-combobox').select2({
+                    width: '100%',
+                    placeholder: 'Select UOM group'
                 });
 
                 $('.item-currency-combobox').select2({
@@ -663,6 +634,35 @@
                         <input type="text" name="foreign_name" value="{{ old('foreign_name', $item->foreign_name) }}"
                             class="form-control @error('foreign_name') is-invalid @enderror" />
                         @error('foreign_name')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
+                    @php
+                        $selectedItemType = old(
+                            'item_type',
+                            $item->item_type ?: (($item->relationLoaded('optionGroups') && $item->optionGroups->isNotEmpty()) ? 'variation' : 'uom')
+                        );
+                    @endphp
+                    <div class="col-md-6">
+                        <label class="form-label required">Item Type</label>
+                        <select id="item-type" name="item_type"
+                            class="form-select @error('item_type') is-invalid @enderror">
+                            <option value="uom" @selected($selectedItemType === 'uom')>UOM</option>
+                            <option value="variation" @selected($selectedItemType === 'variation')>Variation</option>
+                        </select>
+                        @error('item_type')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
+                    <div id="item-uom-group-field" class="col-md-6 {{ $selectedItemType === 'uom' ? '' : 'd-none' }}">
+                        <label class="form-label required">UOM Group</label>
+                        <select id="item-uom-group-id" name="uom_group_id"
+                            class="form-select item-uom-group-combobox @error('uom_group_id') is-invalid @enderror"
+                            @disabled($selectedItemType !== 'uom')>
+                            <option value="">Select UOM group</option>
+                            @foreach ($uomGroupOptions as $uomGroupOption)
+                                <option value="{{ $uomGroupOption->id }}" @selected((string) old('uom_group_id', $item->uom_group_id) === (string) $uomGroupOption->id)>
+                                    {{ $uomGroupOption->name }} ({{ $uomGroupOption->code }})
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('uom_group_id')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Category</label>
@@ -941,9 +941,7 @@
         })->all();
     }
 
-    $configurationEnabled = old('configuration_enabled') !== null
-        ? (bool) old('configuration_enabled')
-        : count($serializedOptionGroups) > 0;
+    $configurationEnabled = $selectedItemType === 'variation';
     $configurationJson = json_encode([
         'enabled' => $configurationEnabled,
         'option_groups' => $serializedOptionGroups,
@@ -971,19 +969,11 @@
     ])->all(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
 @endphp
 
-<div class="card card-flush mt-4" id="item-configurator">
+<div class="card card-flush mt-4 {{ $configurationEnabled ? '' : 'd-none' }}" id="item-configurator">
     <div class="card-header align-items-center gap-3 flex-wrap py-3">
         <div class="card-title d-block">
             <h2 class="mb-1">Options &amp; Variants</h2>
             <div class="text-muted fs-6">Options, modifiers, and sellable combinations</div>
-        </div>
-        <div class="item-config-mode" role="group" aria-label="Item configuration type">
-            <button type="button" data-config-mode="simple">
-                <i class="mdi mdi-cube-outline me-1"></i>Simple item
-            </button>
-            <button type="button" data-config-mode="configurable">
-                <i class="mdi mdi-source-branch me-1"></i>Configurable
-            </button>
         </div>
     </div>
     <div class="card-body pt-2">
@@ -995,12 +985,7 @@
             </div>
         @endif
 
-        <div id="item-config-simple-state" class="item-option-empty">
-            <i class="mdi mdi-cube-outline d-block fs-2 mb-2"></i>
-            This item uses the base SKU, price, and stock entered above.
-        </div>
-
-        <div id="item-config-content" class="d-none">
+        <div id="item-config-content">
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
                 <div class="item-config-summary" id="item-config-summary"></div>
             </div>
@@ -1053,13 +1038,15 @@
 
         const state = JSON.parse(stateElement.textContent || '{}');
         const variationMasters = JSON.parse(masterStateElement.textContent || '[]');
-        state.enabled = Boolean(state.enabled);
+        const itemTypeSelect = document.getElementById('item-type');
+        const uomGroupField = document.getElementById('item-uom-group-field');
+        const uomGroupSelect = document.getElementById('item-uom-group-id');
+        state.enabled = itemTypeSelect?.value === 'variation';
         state.option_groups = Array.isArray(state.option_groups) ? state.option_groups : [];
         state.variants = Array.isArray(state.variants) ? state.variants : [];
 
         const enabledInput = document.getElementById('item-configuration-enabled');
         const content = document.getElementById('item-config-content');
-        const simpleState = document.getElementById('item-config-simple-state');
         const groupContainer = document.getElementById('item-option-groups');
         const variantContainer = document.getElementById('item-variants');
         const summary = document.getElementById('item-config-summary');
@@ -1256,7 +1243,7 @@
                     <div class="item-option-group-header">
                         <div class="d-flex align-items-center gap-2">
                             <span class="item-option-group-index">${groupIndex + 1}</span>
-                            <div><strong>${escapeHtml(variation?.name || 'Select variation')}</strong><div class="text-muted small">Variation Master</div></div>
+                            <div><strong>${escapeHtml(variation?.name || 'Select variation')}</strong><div class="text-muted small">Variation</div></div>
                         </div>
                         <button type="button" class="btn btn-outline-danger btn-sm item-config-icon-button" data-remove-option-group data-group-index="${groupIndex}" title="Remove group"><i class="mdi mdi-delete-outline"></i></button>
                     </div>
@@ -1345,11 +1332,11 @@
 
         const render = () => {
             enabledInput.value = state.enabled ? '1' : '0';
-            content.classList.toggle('d-none', !state.enabled);
-            simpleState.classList.toggle('d-none', state.enabled);
-            root.querySelectorAll('[data-config-mode]').forEach((button) => {
-                button.classList.toggle('is-active', button.dataset.configMode === (state.enabled ? 'configurable' : 'simple'));
-            });
+            root.classList.toggle('d-none', !state.enabled);
+            uomGroupField?.classList.toggle('d-none', state.enabled);
+            if (uomGroupSelect) {
+                uomGroupSelect.disabled = state.enabled;
+            }
 
             groupContainer.innerHTML = state.option_groups.length
                 ? state.option_groups.map(renderGroup).join('')
@@ -1494,7 +1481,6 @@
         };
 
         root.addEventListener('click', function (event) {
-            const modeButton = event.target.closest('[data-config-mode]');
             const addMasterButton = event.target.closest('#item-master-add');
             const addValueButton = event.target.closest('[data-add-option-value]');
             const removeValueButton = event.target.closest('[data-remove-option-value]');
@@ -1502,11 +1488,7 @@
             const generateButton = event.target.closest('[data-generate-variants]');
             const removeVariantButton = event.target.closest('[data-remove-variant]');
 
-            if (modeButton) {
-                state.enabled = modeButton.dataset.configMode === 'configurable';
-                render();
-                refreshMasterOptions();
-            } else if (addMasterButton) {
+            if (addMasterButton) {
                 if (masterSelect.value === 'custom') {
                     state.option_groups.push(createCustomGroup());
                 } else {
@@ -1672,6 +1654,12 @@
                 closeOnSelect: false,
             });
         }
+
+        itemTypeSelect?.addEventListener('change', function () {
+            state.enabled = itemTypeSelect.value === 'variation';
+            render();
+            refreshMasterOptions();
+        });
 
         render();
         refreshMasterOptions();

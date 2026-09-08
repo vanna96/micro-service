@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
-@section('title', 'Edit Option Master')
-@section('page_title', 'Edit Option Master')
+@section('title', 'Edit Option')
+@section('page_title', 'Edit Option')
 
 @section('content')
 <form method="POST" action="{{ route('admin.item-options.update', $option->id) }}">

@@ -1,7 +1,7 @@
 export interface Category {
   id: string;
   name: string;
-  icon: string;
+  icon?: string;
 }
 
 export interface VariantValue {
@@ -47,11 +47,24 @@ export interface CartItem {
 }
 
 export interface Customer {
+  id: string;
+  code: string;
   name: string;
-  tier: string;
-  points: number;
+  email: string;
+  phone: string;
   status: string;
   avatar: string;
+  priceListId: string | null;
+  priceList: CustomerPriceList | null;
+}
+
+export interface CustomerPriceList {
+  id: string;
+  code: string;
+  name: string;
+  pricingMethod: "fixed" | "discount" | null;
+  discountPercent: number;
+  isDefault: boolean;
 }
 
 export interface HeldOrder {

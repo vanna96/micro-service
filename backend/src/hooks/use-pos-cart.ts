@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { Product, CartItem, ProductUOM, VariantValue } from "@/types/pos-types";
-import { INITIAL_CART } from "@/data/pos-data";
 
 export function usePosCart() {
-  const [cart, setCart] = useState<CartItem[]>(INITIAL_CART);
+  const [cart, setCart] = useState<CartItem[]>([]);
 
   // Direct 1-tap add for general products
   const addDirectToCart = (product: Product) => {

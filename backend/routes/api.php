@@ -18,6 +18,24 @@ use Illuminate\Support\Facades\Route;
 //     return $request->user();
 // });
 
+Route::get('/tenant-host', function () {
+    $tenant = \App\Models\Tenant::query()
+        ->where('status', 'Active')
+        ->with('domains')
+        ->orderBy('created_at')
+        ->first();
+
+    $domain = $tenant?->domains->sortBy('domain')->first();
+
+    return response()->json([
+        'success' => $domain !== null,
+        'data' => [
+                'domain' => $domain?->domain,
+                'alias' => $tenant?->alias,
+        ],
+    ]);
+});
+
 if (! function_exists('grocery_storefront_products')) {
     function grocery_storefront_products(): array
     {

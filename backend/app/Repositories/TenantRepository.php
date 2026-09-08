@@ -19,6 +19,7 @@ class TenantRepository extends RepositoryBase
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($innerQuery) use ($search) {
                     $innerQuery->where('id', 'like', "%{$search}%")
+                        ->orWhere('alias', 'like', "%{$search}%")
                         ->orWhere('data->db_name', 'like', "%{$search}%")
                         ->orWhere('data->db_host', 'like', "%{$search}%")
                         ->orWhere('data->db_username', 'like', "%{$search}%");
@@ -40,7 +41,7 @@ class TenantRepository extends RepositoryBase
         $tenant->fill($attributes);
         $tenant->save();
         $tenant->domains()->firstOrCreate([
-            'domain' => $this->makeTenantDomain($tenant->id),
+            'domain' => $this->makeTenantDomain($tenant->alias),
         ]);
 
         return $tenant;
@@ -52,7 +53,7 @@ class TenantRepository extends RepositoryBase
         $tenant->save();
         $tenant->domains()->updateOrCreate(
             ['tenant_id' => $tenant->id],
-            ['domain' => $this->makeTenantDomain($tenant->id)]
+            ['domain' => $this->makeTenantDomain($tenant->alias)]
         );
 
         return $tenant;
@@ -64,8 +65,8 @@ class TenantRepository extends RepositoryBase
         $tenant->delete();
     }
 
-    private function makeTenantDomain(string $tenantId): string
+    private function makeTenantDomain(?string $alias): string
     {
-        return $tenantId . '.' . env('TENANT_HOST', 'localhost');
+        return ($alias ?: 'tenant') . '.' . env('TENANT_HOST', 'localhost');
     }
 }

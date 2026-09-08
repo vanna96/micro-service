@@ -17,18 +17,13 @@ export function ModalInvoicePreview({
       <div className="modal-dialog modal-dialog-centered modal-lg">
         <div className="modal-content shadow-lg border-0 rounded-4">
           <div className="modal-header border-bottom bg-light px-4 py-3">
-            <h6 className="modal-title fw-bold mb-0">Tax Invoice (#INV-7853)</h6>
+            <h6 className="modal-title fw-bold mb-0">Invoice Preview</h6>
             <button type="button" className="btn-close" onClick={onClose}></button>
           </div>
           <div className="modal-body p-4">
             <div className="border rounded-3 p-4 bg-white">
               <div className="d-flex justify-content-between mb-4">
-                <div>
-                  <h5 className="fw-bolder mb-1">GotPOS Store #01</h5>
-                  <p className="text-muted fs-12 mb-0">
-                    Sector 62, Tech Hub • +1 800 555 0199
-                  </p>
-                </div>
+                <h5 className="fw-bolder mb-1">Current Sale</h5>
                 <img src="/assets/main-logo-CWEU2RA-.png" alt="Logo" height="22" />
               </div>
 
