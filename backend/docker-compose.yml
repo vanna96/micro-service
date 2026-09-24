@@ -100,7 +100,7 @@ services:
       SOKETI_DEFAULT_APP_KEY: "pos_key"
       SOKETI_DEFAULT_APP_SECRET: "pos_secret"
     ports:
-      - "6001:6001"
+      - "127.0.0.1:6001:6001"
     networks:
       - app-network
 
