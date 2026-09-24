@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\LogsTenantActivity;
 use App\Models\Concerns\UsesQueryCache;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,16 +15,26 @@ class Customer extends Model
 {
     use HasFactory, QueryCacheable, UsesQueryCache, LogsTenantActivity;
 
+    public const TYPE_CUSTOMER = 'customer';
+    public const TYPE_VENDOR = 'vendor';
+    public const TYPES = [self::TYPE_CUSTOMER, self::TYPE_VENDOR];
+
     protected $fillable = [
         'profile_id',
         'price_list_id',
         'code',
+        'type',
         'name',
         'email',
         'phone',
         'address',
         'notes',
         'status',
+    ];
+
+    protected $attributes = [
+        'type' => self::TYPE_CUSTOMER,
+        'status' => 'Active',
     ];
 
     protected function getCacheBaseTags(): array
@@ -68,6 +79,31 @@ class Customer extends Model
         }
 
         return null;
+    }
+
+    public function scopeCustomers(Builder $query): Builder
+    {
+        return $query->where('type', self::TYPE_CUSTOMER);
+    }
+
+    public function scopeVendors(Builder $query): Builder
+    {
+        return $query->where('type', self::TYPE_VENDOR);
+    }
+
+    public function scopeOfType(Builder $query, ?string $type): Builder
+    {
+        return $type ? $query->where('type', $type) : $query;
+    }
+
+    public function isCustomer(): bool
+    {
+        return ($this->type ?? self::TYPE_CUSTOMER) === self::TYPE_CUSTOMER;
+    }
+
+    public function isVendor(): bool
+    {
+        return ($this->type ?? null) === self::TYPE_VENDOR;
     }
 
     protected function activityLogIgnoredOnlyAttributes(): array

@@ -3,26 +3,32 @@
 namespace Tests\Feature;
 
 use App\Models\Branch;
+use App\Models\CartItem;
 use App\Models\Category;
+use App\Models\Currency;
 use App\Models\Gallery;
 use App\Models\Item;
+use App\Models\ItemOptionGroup;
 use App\Models\Notification;
-use App\Models\Order;
+use App\Models\PosSale;
 use App\Models\Role;
 use App\Models\Slider;
 use App\Models\Tenant;
+use App\Models\UnitOfMeasure;
+use App\Models\UomGroup;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class MobileApiSupportTest extends TestCase
 {
     protected string $databasePath;
+
     protected array $tenantDatabasePaths = [];
 
     protected function setUp(): void
@@ -82,6 +88,7 @@ class MobileApiSupportTest extends TestCase
         $branch = Branch::query()->create([
             'code' => 'bkk',
             'name' => 'BKK Branch',
+            'foreign_name' => 'សាខាបឹងកេងកង',
             'location' => 'Phnom Penh',
             'sort_order' => 1,
             'status' => 'Active',
@@ -93,17 +100,65 @@ class MobileApiSupportTest extends TestCase
             'status' => 'Active',
         ]);
 
-        Item::query()->create([
+        $unit = UnitOfMeasure::query()->create([
+            'code' => 'EA',
+            'name' => 'Each',
+            'foreign_name' => 'មួយ',
+            'symbol' => 'ea',
+            'status' => 'Active',
+        ]);
+
+        $uomGroup = UomGroup::query()->create([
+            'code' => 'EACH',
+            'name' => 'Each group',
+            'foreign_name' => 'ក្រុមឯកតា',
+            'base_unit_id' => $unit->id,
+            'status' => 'Active',
+        ]);
+
+        $uomGroup->units()->create([
+            'unit_of_measure_id' => $unit->id,
+            'alternate_quantity' => 1,
+            'base_quantity' => 1,
+            'conversion_factor_to_base' => 1,
+            'is_base_unit' => true,
+            'sort_order' => 1,
+            'status' => 'Active',
+        ]);
+
+        $item = Item::query()->create([
             'category_id' => $category->id,
             'branch_id' => $branch->id,
             'branch_name' => $branch->name,
+            'uom_group_id' => $uomGroup->id,
+            'item_type' => 'uom',
             'sku' => 'APP-001',
             'name' => 'Organic Banana',
+            'foreign_name' => 'ចេកសរីរាង្គ',
             'price' => 3.50,
             'stock' => 20,
             'is_featured' => true,
             'is_new_arrival' => true,
             'review_count' => 12,
+            'status' => 'Active',
+        ]);
+
+        $optionGroup = ItemOptionGroup::query()->create([
+            'item_id' => $item->id,
+            'name' => 'Size',
+            'foreign_name' => 'ទំហំ',
+            'type' => 'variant',
+            'selection_type' => 'single',
+            'is_required' => true,
+            'min_selections' => 1,
+            'max_selections' => 1,
+            'status' => 'Active',
+        ]);
+
+        $optionGroup->values()->create([
+            'name' => 'Small',
+            'foreign_name' => 'តូច',
+            'is_default' => true,
             'status' => 'Active',
         ]);
 
@@ -126,10 +181,245 @@ class MobileApiSupportTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.branches.0.name', 'BKK Branch')
+            ->assertJsonPath('data.branches.0.foreign_name', 'សាខាបឹងកេងកង')
             ->assertJsonPath('data.categories.0.name', 'Fresh Fruits')
+            ->assertJsonPath('data.categories.0.foreign_name', 'ផ្លែឈើស្រស់')
             ->assertJsonPath('data.featured_products.0.name', 'Organic Banana')
+            ->assertJsonPath('data.featured_products.0.foreign_name', 'ចេកសរីរាង្គ')
+            ->assertJsonPath('data.featured_products.0.branch.foreign_name', 'សាខាបឹងកេងកង')
+            ->assertJsonPath('data.featured_products.0.category.foreign_name', 'ផ្លែឈើស្រស់')
+            ->assertJsonPath('data.featured_products.0.uom_group.foreign_name', 'ក្រុមឯកតា')
+            ->assertJsonPath('data.featured_products.0.uom_group.units.0.foreign_name', 'មួយ')
+            ->assertJsonPath('data.featured_products.0.option_groups.0.foreign_name', 'ទំហំ')
+            ->assertJsonPath('data.featured_products.0.option_groups.0.values.0.foreign_name', 'តូច')
             ->assertJsonPath('data.new_arrivals.0.sku', 'APP-001')
             ->assertJsonPath('data.banners.0.title', 'Fresh Picks');
+    }
+
+    public function test_mobile_cart_pricing_ignores_an_injected_unit_price(): void
+    {
+        $tenant = $this->createTenant('pos-adjusted-price');
+        $domain = 'pos-adjusted-price.localhost';
+        $tenant->domains()->create(['domain' => $domain]);
+
+        tenancy()->initialize($tenant);
+        $item = Item::query()->create([
+            'sku' => 'POS-PRICE-EDIT',
+            'name' => 'Adjustable Item',
+            'price' => 10,
+            'stock' => 20,
+            'status' => 'Active',
+        ]);
+        tenancy()->end();
+        DB::purge('tenant');
+
+        $response = $this->withHeaders([
+            'X-Tenant' => $tenant->id,
+            'Accept' => 'application/json',
+        ])->postJson("http://{$domain}/v1/api/mobile/cart/price", [
+            'items' => [[
+                'item_id' => $item->id,
+                'quantity' => 2,
+                'unit_price' => 7.25,
+            ]],
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.items.0.unit_price', 10)
+            ->assertJsonPath('data.subtotal', 20)
+            ->assertJsonPath('data.final_total', 20);
+    }
+
+    public function test_authenticated_mobile_cart_is_saved_loaded_and_cleared_from_tenant_database(): void
+    {
+        $tenant = $this->createTenant('mobile-saved-cart');
+
+        tenancy()->initialize($tenant);
+        $item = Item::query()->create([
+            'sku' => 'CART-001',
+            'name' => 'Saved Cart Item',
+            'price' => 4.50,
+            'stock' => 25,
+            'status' => 'Active',
+        ]);
+        tenancy()->end();
+        DB::purge('tenant');
+
+        $registerResponse = $this->withHeaders([
+            'X-Tenant' => $tenant->id,
+            'Accept' => 'application/json',
+        ])->postJson('/v1/api/mobile/auth/register', [
+            'name' => 'Cart Shopper',
+            'username' => 'cart-shopper',
+            'email' => 'cart@example.com',
+            'phone' => '12345678',
+            'password' => 'secret123',
+            'password_confirmation' => 'secret123',
+        ]);
+
+        $registerResponse->assertCreated();
+        $token = $registerResponse->json('data.token');
+        $headers = [
+            'Authorization' => 'Bearer '.$token,
+            'X-Tenant' => $tenant->id,
+            'Accept' => 'application/json',
+        ];
+
+        $this->withHeaders($headers)
+            ->postJson('/v1/api/mobile/cart/sync', [
+                'items' => [[
+                    'item_id' => $item->id,
+                    'quantity' => 3,
+                ]],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.count', 1);
+
+        $this->withHeaders($headers)
+            ->getJson('/v1/api/mobile/cart')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.item_id', $item->id)
+            ->assertJsonPath('data.0.quantity', 3)
+            ->assertJsonPath('data.0.product.name', 'Saved Cart Item');
+
+        $this->withHeaders($headers)
+            ->postJson('/v1/api/mobile/cart/sync', ['items' => []])
+            ->assertOk()
+            ->assertJsonPath('data.count', 0);
+
+        $this->withHeaders($headers)
+            ->getJson('/v1/api/mobile/cart')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->withHeaders($headers)
+            ->postJson('/v1/api/mobile/cart/sync', [
+                'items' => [[
+                    'item_id' => $item->id,
+                    'quantity' => 3,
+                ]],
+            ])
+            ->assertOk();
+
+        tenancy()->initialize($tenant);
+        $this->assertSame(1, CartItem::query()->count());
+        $this->assertSame(3, CartItem::query()->value('quantity'));
+        tenancy()->end();
+        DB::purge('tenant');
+
+        $this->withHeaders($headers)
+            ->postJson('/v1/api/mobile/orders', [
+                'items' => [[
+                    'item_id' => $item->id,
+                    'quantity' => 1,
+                    'unit_price' => 0.01,
+                ]],
+                'payment_method' => 'Cash',
+                'delivery_method' => 'Home Delivery',
+                'sale_from' => 'admin',
+                'expected_subtotal' => 4.50,
+                'expected_discount_total' => 0,
+                'expected_total' => 4.50,
+                'expected_promotion_id' => null,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.items.0.unit_price', 4.5)
+            ->assertJsonPath('data.total_amount', 4.5);
+
+        $this->withHeaders($headers)
+            ->getJson('/v1/api/mobile/cart')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        tenancy()->initialize($tenant);
+        $this->assertSame(0, CartItem::query()->count());
+        $this->assertSame(24, (int) Item::query()->findOrFail($item->id)->stock);
+        $this->assertNotNull(DB::table('pos_sales')->value('stock_deducted_at'));
+        $this->assertSame('mobile', DB::table('pos_sales')->value('sale_from'));
+        tenancy()->end();
+        DB::purge('tenant');
+
+        $this->withHeaders($headers)
+            ->postJson('/v1/api/mobile/cart/sync', [
+                'items' => [[
+                    'item_id' => $item->id,
+                    'quantity' => 1,
+                ]],
+            ])
+            ->assertOk();
+
+        tenancy()->initialize($tenant);
+        Item::query()->whereKey($item->id)->update(['stock' => 0]);
+        tenancy()->end();
+        DB::purge('tenant');
+
+        $this->withHeaders($headers)
+            ->postJson('/v1/api/mobile/orders', [
+                'items' => [[
+                    'item_id' => $item->id,
+                    'quantity' => 1,
+                ]],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['items']);
+
+        tenancy()->initialize($tenant);
+        $this->assertSame(1, CartItem::query()->count());
+        $this->assertSame(1, DB::table('pos_sales')->count());
+        Item::query()->whereKey($item->id)->update(['stock' => 10]);
+        tenancy()->end();
+        DB::purge('tenant');
+
+        $this->withHeaders($headers)
+            ->postJson('/v1/api/mobile/orders', [
+                'items' => [[
+                    'item_id' => $item->id,
+                    'quantity' => 1,
+                ]],
+                'expected_subtotal' => 4.50,
+                'expected_discount_total' => 0,
+                'expected_total' => 0.01,
+                'expected_promotion_id' => null,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['expected_total']);
+
+        tenancy()->initialize($tenant);
+        $this->assertSame(1, DB::table('pos_sales')->count());
+        Item::query()->whereKey($item->id)->update(['status' => 'Inactive']);
+        tenancy()->end();
+        DB::purge('tenant');
+
+        $this->withHeaders($headers)
+            ->postJson('/v1/api/mobile/orders', [
+                'items' => [[
+                    'item_id' => $item->id,
+                    'quantity' => 1,
+                ]],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['items.0.item_id']);
+
+        $this->withHeaders($headers)
+            ->postJson('/v1/api/mobile/cart/sync', [
+                'items' => [[
+                    'item_id' => $item->id,
+                    'quantity' => 1,
+                ]],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['items.0.item_id']);
+
+        $this->withHeaders($headers)
+            ->deleteJson('/v1/api/mobile/cart')
+            ->assertOk();
+
+        $this->withHeaders($headers)
+            ->getJson('/v1/api/mobile/cart')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
     }
 
     public function test_mobile_api_supports_register_profile_address_favorite_order_and_notifications(): void
@@ -157,6 +447,7 @@ class MobileApiSupportTest extends TestCase
             'branch_name' => $branch->name,
             'sku' => 'BREAD-001',
             'name' => 'Butter Bread',
+            'foreign_name' => 'នំបុំប៊ឺមៀ៚',
             'price' => 5,
             'stock' => 10,
             'status' => 'Active',
@@ -190,7 +481,7 @@ class MobileApiSupportTest extends TestCase
         $token = $registerResponse->json('data.token');
 
         $profileResponse = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->getJson('/v1/api/mobile/profile');
@@ -199,7 +490,7 @@ class MobileApiSupportTest extends TestCase
             ->assertJsonPath('data.email', 'mobile@example.com');
 
         $updateProfileResponse = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->patchJson('/v1/api/mobile/profile', [
@@ -212,7 +503,7 @@ class MobileApiSupportTest extends TestCase
             ->assertJsonPath('data.phone', '87654321');
 
         $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->patchJson('/v1/api/mobile/profile', [
@@ -220,7 +511,7 @@ class MobileApiSupportTest extends TestCase
         ])->assertOk();
 
         $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->patchJson('/v1/api/mobile/profile', [
@@ -242,7 +533,7 @@ class MobileApiSupportTest extends TestCase
         $this->assertNotNull($centralUser->profile_id);
 
         $addressResponse = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->postJson('/v1/api/mobile/addresses', [
@@ -263,7 +554,7 @@ class MobileApiSupportTest extends TestCase
         $addressId = $addressResponse->json('data.id');
 
         $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->postJson('/v1/api/mobile/favorites/toggle', [
@@ -272,7 +563,7 @@ class MobileApiSupportTest extends TestCase
             ->assertJsonPath('data.is_favorite', true);
 
         $favoritesResponse = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->getJson('/v1/api/mobile/favorites');
@@ -282,7 +573,7 @@ class MobileApiSupportTest extends TestCase
             ->assertJsonPath('data.products.0.name', 'Butter Bread');
 
         $orderResponse = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->postJson('/v1/api/mobile/orders', [
@@ -298,12 +589,13 @@ class MobileApiSupportTest extends TestCase
 
         $orderResponse->assertCreated()
             ->assertJsonPath('data.total_items', 2)
-            ->assertJsonPath('data.items.0.name', 'Butter Bread');
+            ->assertJsonPath('data.items.0.name', 'Butter Bread')
+            ->assertJsonPath('data.items.0.foreign_name', 'នំបុំប៊ឺមៀ៚');
 
         $orderId = $orderResponse->json('data.id');
 
         $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->getJson('/v1/api/mobile/orders')
@@ -311,7 +603,7 @@ class MobileApiSupportTest extends TestCase
             ->assertJsonPath('data.0.id', $orderId);
 
         $notificationsResponse = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->getJson('/v1/api/mobile/notifications');
@@ -322,15 +614,15 @@ class MobileApiSupportTest extends TestCase
         $notificationId = $notificationsResponse->json('data.0.id');
 
         $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
-        ])->postJson('/v1/api/mobile/notifications/' . $notificationId . '/read')
+        ])->postJson('/v1/api/mobile/notifications/'.$notificationId.'/read')
             ->assertOk()
             ->assertJsonPath('data.id', $notificationId);
 
         tenancy()->initialize($tenant);
-        $this->assertSame(1, Order::query()->count());
+        $this->assertSame(1, PosSale::query()->count());
         $this->assertSame(2, Notification::query()->count());
         $tenantUser = User::query()->find(1);
         $this->assertNotNull($tenantUser);
@@ -374,7 +666,7 @@ class MobileApiSupportTest extends TestCase
         $token = $loginResponse->json('data.token');
 
         $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->getJson('/v1/api/mobile/auth/me')
@@ -421,7 +713,7 @@ class MobileApiSupportTest extends TestCase
         $token = $registerResponse->json('data.token');
 
         $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->patchJson('/v1/api/mobile/profile', [
@@ -491,7 +783,7 @@ class MobileApiSupportTest extends TestCase
         $token = $registerResponse->json('data.token');
 
         $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->patchJson('/v1/api/mobile/profile', [
@@ -552,7 +844,7 @@ class MobileApiSupportTest extends TestCase
         Storage::disk('user')->assertExists($tenantGallery->name);
 
         $profileResponse = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $freshToken,
+            'Authorization' => 'Bearer '.$freshToken,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->getJson('/v1/api/mobile/profile');
@@ -587,7 +879,7 @@ class MobileApiSupportTest extends TestCase
         $token = $registerResponse->json('data.token');
 
         $updateResponse = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->patchJson('/v1/api/mobile/profile', [
@@ -601,7 +893,7 @@ class MobileApiSupportTest extends TestCase
         $this->assertNotEmpty($firstImageUrl);
 
         $profileResponse = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->getJson('/v1/api/mobile/profile');
@@ -610,7 +902,7 @@ class MobileApiSupportTest extends TestCase
             ->assertJsonPath('data.profile_image_url', $firstImageUrl);
 
         $meResponse = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->getJson('/v1/api/mobile/auth/me');
@@ -633,7 +925,7 @@ class MobileApiSupportTest extends TestCase
 
     private function createTenant(string $id): Tenant
     {
-        $databaseName = 'tenant-' . $id . '.sqlite';
+        $databaseName = 'tenant-'.$id.'.sqlite';
         $databasePath = database_path($databaseName);
         $fallbackDatabasePath = database_path($id);
 
@@ -663,6 +955,10 @@ class MobileApiSupportTest extends TestCase
             'status' => 'Active',
         ]);
 
+        $tenant->forceFill([
+            'general_settings' => ['currency' => 'USD'],
+        ])->save();
+
         tenancy()->initialize($tenant);
         Artisan::call('migrate', [
             '--database' => 'tenant',
@@ -670,6 +966,16 @@ class MobileApiSupportTest extends TestCase
             '--realpath' => true,
             '--force' => true,
         ]);
+        Currency::query()->firstOrCreate(
+            ['code' => 'USD'],
+            [
+                'name' => 'US Dollar',
+                'symbol' => '$',
+                'decimal_places' => 2,
+                'sort_order' => 1,
+                'status' => 'Active',
+            ]
+        );
         tenancy()->end();
         DB::purge('tenant');
 

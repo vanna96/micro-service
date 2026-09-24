@@ -3,15 +3,20 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\BlockedIp;
+use App\Models\SecurityLog;
+use App\Models\SecuritySetting;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\TenantActivityLogger;
 use Illuminate\Foundation\Auth\AuthenticatesUsers;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class LoginController extends Controller
 {
@@ -33,11 +38,11 @@ class LoginController extends Controller
      *
      * @var string
      */
-    protected $redirectTo = '/home';
+    protected $redirectTo = '/admin/dashboard';
 
     public function showAdminLoginForm()
     {
-        return view('auth.login');
+        return redirect('/');
     }
 
     /**
@@ -116,6 +121,7 @@ class LoginController extends Controller
                     'auth_tenant_id',
                     'admin_selected_tenant_id',
                 ]);
+                cookie()->queue(cookie()->forget('auth_remember_tenant_id'));
 
                 return true;
             }
@@ -180,6 +186,12 @@ class LoginController extends Controller
             'admin_selected_tenant_id' => $tenant->id,
         ]);
         $this->guard()->login($tenantUser, $remember);
+
+        if ($remember) {
+            cookie()->queue(cookie()->forever('auth_remember_tenant_id', (string) $tenant->id));
+        } else {
+            cookie()->queue(cookie()->forget('auth_remember_tenant_id'));
+        }
 
         app(TenantActivityLogger::class)->log(
             'tenant user logged in',
@@ -275,6 +287,92 @@ class LoginController extends Controller
             ->orderBy('id');
     }
 
+    public function maxAttempts()
+    {
+        return SecuritySetting::getInt('autoban_login_threshold', 5);
+    }
+
+    public function decayMinutes()
+    {
+        return SecuritySetting::getInt('login_lockout_minutes', 1);
+    }
+
+    protected function sendFailedLoginResponse(Request $request)
+    {
+        $ip = $request->ip();
+        $username = (string) $request->input($this->username());
+        
+        $cacheKey = 'failed_login_count_' . md5($ip);
+        $attempts = (int) Cache::store('file')->get($cacheKey, 0) + 1;
+        Cache::store('file')->put($cacheKey, $attempts, 900); // 15-minute sliding window
+
+        $threshold = SecuritySetting::getInt('autoban_login_threshold', 5);
+        $autoBanEnabled = SecuritySetting::getBool('autoban_failed_logins_enabled', true);
+
+        if ($autoBanEnabled && $attempts >= $threshold) {
+            SecurityLog::logIncident(
+                $ip,
+                'brute_force_login',
+                'critical',
+                'auto_banned',
+                "Exceeded maximum failed login attempts ({$attempts}/{$threshold}) for username: {$username}",
+                $request
+            );
+
+            BlockedIp::block(
+                $ip,
+                "Too many failed login attempts ({$attempts} attempts)",
+                'brute_force',
+                SecuritySetting::getInt('autoban_duration_hours', 24),
+                'Auth Protection'
+            );
+
+            Cache::store('file')->forget($cacheKey);
+
+            return response()->view('errors.security-blocked', [
+                'ip' => $ip,
+                'reason' => "Your IP has been banned due to {$attempts} repeated failed login attempts.",
+                'incidentId' => 'SEC-BRUTE-' . strtoupper(substr(md5(time() . $ip), 0, 6)),
+            ], 403);
+        }
+
+        SecurityLog::logIncident(
+            $ip,
+            'failed_login',
+            'medium',
+            'warning',
+            "Failed login attempt ({$attempts}/{$threshold}) for username: {$username}",
+            $request
+        );
+
+        throw ValidationException::withMessages([
+            $this->username() => [trans('auth.failed')],
+        ]);
+    }
+
+    protected function sendLockoutResponse(Request $request)
+    {
+        $seconds = $this->limiter()->availableIn(
+            $this->throttleKey($request)
+        );
+
+        SecurityLog::logIncident(
+            $request->ip(),
+            'brute_force_lockout',
+            'high',
+            'rate_limited',
+            "Login rate limited for {$seconds} seconds. Username: " . $request->input($this->username()),
+            $request
+        );
+
+        throw ValidationException::withMessages([
+            $this->username() => [trans('auth.throttle', [
+                'seconds' => $seconds,
+                'minutes' => ceil($seconds / 60),
+            ])],
+        ])->status(429);
+    }
+
     protected function authenticated(Request $request, $user)
     {
         $request->session()->forget('admin_intended_url');
@@ -282,10 +380,20 @@ class LoginController extends Controller
         if (! admin_is_tenant_user()) {
             $request->session()->forget('admin_selected_tenant_id');
         }
+
+        // Reset failed login tracking on successful login
+        Cache::store('file')->forget('failed_login_count_' . md5($request->ip()));
     }
 
     public function logout(Request $request): RedirectResponse
     {
+        $portalKey = (string) $request->session()->get('next_portal_session_key', '');
+
+        if ($portalKey !== '') {
+            Cache::store((string) config('cache.portal_session_store', 'portal_sessions'))
+                ->forget('next_portal_session:' . hash('sha256', $portalKey));
+        }
+
         if (admin_is_tenant_user() && tenant() && $request->user() instanceof User) {
             app(TenantActivityLogger::class)->log(
                 'tenant user logged out',
@@ -298,6 +406,7 @@ class LoginController extends Controller
         }
 
         $this->guard()->logout();
+        cookie()->queue(cookie()->forget('auth_remember_tenant_id'));
 
         $request->session()->forget([
             'auth_user_scope',
@@ -308,6 +417,6 @@ class LoginController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('admin.login');
+        return redirect('/');
     }
 }

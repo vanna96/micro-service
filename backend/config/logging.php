@@ -53,8 +53,14 @@ return [
     'channels' => [
         'stack' => [
             'driver' => 'stack',
-            'channels' => ['single'],
+            'channels' => ['single', 'telegram'],
             'ignore_exceptions' => false,
+        ],
+
+        'telegram' => [
+            'driver' => 'custom',
+            'via' => \App\Logging\TelegramLogger::class,
+            'level' => env('TELEGRAM_LOG_LEVEL', 'error'),
         ],
 
         'single' => [

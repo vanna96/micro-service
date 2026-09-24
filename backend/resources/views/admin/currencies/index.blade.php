@@ -10,7 +10,9 @@
 @endpush
 
 @section('content')
-@php($canManageCurrencies = admin_has_permission('currencies.manage'))
+@php($canCreateCurrencies = admin_has_permission('currencies.create'))
+@php($canEditCurrencies = admin_has_permission('currencies.edit'))
+@php($canDeleteCurrencies = admin_has_permission('currencies.delete'))
 <div class="row">
     <div class="col-12">
         <div class="card">
@@ -22,7 +24,7 @@
                             Create currencies before maintaining monthly exchange rates.
                         </p>
                     </div>
-                    @if ($canManageCurrencies)
+                    @if ($canCreateCurrencies)
                         <div class="mt-3 mt-sm-0">
                             <a href="{{ route('admin.currencies.create') }}" class="btn btn-primary waves-effect waves-light">
                                 <i class="uil uil-plus me-1"></i>Create Currency
@@ -71,14 +73,17 @@
                                     </td>
                                     <td>{{ optional($currency->updated_at)->format('d M Y, h:i A') ?: '-' }}</td>
                                     <td class="text-nowrap">
-                                        @if ($canManageCurrencies)
+                                        @if ($canEditCurrencies)
                                             <a href="{{ route('admin.currencies.edit', ['currency' => $currency->id]) }}" class="btn btn-sm btn-outline-primary me-2">Edit</a>
+                                        @endif
+                                        @if ($canDeleteCurrencies)
                                             <form action="{{ route('admin.currencies.destroy', ['currency' => $currency->id]) }}" method="POST" class="d-inline">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this currency?')">Delete</button>
                                             </form>
-                                        @else
+                                        @endif
+                                        @if (! $canEditCurrencies && ! $canDeleteCurrencies)
                                             <span class="text-muted">View only</span>
                                         @endif
                                     </td>

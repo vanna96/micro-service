@@ -124,24 +124,117 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $tokenResult = $user->createToken('authToken');
+        $accessExpiresMinutes = 60;
+        $refreshExpiresDays = 30;
+
+        $tokenResult = $user->createToken('authToken', ['*'], now()->addMinutes($accessExpiresMinutes));
         $plainTextToken = $tokenResult->plainTextToken;
-        $timeout = 60;
         $tokenResult->accessToken->forceFill([
-            'expires_at'  => now()->addMinute($timeout),
             'tenant_id'   => null,
             'device_name' => null,
             'device_ip'   => $request->ip(),
             'user_agent'  => $request->userAgent(),
         ])->save();
 
+        $refreshTokenResult = $user->createToken('refreshToken', ['issue-token'], now()->addDays($refreshExpiresDays));
+        $plainTextRefreshToken = $refreshTokenResult->plainTextToken;
+        $refreshTokenResult->accessToken->forceFill([
+            'tenant_id'   => null,
+            'device_name' => null,
+            'device_ip'   => $request->ip(),
+            'user_agent'  => $request->userAgent(),
+        ])->save();
+
+        $expiresInSeconds = $accessExpiresMinutes * 60;
+
         return response()->json([
             'success' => true,
             'message' => translate('Login successful', request('lng')),
             'data' => [
-                'user'      => $user->load('tenants'),
-                'token'     => $plainTextToken,
-                'timeout'   => $timeout
+                'user'            => $user->load('tenants'),
+                'token'           => $plainTextToken,
+                'access_token'    => $plainTextToken,
+                'refresh_token'   => $plainTextRefreshToken,
+                'token_type'      => 'Bearer',
+                'expires_in'      => $expiresInSeconds,
+                'timeout'         => $expiresInSeconds,
+                'timeout_minutes' => $accessExpiresMinutes,
+            ]
+        ], 200);
+    }
+
+    public function refreshToken(Request $request)
+    {
+        $refreshTokenString = $request->input('refresh_token') ?: $request->bearerToken();
+
+        if (! $refreshTokenString) {
+            return response()->json([
+                'success' => false,
+                'message' => translate('Refresh token is required.', request('lng'))
+            ], 422);
+        }
+
+        $token = $this->findPersonalAccessToken($refreshTokenString);
+
+        if (! $token || ($token->expires_at && $token->expires_at->isPast())) {
+            return response()->json([
+                'success' => false,
+                'message' => translate('Invalid or expired refresh token. Please sign in again.', request('lng'))
+            ], 401);
+        }
+
+        if ($token->name !== 'refreshToken' || ! $token->can('issue-token')) {
+            return response()->json([
+                'success' => false,
+                'message' => translate('Provided token is not a valid refresh token.', request('lng'))
+            ], 401);
+        }
+
+        $user = User::on('central')->find($token->tokenable_id) ?: $token->tokenable;
+
+        if (! $user || $user->status !== 'Active') {
+            return response()->json([
+                'success' => false,
+                'message' => translate('User account is inactive or not found.', request('lng'))
+            ], 401);
+        }
+
+        // Revoke the old refresh token (refresh token rotation)
+        $token->delete();
+
+        $accessExpiresMinutes = 60;
+        $refreshExpiresDays = 30;
+
+        $newTokenResult = $user->createToken('authToken', ['*'], now()->addMinutes($accessExpiresMinutes));
+        $newTokenResult->accessToken->forceFill([
+            'tenant_id'   => null,
+            'device_name' => null,
+            'device_ip'   => $request->ip(),
+            'user_agent'  => $request->userAgent(),
+        ])->save();
+
+        $newRefreshTokenResult = $user->createToken('refreshToken', ['issue-token'], now()->addDays($refreshExpiresDays));
+        $newRefreshTokenResult->accessToken->forceFill([
+            'tenant_id'   => null,
+            'device_name' => null,
+            'device_ip'   => $request->ip(),
+            'user_agent'  => $request->userAgent(),
+        ])->save();
+
+        $expiresInSeconds = $accessExpiresMinutes * 60;
+
+        return response()->json([
+            'success' => true,
+            'message' => translate('Token refreshed successfully.', request('lng')),
+            'data' => [
+                'user'            => $user->load('tenants'),
+                'token'           => $newTokenResult->plainTextToken,
+                'access_token'    => $newTokenResult->plainTextToken,
+                'refresh_token'   => $newRefreshTokenResult->plainTextToken,
+                'token_type'      => 'Bearer',
+                'expires_in'      => $expiresInSeconds,
+                'timeout'         => $expiresInSeconds,
+                'timeout_minutes' => $accessExpiresMinutes,
             ]
         ], 200);
     }
@@ -160,5 +253,31 @@ class AuthController extends Controller
         $request->session()->regenerateToken();
 
         return response()->json(['message' => translate('Logged out')], 200);
+    }
+
+    protected function findPersonalAccessToken(string $tokenString): ?\Laravel\Sanctum\PersonalAccessToken
+    {
+        foreach (array_unique(['central', config('database.default')]) as $connection) {
+            try {
+                $model = (new \Laravel\Sanctum\PersonalAccessToken())->setConnection($connection);
+                if (! str_contains($tokenString, '|')) {
+                    $instance = $model->newQuery()->where('token', hash('sha256', $tokenString))->first();
+                } else {
+                    [$id, $plain] = explode('|', $tokenString, 2);
+                    $instance = $model->newQuery()->find($id);
+                    if ($instance && ! hash_equals($instance->token, hash('sha256', $plain))) {
+                        $instance = null;
+                    }
+                }
+
+                if ($instance instanceof \Laravel\Sanctum\PersonalAccessToken) {
+                    return $instance;
+                }
+            } catch (\Throwable $e) {
+                // Try next connection
+            }
+        }
+
+        return \Laravel\Sanctum\PersonalAccessToken::findToken($tokenString);
     }
 }

@@ -27,6 +27,7 @@ Route::middleware(['api'])->group(function () {
         // Public routes
         Route::post('register', [AuthController::class, 'register']);
         Route::post('login', [AuthController::class, 'login']);
+        Route::post('refresh', [AuthController::class, 'refreshToken']);
 
         // Protected user routes
         Route::middleware(['auth:sanctum'])->group(function () {
@@ -38,6 +39,9 @@ Route::middleware(['api'])->group(function () {
             Route::post('logout', [AuthController::class, 'logout']);
         });
     });
+
+    Route::post('auth/refresh', [AuthController::class, 'refreshToken']);
+    Route::post('refresh', [AuthController::class, 'refreshToken']);
 
     // Protected tenant routes
     Route::prefix('tenant')->middleware(['auth:sanctum'])->group(function () {

@@ -19,7 +19,9 @@ class SliderController extends Controller
     {
         $this->sliders = $sliders;
         $this->middleware('admin.permission:sliders.view')->only(['index']);
-        $this->middleware('admin.permission:sliders.manage')->except(['index']);
+        $this->middleware('admin.permission:sliders.create')->only(['create', 'store']);
+        $this->middleware('admin.permission:sliders.edit')->only(['edit', 'update']);
+        $this->middleware('admin.permission:sliders.delete')->only(['destroy']);
     }
 
     public function index(Request $request): View
@@ -40,9 +42,15 @@ class SliderController extends Controller
 
         return view('admin.sliders.create', [
             'slider' => new Slider([
-                'placement' => 'Website',
+                'placement' => 'second_screen',
+                'media_type' => 'gradient',
                 'status' => 'Active',
                 'sort_order' => 0,
+                'badge' => '☕ SPECIAL PROMO',
+                'badge_bg' => 'rgba(255, 255, 255, 0.95)',
+                'badge_color' => '#0f172a',
+                'gradient' => 'linear-gradient(135deg, #1e1b4b 0%, #312e81 45%, #4338ca 100%)',
+                'icon' => 'ri-cup-line',
             ]),
             'selectedTenant' => $selectedTenant,
         ]);
@@ -95,11 +103,21 @@ class SliderController extends Controller
     private function validateSlider(Request $request, ?Slider $slider = null): array
     {
         return $request->validate([
-            'title' => ['nullable', 'string', 'max:255'],
+            'title' => ['required', 'string', 'max:255'],
             'subtitle' => ['nullable', 'string', 'max:255'],
-            'placement' => ['required', Rule::in(['Website', 'Mobile'])],
+            'placement' => ['required', Rule::in(['Website', 'Mobile', 'second_screen', 'All'])],
+            'media_type' => ['nullable', 'string', Rule::in(['image', 'video', 'gradient'])],
+            'media_url' => ['nullable', 'string', 'max:1000'],
+            'badge' => ['nullable', 'string', 'max:100'],
+            'badge_bg' => ['nullable', 'string', 'max:100'],
+            'badge_color' => ['nullable', 'string', 'max:100'],
+            'discount' => ['nullable', 'string', 'max:100'],
+            'gradient' => ['nullable', 'string', 'max:500'],
+            'icon' => ['nullable', 'string', 'max:100'],
+            'tag' => ['nullable', 'string', 'max:255'],
             'target_url' => ['nullable', 'url', 'max:2048'],
-            'image' => [$slider ? 'nullable' : 'required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'video_file' => ['nullable', 'file', 'mimes:mp4,webm,mov,ogg,m4v', 'max:51200'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'status' => ['required', Rule::in(['Active', 'Inactive'])],
         ]);

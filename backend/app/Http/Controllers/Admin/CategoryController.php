@@ -19,7 +19,9 @@ class CategoryController extends Controller
     {
         $this->categories = $categories;
         $this->middleware('admin.permission:categories.view')->only(['index']);
-        $this->middleware('admin.permission:categories.manage')->except(['index']);
+        $this->middleware('admin.permission:categories.create')->only(['create', 'store']);
+        $this->middleware('admin.permission:categories.edit')->only(['edit', 'update']);
+        $this->middleware('admin.permission:categories.delete')->only(['destroy']);
     }
 
     public function index(Request $request): View

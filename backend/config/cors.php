@@ -15,11 +15,21 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'v1/*', 'sanctum/csrf-cookie'],
+    'paths' => ['api/*', 'v1/*', 'next/*', 'sanctum/csrf-cookie', 'login', 'logout'],
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['*'],
+    'allowed_origins' => array_values(array_filter(array_unique(array_merge(
+        [
+            'http://localhost:3000',
+            'http://127.0.0.1:3000',
+            'http://localhost:8880',
+            'http://127.0.0.1:8880',
+            'http://localhost:8882',
+            'http://127.0.0.1:8882',
+        ],
+        explode(',', (string) env('CORS_ALLOWED_ORIGINS', ''))
+    )))),
 
     'allowed_origins_patterns' => [],
 

@@ -1,12 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import "@/styles/gotpos-custom.css";
+import "@/styles/vpos-custom.css";
 import { Providers } from "./providers";
+import { AntiInspectShield } from "@/components/security/anti-inspect-shield";
 
 export const metadata: Metadata = {
-  title: "POS System | GotPOS - Next.js App Router",
-  description: "High-performance modern POS System built with Next.js App Router, React 19 & Redux Toolkit",
+  title: "V-POS | Point of Sale",
+  description: "V-POS modern point-of-sale system",
   icons: {
-    icon: "/assets/favicon-B-3ALmIB.ico",
+    icon: "/branding/v-pos-mark.svg",
   },
 };
 
@@ -56,7 +57,10 @@ export default function RootLayout({
         />
       </head>
       <body className="sidebar-hidden">
-        <Providers>{children}</Providers>
+        <Providers>
+          <AntiInspectShield />
+          {children}
+        </Providers>
       </body>
     </html>
   );

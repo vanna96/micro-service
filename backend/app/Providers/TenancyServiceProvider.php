@@ -61,12 +61,19 @@ class TenancyServiceProvider extends ServiceProvider
             Events\TenancyInitialized::class => [
                 Listeners\BootstrapTenancy::class,
                 $this->useTenantTelescopeStorage(),
+                $this->attachTenantSentryContext(),
+                $this->useTenantQueueConnection(),
+                $this->forgetQueueConnections(),
             ],
 
             Events\EndingTenancy::class => [],
             Events\TenancyEnded::class => [
                 Listeners\RevertToCentralContext::class,
                 $this->useCentralTelescopeStorage(),
+                $this->detachTenantSentryContext(),
+                $this->restoreFallbackTenantConnection(),
+                $this->useCentralQueueConnection(),
+                $this->forgetQueueConnections(),
             ],
 
             Events\BootstrappingTenancy::class => [],
@@ -150,6 +157,67 @@ class TenancyServiceProvider extends ServiceProvider
                 config('tenancy.database.central_connection', config('database.default', 'central'))
             );
             $this->forgetTelescopeRepositories();
+        };
+    }
+
+    protected function attachTenantSentryContext(): Closure
+    {
+        return function (Events\TenancyInitialized $event): void {
+            if (function_exists('Sentry\\configureScope')) {
+                \Sentry\configureScope(function (\Sentry\State\Scope $scope) use ($event): void {
+                    $scope->setTag('tenant_id', (string) $event->tenancy->tenant?->id);
+                });
+            }
+        };
+    }
+
+    protected function detachTenantSentryContext(): Closure
+    {
+        return function (Events\TenancyEnded $event): void {
+            if (function_exists('Sentry\\configureScope')) {
+                \Sentry\configureScope(function (\Sentry\State\Scope $scope): void {
+                    $scope->removeTag('tenant_id');
+                });
+            }
+        };
+    }
+
+    protected function restoreFallbackTenantConnection(): Closure
+    {
+        return function (): void {
+            if (! config('database.connections.tenant')) {
+                $central = config('tenancy.database.central_connection', 'central');
+                config(['database.connections.tenant' => config("database.connections.{$central}")]);
+            }
+        };
+    }
+
+    protected function useTenantQueueConnection(): Closure
+    {
+        return function (): void {
+            config()->set('queue.default', 'tenant');
+        };
+    }
+
+    protected function useCentralQueueConnection(): Closure
+    {
+        return function (): void {
+            config()->set('queue.default', env('QUEUE_CONNECTION', 'database'));
+        };
+    }
+
+    protected function forgetQueueConnections(): Closure
+    {
+        return function (): void {
+            if ($this->app->resolved('queue')) {
+                try {
+                    $queue = $this->app->make('queue');
+                    $ref = new \ReflectionProperty($queue, 'connections');
+                    $ref->setAccessible(true);
+                    $ref->setValue($queue, []);
+                } catch (\Throwable) {
+                }
+            }
         };
     }
 

@@ -42,7 +42,7 @@ class ProfileController extends Controller
             'first_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['nullable', 'string', 'max:255'],
             'country_code' => ['nullable', 'string', 'max:10'],
-            'phone' => ['sometimes', 'string', 'max:30', Rule::unique($this->centralUsersTable(), 'phone')->ignore($centralUser->id)],
+            'phone' => ['nullable', 'string', 'max:30', Rule::unique($this->centralUsersTable(), 'phone')->ignore($centralUser->id)],
             'password' => ['nullable', 'string', 'min:6'],
             'profile' => ['nullable', new Base64Image()],
             'gender' => ['nullable', Rule::in(['Male', 'Female'])],

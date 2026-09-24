@@ -1,4 +1,4 @@
-FROM php:8.0-fpm
+FROM php:8.2-fpm-bookworm
 
 # Install dependencies and MySQL client
 RUN apt-get update && apt-get install -y \

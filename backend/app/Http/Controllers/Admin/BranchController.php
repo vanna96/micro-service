@@ -19,7 +19,9 @@ class BranchController extends Controller
     {
         $this->branches = $branches;
         $this->middleware('admin.permission:branches.view')->only(['index']);
-        $this->middleware('admin.permission:branches.manage')->except(['index']);
+        $this->middleware('admin.permission:branches.create')->only(['create', 'store']);
+        $this->middleware('admin.permission:branches.edit')->only(['edit', 'update']);
+        $this->middleware('admin.permission:branches.delete')->only(['destroy']);
     }
 
     public function index(Request $request): View

@@ -1,22 +1,35 @@
 import React from "react";
+import { formatCurrency, useCurrency } from "@/lib/currency";
+import { useTranslation } from "@/lib/i18n/i18n";
 
 interface ModalPaymentSuccessProps {
+  invoiceNumber: string;
   totalPayable: number;
   selectedPayMethod: string;
   currentDate: string;
-  onPrint: () => void;
-  onNextSale: () => void;
+  onViewInvoice?: () => void;
+  onNextSale?: () => void;
+  onNextSaleAndInvoice?: () => void;
   onClose: () => void;
 }
 
 export function ModalPaymentSuccess({
+  invoiceNumber,
   totalPayable,
   selectedPayMethod,
   currentDate,
-  onPrint,
+  onViewInvoice,
   onNextSale,
+  onNextSaleAndInvoice,
   onClose,
 }: ModalPaymentSuccessProps) {
+  const currency = useCurrency();
+  const { t } = useTranslation();
+  const handleNextSaleAndInvoice = onNextSaleAndInvoice || (() => {
+    onViewInvoice?.();
+    onNextSale?.();
+  });
+
   return (
     <div className="modal fade show d-block" tabIndex={-1} style={{ zIndex: 1060 }}>
       <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: "380px" }}>
@@ -32,31 +45,29 @@ export function ModalPaymentSuccess({
           >
             <i className="ri-checkbox-circle-fill fs-36"></i>
           </div>
-          <h5 className="fw-bolder text-body mb-1">Transaction Successful!</h5>
-          <p className="text-muted fs-12 mb-3">The payment was recorded successfully.</p>
+          <h5 className="fw-bolder text-body mb-1">{t("transactionSuccessful")}</h5>
+          <p className="text-muted fs-12 mb-3">{t("paymentRecordedSuccessfully")}</p>
+          <div className="bg-primary-subtle text-primary border border-primary-subtle font-monospace mb-3 px-3 py-2 rounded-2 w-100 text-center fs-13">
+            <i className="ri-file-list-3-line me-1" aria-hidden="true"></i>
+            {t("invoice")} {invoiceNumber}
+          </div>
           <div className="bg-light p-3 rounded-3 mb-4 border">
-            <span className="text-muted fs-12 d-block">Amount Charged</span>
+            <span className="text-muted fs-12 d-block">{t("amountCharged")}</span>
             <h3 className="fw-bolder text-primary my-1 font-monospace">
-              ${totalPayable.toFixed(2)}
+              {formatCurrency(totalPayable, currency)}
             </h3>
             <small className="text-muted fs-11">
               {[currentDate, selectedPayMethod].filter(Boolean).join(" | ")}
             </small>
           </div>
-          <div className="d-flex gap-2">
+          <div className="d-flex">
             <button
               type="button"
-              className="btn btn-outline-secondary flex-fill rounded-2"
-              onClick={onPrint}
+              className="btn btn-primary w-100 py-2 rounded-2 fw-semibold fs-14 d-flex align-items-center justify-content-center gap-2"
+              onClick={handleNextSaleAndInvoice}
             >
-              <i className="ri-printer-line me-1"></i> Print
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary flex-fill rounded-2 fw-semibold"
-              onClick={onNextSale}
-            >
-              Next Sale
+              <i className="ri-file-list-3-line" aria-hidden="true"></i>
+              <span>{t("nextSaleAndInvoice")}</span>
             </button>
           </div>
         </div>

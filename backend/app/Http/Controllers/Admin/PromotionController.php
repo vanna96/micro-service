@@ -22,7 +22,9 @@ class PromotionController extends Controller
     {
         $this->promotions = $promotions;
         $this->middleware('admin.permission:promotions.view')->only(['index']);
-        $this->middleware('admin.permission:promotions.manage')->except(['index']);
+        $this->middleware('admin.permission:promotions.create')->only(['create', 'store']);
+        $this->middleware('admin.permission:promotions.edit')->only(['edit', 'update', 'storeLine', 'updateLine', 'destroyLine']);
+        $this->middleware('admin.permission:promotions.delete')->only(['destroy']);
     }
 
     public function index(Request $request): View
@@ -49,6 +51,7 @@ class PromotionController extends Controller
                 'end_at' => now()->endOfDay(),
             ]),
             'selectedTenant' => $selectedTenant,
+            'baseCurrency' => tenant_base_currency(),
         ]);
     }
 
@@ -72,6 +75,7 @@ class PromotionController extends Controller
             'promotion' => $promotionModel,
             'itemOptions' => $this->promotions->getItemOptions(),
             'selectedTenant' => $selectedTenant,
+            'baseCurrency' => tenant_base_currency(),
         ]);
     }
 

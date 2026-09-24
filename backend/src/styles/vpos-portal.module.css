@@ -1,0 +1,599 @@
+/* ==========================================================================
+   V-POS Portal (Central Login & Tenant Chooser)
+   Minimalist, Calm Design (Linear / Apple / Vercel Aesthetic)
+   ========================================================================== */
+
+.page {
+  --portal-bg: #fafafa;
+  --portal-card-bg: #ffffff;
+  --portal-border: #eaeaea;
+  --portal-border-hover: #d4d4d8;
+  --portal-text-primary: #09090b;
+  --portal-text-secondary: #3f3f46;
+  --portal-text-muted: #71717a;
+  --portal-brand-orange: #ff782e;
+  --portal-brand-orange-hover: #ea580c;
+  --portal-brand-indigo: #4f46e5;
+  --portal-brand-indigo-light: #f4f4f5;
+
+  align-items: center;
+  background-color: var(--portal-bg);
+  background-image:
+    radial-gradient(at 50% 0%, rgba(255, 120, 46, 0.04) 0px, transparent 60%),
+    radial-gradient(at 50% 100%, rgba(244, 244, 245, 0.8) 0px, transparent 100%);
+  display: flex;
+  font-family: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  justify-content: center;
+  min-height: 100vh;
+  overflow-x: hidden;
+  padding: 48px 20px;
+  position: relative;
+}
+
+/* ==========================================================================
+   LOGIN SCREEN: Calm & Minimalist Centered Card
+   ========================================================================== */
+
+.loginShell {
+  margin: 0 auto;
+  max-width: 420px;
+  position: relative;
+  width: 100%;
+  z-index: 1;
+}
+
+.brandHeader {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-start;
+  margin-bottom: 22px;
+}
+
+.logo {
+  display: block;
+  height: 32px;
+  width: auto;
+}
+
+.proBadge {
+  background: #f4f4f5;
+  border: 1px solid #e4e4e7;
+  border-radius: 999px;
+  color: #52525b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  text-transform: uppercase;
+}
+
+/* Card */
+.panel {
+  background: var(--portal-card-bg);
+  border: 1px solid var(--portal-border);
+  border-radius: 20px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 12px 32px -4px rgba(0, 0, 0, 0.04);
+  padding: 36px 32px;
+}
+
+.panelHeader {
+  margin-bottom: 26px;
+  text-align: left;
+}
+
+.title {
+  color: var(--portal-text-primary);
+  font-size: 22px;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+  margin: 0 0 6px;
+}
+
+.subtitle {
+  color: var(--portal-text-muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Form Fields */
+.field {
+  margin-bottom: 18px;
+}
+
+.label {
+  color: var(--portal-text-secondary);
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 7px;
+}
+
+.inputWrap {
+  position: relative;
+}
+
+.input {
+  background: #ffffff;
+  border: 1px solid #d4d4d8;
+  border-radius: 10px;
+  color: var(--portal-text-primary);
+  font-size: 14px;
+  min-height: 44px;
+  outline: none;
+  padding: 10px 14px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  width: 100%;
+}
+
+.inputWithReveal {
+  padding-right: 44px;
+}
+
+.input:focus {
+  border-color: #ff782e;
+  box-shadow: 0 0 0 3px rgba(255, 120, 46, 0.14);
+}
+
+.reveal {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #a1a1aa;
+  cursor: pointer;
+  display: flex;
+  height: 36px;
+  justify-content: center;
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  transition: color 0.15s ease;
+  width: 36px;
+}
+
+.reveal:hover {
+  color: var(--portal-text-secondary);
+}
+
+.remember {
+  align-items: center;
+  color: #52525b;
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  gap: 8px;
+  margin: 6px 0 22px;
+  user-select: none;
+}
+
+.remember input {
+  accent-color: var(--portal-brand-orange);
+  border-radius: 4px;
+  cursor: pointer;
+  height: 16px;
+  width: 16px;
+}
+
+.error {
+  background: #fef2f2;
+  border: 1px solid #fee2e2;
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 20px;
+  padding: 10px 14px;
+}
+
+/* Primary Action Button */
+.primaryButton {
+  align-items: center;
+  background: linear-gradient(135deg, #ff782e 0%, #ea580c 100%);
+  border: 0;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(255, 120, 46, 0.22);
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  font-size: 14px;
+  font-weight: 650;
+  gap: 8px;
+  justify-content: center;
+  min-height: 44px;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.primaryButton:hover {
+  background: linear-gradient(135deg, #f97316 0%, #c2410c 100%);
+  box-shadow: 0 4px 14px rgba(255, 120, 46, 0.32);
+  transform: translateY(-1px);
+}
+
+.primaryButton:active {
+  transform: translateY(0);
+}
+
+.primaryButton:disabled {
+  cursor: wait;
+  opacity: 0.65;
+  transform: none;
+}
+
+
+/* ==========================================================================
+   TENANT CHOOSER: Clean, Minimal Workspace Selector
+   ========================================================================== */
+
+.storeChooserPage {
+  overflow-x: hidden;
+  position: relative;
+}
+
+.vLineBackground {
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+@keyframes vLineBreathe {
+  0% {
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  50% {
+    transform: translateX(-50%) translateY(-5px) scale(1.008);
+  }
+  100% {
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+.vLineSvg {
+  animation: vLineBreathe 16s ease-in-out infinite;
+  height: 100%;
+  left: 50%;
+  max-width: 1800px;
+  min-height: 850px;
+  opacity: 0.85;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  transform-origin: center center;
+  width: 100%;
+  will-change: transform;
+}
+
+.chooserShell {
+  margin: 0 auto;
+  max-width: 880px;
+  position: relative;
+  width: 100%;
+  z-index: 1;
+}
+
+/* Minimal Frosted Top Navigation */
+.header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 36px;
+}
+
+.headerBrand {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.headerActions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.adminLink,
+.signout {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--portal-border);
+  border-radius: 8px;
+  color: #52525b;
+  display: inline-flex;
+  font-size: 12.5px;
+  font-weight: 600;
+  gap: 6px;
+  min-height: 32px;
+  padding: 5px 12px;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.adminLink:hover {
+  border-color: #d4d4d8;
+  color: #09090b;
+}
+
+.signout {
+  cursor: pointer;
+}
+
+.signout:hover {
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+/* Center Content */
+.chooserIntro {
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+.chooserTitle {
+  color: var(--portal-text-primary);
+  font-size: 24px;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+  margin: 0 0 6px;
+}
+
+.chooserSubtitle {
+  color: var(--portal-text-muted);
+  font-size: 14px;
+  margin: 0;
+}
+
+/* Store Cards Grid (Styled to match POS Product Card design) */
+.storeGrid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.storeCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  box-shadow:
+    0 4px 10px -2px rgba(15, 23, 42, 0.05),
+    0 2px 4px -1px rgba(15, 23, 42, 0.03);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  padding: 14px;
+  position: relative;
+  text-align: left;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.2s ease;
+  width: 100%;
+}
+
+.storeCard:hover {
+  border-color: #cbd5e1;
+  box-shadow:
+    0 14px 28px -4px rgba(15, 23, 42, 0.12),
+    0 6px 12px -2px rgba(15, 23, 42, 0.06);
+  transform: translateY(-4px);
+}
+
+.storeCard:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+/* Inset Media / Thumbnail Wrap (identical to pos-card-img-wrap) */
+.storeMediaWrap {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #eef2f6;
+  border-radius: 14px;
+  display: flex;
+  height: 140px;
+  justify-content: center;
+  margin-bottom: 12px;
+  padding: 10px;
+  position: relative;
+}
+
+.storeMediaIcon {
+  align-items: center;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(255, 120, 46, 0.12);
+  color: #ea580c;
+  display: flex;
+  height: 64px;
+  justify-content: center;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 64px;
+}
+
+.storeCard:hover .storeMediaIcon {
+  transform: scale(1.06);
+}
+
+/* Top-Left Badge (styled like UOM: kg badge in product card) */
+.storeTopBadge {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  color: #2563eb;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 650;
+  left: 10px;
+  padding: 2.5px 9px;
+  position: absolute;
+  top: 10px;
+}
+
+/* Bottom-Left Badge (styled like 15% OFF green promo badge in product card) */
+.storeBottomBadge {
+  align-items: center;
+  background: #059669;
+  border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 10.5px;
+  font-weight: 750;
+  gap: 5px;
+  left: 10px;
+  padding: 3px 10px;
+  position: absolute;
+  bottom: 10px;
+}
+
+.badgePulseDot {
+  background-color: #a7f3d0;
+  border-radius: 50%;
+  box-shadow: 0 0 6px #34d399;
+  display: inline-block;
+  height: 6px;
+  width: 6px;
+}
+
+/* Info & Title (identical to product card typography) */
+.storeBody {
+  margin-bottom: 10px;
+}
+
+.storeSku {
+  color: #94a3b8;
+  display: block;
+  font-family: monospace;
+  font-size: 11.5px;
+  margin-bottom: 2px;
+}
+
+.storeTitle {
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 750;
+  line-height: 1.3;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Footer with divider line */
+.storeFooter {
+  align-items: center;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 10px;
+}
+
+.storeDomainText {
+  color: #64748b;
+  font-family: monospace;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.storeOpenPill {
+  align-items: center;
+  background: #f4f4f5;
+  border: 1px solid #e4e4e7;
+  border-radius: 8px;
+  color: #09090b;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 650;
+  gap: 4px;
+  padding: 5px 12px;
+  transition: all 0.15s ease;
+}
+
+.storeCard:hover .storeOpenPill {
+  background: #ff782e;
+  border-color: #ff782e;
+  color: #ffffff;
+}
+
+.openingBadge {
+  color: #ea580c;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.accountFooter {
+  color: #a1a1aa;
+  font-size: 12px;
+  margin-top: 36px;
+  text-align: center;
+}
+
+/* Switch Tenant pill button in POS mode */
+.switchTenant {
+  align-items: center;
+  background: #09090b;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 6px;
+  padding: 6px 14px;
+  position: fixed;
+  right: 165px;
+  text-decoration: none;
+  top: 15px;
+  transition: all 0.15s ease;
+  z-index: 1200;
+}
+
+.switchTenant:hover {
+  background: #27272a;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 32px 16px;
+  }
+
+  .panel {
+    padding: 28px 20px;
+  }
+
+  .header {
+    margin-bottom: 24px;
+  }
+
+  .storeCard {
+    padding: 16px;
+  }
+
+  .storeGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .switchTenant {
+    right: 96px;
+    top: 12px;
+  }
+}

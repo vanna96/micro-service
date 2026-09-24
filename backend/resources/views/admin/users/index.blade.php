@@ -18,7 +18,7 @@
                     <div>
                         <h4 class="card-title mb-1">Default Datatable</h4>
                         <p class="card-title-desc mb-0">
-                            Manage backend users with Minible's default datatable search, sort, and paging.
+                            Manage backend users with datatable search, sort, and paging.
                         </p>
                     </div>
                     <div class="mt-3 mt-sm-0">

@@ -12,6 +12,10 @@ return new class extends Migration
             return;
         }
 
+        if (Schema::getConnection()->getDriverName() !== 'mysql') {
+            return;
+        }
+
         try {
             DB::statement('ALTER TABLE units_of_measure DROP FOREIGN KEY units_of_measure_uom_group_id_foreign');
         } catch (Throwable $exception) {
@@ -30,6 +34,10 @@ return new class extends Migration
     public function down(): void
     {
         if (! Schema::hasTable('units_of_measure') || ! Schema::hasColumn('units_of_measure', 'uom_group_id')) {
+            return;
+        }
+
+        if (Schema::getConnection()->getDriverName() !== 'mysql') {
             return;
         }
 

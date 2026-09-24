@@ -14,8 +14,10 @@ class ItemVariationController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('admin.permission:items.view')->only(['index']);
-        $this->middleware('admin.permission:items.manage')->except(['index']);
+        $this->middleware('admin.permission:item_variations.view')->only(['index']);
+        $this->middleware('admin.permission:item_variations.create')->only(['create', 'store']);
+        $this->middleware('admin.permission:item_variations.edit')->only(['edit', 'update']);
+        $this->middleware('admin.permission:item_variations.delete')->only(['destroy']);
     }
 
     public function index(Request $request): View

@@ -19,7 +19,9 @@ class CurrencyController extends Controller
     {
         $this->currencies = $currencies;
         $this->middleware('admin.permission:currencies.view')->only(['index']);
-        $this->middleware('admin.permission:currencies.manage')->except(['index']);
+        $this->middleware('admin.permission:currencies.create')->only(['create', 'store']);
+        $this->middleware('admin.permission:currencies.edit')->only(['edit', 'update']);
+        $this->middleware('admin.permission:currencies.delete')->only(['destroy']);
     }
 
     public function index(Request $request): View

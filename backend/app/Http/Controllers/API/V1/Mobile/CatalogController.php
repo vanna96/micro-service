@@ -34,19 +34,45 @@ class CatalogController extends Controller
         ]);
     }
 
-    public function banners()
+    public function banners(Request $request)
     {
+        $type = strtolower((string) $request->get('type', $request->get('placement', 'mobile')));
+
+        $placements = match ($type) {
+            'web', 'website' => ['Website', 'web', 'All', 'all'],
+            'second_screen', 'secondscreen', 'display', 'pos' => ['second_screen', 'SecondScreen', 'Display', 'POS', 'All', 'all'],
+            'all' => ['Mobile', 'mobile', 'Website', 'web', 'second_screen', 'SecondScreen', 'Display', 'POS', 'All', 'all'],
+            default => ['Mobile', 'mobile', 'All', 'all'],
+        };
+
         $banners = Slider::query()
             ->with('image')
             ->where('status', 'Active')
-            ->whereIn('placement', ['Mobile', 'Website'])
+            ->whereIn('placement', $placements)
             ->orderBy('sort_order')
             ->orderByDesc('id')
             ->get();
 
+        $origin = rtrim($request->getSchemeAndHttpHost(), '/');
+
         return response()->json([
             'success' => true,
-            'data' => $banners->map(fn (Slider $banner) => $this->mobileBannerPayload($banner))->values(),
+            'type' => $type,
+            'data' => $banners->map(function (Slider $banner) use ($origin) {
+                $payload = $banner->toPromoSlidePayload();
+                $mediaUrl = trim((string) ($payload['mediaUrl'] ?? ''));
+
+                if ($mediaUrl !== '' && str_starts_with($mediaUrl, '//')) {
+                    $mediaUrl = parse_url($origin, PHP_URL_SCHEME).':'.$mediaUrl;
+                } elseif ($mediaUrl !== '' && ! preg_match('#^https?://#i', $mediaUrl)) {
+                    $mediaUrl = $origin.'/'.ltrim($mediaUrl, '/');
+                }
+
+                $payload['image_url'] = $mediaUrl;
+                unset($payload['mediaUrl'], $payload['media_url'], $payload['image']);
+
+                return $payload;
+            })->values(),
         ]);
     }
 
@@ -92,17 +118,23 @@ class CatalogController extends Controller
                 'galleries',
                 'uomGroup.units' => fn ($query) => $query->where('status', 'Active')->orderBy('sort_order'),
                 'uomGroup.units.unit',
+                'uomPrices',
                 'optionGroups' => fn ($query) => $query->where('status', 'Active'),
                 'optionGroups.values' => fn ($query) => $query->where('status', 'Active'),
                 'variants' => fn ($query) => $query->where('status', 'Active'),
                 'variants.optionValues',
             ])
             ->where('status', 'Active')
+            ->where('sale', true)
             ->when($request->filled('category_id'), fn ($query) => $query->where('category_id', (int) $request->get('category_id')))
-            ->when($request->filled('branch_id'), fn ($query) => $query->where('branch_id', (int) $request->get('branch_id')))
+            ->when($request->filled('branch_id') && (int) $request->get('branch_id') > 0, function ($query) use ($request) {
+                $branchId = (int) $request->get('branch_id');
+                $query->where('branch_id', $branchId);
+            })
             ->when($request->boolean('featured', false), fn ($query) => $query->where('is_featured', true))
             ->when($request->boolean('new_arrival', false), fn ($query) => $query->where('is_new_arrival', true))
             ->when($request->boolean('premium', false), fn ($query) => $query->where('is_premium', true))
+            ->when($request->boolean('try_on', false) || $request->boolean('is_try_on_enabled', false), fn ($query) => $query->where('is_try_on_enabled', true))
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($innerQuery) use ($search) {
                     $innerQuery->where('sku', 'like', "%{$search}%")
@@ -125,10 +157,17 @@ class CatalogController extends Controller
         };
 
         $paginated = $products->paginate($request->integer('per_page') ?: 20);
+        $paginatedItems = collect($paginated->items());
+        $promotionPreviews = $this->promotionPricing->catalogPromotionPreviews($paginatedItems);
 
         return response()->json([
             'success' => true,
-            'data' => collect($paginated->items())->map(fn (Item $item) => $this->mobileItemPayload($item))->values(),
+            'data' => $paginatedItems
+                ->map(fn (Item $item) => $this->mobileItemPayload(
+                    $item,
+                    $promotionPreviews[(int) $item->id] ?? []
+                ))
+                ->values(),
             'meta' => [
                 'current_page' => $paginated->currentPage(),
                 'per_page' => $paginated->perPage(),
@@ -149,17 +188,23 @@ class CatalogController extends Controller
                 'galleries',
                 'uomGroup.units' => fn ($query) => $query->where('status', 'Active')->orderBy('sort_order'),
                 'uomGroup.units.unit',
+                'uomPrices',
                 'optionGroups' => fn ($query) => $query->where('status', 'Active'),
                 'optionGroups.values' => fn ($query) => $query->where('status', 'Active'),
                 'variants' => fn ($query) => $query->where('status', 'Active'),
                 'variants.optionValues',
             ])
             ->where('status', 'Active')
+            ->where('sale', true)
             ->findOrFail((int) $item);
+        $promotionPreviews = $this->promotionPricing->catalogPromotionPreviews(collect([$product]));
 
         return response()->json([
             'success' => true,
-            'data' => $this->mobileItemPayload($product),
+            'data' => $this->mobileItemPayload(
+                $product,
+                $promotionPreviews[(int) $product->id] ?? []
+            ),
         ]);
     }
 
@@ -167,16 +212,31 @@ class CatalogController extends Controller
     {
         $validated = $request->validate([
             'items' => ['required', 'array', 'min:1'],
-            'items.*.item_id' => ['required', 'integer', Rule::exists((new Item())->getTable(), 'id')],
+            'items.*.item_id' => [
+                'required',
+                'integer',
+                Rule::exists((new Item())->getTable(), 'id')->where(function ($query) {
+                    $query->where('status', 'Active')->where('sale', true);
+                }),
+            ],
             'items.*.variant_id' => ['nullable', 'integer', 'min:1'],
+            'items.*.uom_id' => ['nullable', 'integer', 'min:1'],
             'items.*.option_value_ids' => ['nullable', 'array'],
             'items.*.option_value_ids.*' => ['required', 'integer', 'min:1', 'distinct'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'currency_mode' => ['nullable', 'string', Rule::in(['native', 'base'])],
+        ], [
+            'items.required' => 'Your cart is empty.',
+            'items.*.item_id.exists' => 'One or more items in your cart are no longer available or inactive in this store.',
+            'items.*.quantity.min' => 'Item quantity must be at least 1.',
         ]);
 
         return response()->json([
             'success' => true,
-            'data' => $this->promotionPricing->price($validated['items']),
+            'data' => $this->promotionPricing->price(
+                $validated['items'],
+                ($validated['currency_mode'] ?? 'native') === 'base'
+            ),
         ]);
     }
 }

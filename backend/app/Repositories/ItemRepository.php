@@ -26,7 +26,7 @@ class ItemRepository extends RepositoryBase
         $table = $this->itemModel()->getTable();
 
         return $this->select("{$table}.*")
-            ->with(['branch', 'category', 'currency', 'uomGroup', 'galleries', 'image', 'optionGroups.values', 'variants.optionValues']);
+            ->with(['branch', 'category', 'currency', 'uomGroup.units.unit', 'uomPrices.unit', 'galleries', 'image', 'optionGroups.values', 'variants.optionValues']);
     }
 
     public function getAdminListing(string $search = ''): Collection
@@ -69,7 +69,7 @@ class ItemRepository extends RepositoryBase
     {
         $query = $this->itemModel()
             ->newQuery()
-            ->with(['branch', 'category', 'currency', 'uomGroup', 'galleries', 'image', 'optionGroups.values', 'variants.optionValues'])
+            ->with(['branch', 'category', 'currency', 'uomGroup.units.unit', 'uomPrices.unit', 'galleries', 'image', 'optionGroups.values', 'variants.optionValues'])
             ->whereKey($itemId);
 
         $this->reportCacheState($query, 'admin.items.edit');
@@ -82,12 +82,15 @@ class ItemRepository extends RepositoryBase
         $image = $attributes['image'] ?? null;
         $galleryImages = $attributes['gallery_images'] ?? [];
         $hasConfiguration = array_key_exists('option_groups', $attributes) || array_key_exists('variants', $attributes);
+        $hasUomPrices = array_key_exists('uom_prices', $attributes);
         $optionGroups = $attributes['option_groups'] ?? [];
         $variants = $attributes['variants'] ?? [];
+        $uomPrices = $attributes['uom_prices'] ?? [];
         unset($attributes['image']);
         unset($attributes['gallery_images']);
         unset($attributes['option_groups']);
         unset($attributes['variants']);
+        unset($attributes['uom_prices']);
 
         /** @var \App\Models\Item $item */
         $item = $this->itemModel();
@@ -98,9 +101,12 @@ class ItemRepository extends RepositoryBase
         if ($hasConfiguration) {
             $this->syncConfiguration($item, $optionGroups, $variants);
         }
+        if ($hasUomPrices) {
+            $this->syncUomPrices($item, $uomPrices);
+        }
         Item::flushQueryCache();
 
-        return $item->load(['optionGroups.values', 'variants.optionValues']);
+        return $item->load(['uomPrices.unit', 'optionGroups.values', 'variants.optionValues']);
     }
 
     public function updateForAdmin(Item $item, array $attributes): Item
@@ -108,12 +114,15 @@ class ItemRepository extends RepositoryBase
         $image = $attributes['image'] ?? null;
         $galleryImages = $attributes['gallery_images'] ?? [];
         $hasConfiguration = array_key_exists('option_groups', $attributes) || array_key_exists('variants', $attributes);
+        $hasUomPrices = array_key_exists('uom_prices', $attributes);
         $optionGroups = $attributes['option_groups'] ?? [];
         $variants = $attributes['variants'] ?? [];
+        $uomPrices = $attributes['uom_prices'] ?? [];
         unset($attributes['image']);
         unset($attributes['gallery_images']);
         unset($attributes['option_groups']);
         unset($attributes['variants']);
+        unset($attributes['uom_prices']);
 
         $item->fill($this->syncBranchAttributes($attributes));
         $item->save();
@@ -122,20 +131,33 @@ class ItemRepository extends RepositoryBase
         if ($hasConfiguration) {
             $this->syncConfiguration($item, $optionGroups, $variants);
         }
+        if ($hasUomPrices) {
+            $this->syncUomPrices($item, $uomPrices);
+        }
         Item::flushQueryCache();
 
-        return $item->load(['optionGroups.values', 'variants.optionValues']);
+        return $item->load(['uomPrices.unit', 'optionGroups.values', 'variants.optionValues']);
+    }
+
+    protected function syncUomPrices(Item $item, array $uomPrices): void
+    {
+        $item->uomPrices()->delete();
+
+        if (! empty($uomPrices)) {
+            $item->uomPrices()->createMany($uomPrices);
+        }
     }
 
     /**
-     * Replace an item's complete configuration from one validated API payload.
-     * Order lines retain JSON snapshots, so replacing configuration is safe for order history.
+     * Synchronize an item's configuration from a validated API payload.
+     * Preserves existing IDs where option groups/values and variant SKUs match,
+     * preventing unnecessary ID churn that would break active POS carts and queue jobs.
      */
     protected function syncConfiguration(Item $item, array $optionGroups, array $variants): void
     {
-        $item->variants()->delete();
-        $item->optionGroups()->delete();
-
+        $existingGroups = $item->optionGroups()->with('values')->get()->keyBy('name');
+        $keptGroupIds = [];
+        $keptValueIds = [];
         $optionValueIdsByKey = [];
 
         foreach ($optionGroups as $groupAttributes) {
@@ -143,32 +165,62 @@ class ItemRepository extends RepositoryBase
             $values = $groupAttributes['values'] ?? [];
             unset($groupAttributes['key'], $groupAttributes['values']);
 
+            $groupName = (string) $groupAttributes['name'];
             /** @var ItemOptionGroup $group */
-            $group = $item->optionGroups()->create($groupAttributes);
+            $group = $existingGroups->get($groupName) ?? $item->optionGroups()->newModelInstance();
+            $group->fill(array_merge($groupAttributes, ['item_id' => $item->id]));
+            $group->save();
+            $keptGroupIds[] = $group->id;
+
+            $existingValues = $group->relationLoaded('values') ? $group->values->keyBy('name') : collect();
 
             foreach ($values as $valueAttributes) {
                 $valueKey = (string) $valueAttributes['key'];
                 unset($valueAttributes['key']);
 
+                $valueName = (string) $valueAttributes['name'];
                 /** @var ItemOptionValue $value */
-                $value = $group->values()->create($valueAttributes);
+                $value = $existingValues->get($valueName) ?? $group->values()->newModelInstance();
+                $value->fill(array_merge($valueAttributes, ['item_option_group_id' => $group->id]));
+                $value->save();
+                $keptValueIds[] = $value->id;
                 $optionValueIdsByKey[$valueKey] = $value->id;
             }
         }
+
+        // Delete any option groups and option values that were removed
+        $item->optionGroups()->whereNotIn('id', $keptGroupIds)->delete();
+        if (! empty($keptGroupIds)) {
+            ItemOptionValue::query()
+                ->whereIn('item_option_group_id', $keptGroupIds)
+                ->whereNotIn('id', $keptValueIds)
+                ->delete();
+        }
+
+        $existingVariants = $item->variants()->get()->keyBy('sku');
+        $keptVariantIds = [];
 
         foreach ($variants as $variantAttributes) {
             $optionValueKeys = $variantAttributes['option_value_keys'] ?? [];
             unset($variantAttributes['option_value_keys']);
 
+            $variantSku = (string) $variantAttributes['sku'];
             /** @var ItemVariant $variant */
-            $variant = $item->variants()->create($variantAttributes);
+            $variant = $existingVariants->get($variantSku) ?? $item->variants()->newModelInstance();
+            $variant->fill(array_merge($variantAttributes, ['item_id' => $item->id]));
+            $variant->save();
+            $keptVariantIds[] = $variant->id;
+
             $variant->optionValues()->sync(
                 collect($optionValueKeys)
-                    ->map(fn (string $key) => $optionValueIdsByKey[$key])
+                    ->map(fn (string $key) => $optionValueIdsByKey[$key] ?? null)
+                    ->filter()
                     ->values()
                     ->all()
             );
         }
+
+        $item->variants()->whereNotIn('id', $keptVariantIds)->delete();
 
         ItemOptionGroup::flushQueryCache();
         ItemOptionValue::flushQueryCache();

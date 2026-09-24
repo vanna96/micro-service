@@ -18,6 +18,19 @@ return [
     'default' => env('CACHE_DRIVER', 'file'),
 
     /*
+    | Portal authentication must not share the query-cache store. Query-cache
+    | invalidation may flush non-tag-aware stores such as the file driver.
+    */
+    'portal_session_store' => env('PORTAL_SESSION_CACHE_STORE', 'portal_sessions'),
+
+    /*
+    | Customer-display state must survive normal query-cache invalidation.
+    | Keeping it in a dedicated store prevents a flush of the default file
+    | cache from making an active second screen appear to lose its session.
+    */
+    'pos_display_store' => env('POS_DISPLAY_CACHE_STORE', 'pos_display'),
+
+    /*
     |--------------------------------------------------------------------------
     | Cache Stores
     |--------------------------------------------------------------------------
@@ -52,6 +65,16 @@ return [
         'file' => [
             'driver' => 'file',
             'path' => storage_path('framework/cache/data'),
+        ],
+
+        'portal_sessions' => [
+            'driver' => 'file',
+            'path' => storage_path('framework/cache/portal-sessions'),
+        ],
+
+        'pos_display' => [
+            'driver' => 'file',
+            'path' => storage_path('framework/cache/pos-display'),
         ],
 
         'memcached' => [

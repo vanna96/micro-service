@@ -1,8 +1,9 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { HeldOrder } from '@/types/pos-types';
+import { DiscountType, HeldOrder } from '@/types/pos-types';
 
 interface PosState {
-  discountPercent: number;
+  discountType: DiscountType;
+  discountValue: number;
   taxPercent: number;
   serviceFee: number;
   orderType: 'Takeaway' | 'Dine-in' | 'Delivery';
@@ -10,7 +11,8 @@ interface PosState {
 }
 
 const initialState: PosState = {
-  discountPercent: 0,
+  discountType: 'percentage',
+  discountValue: 0,
   taxPercent: 0,
   serviceFee: 0,
   orderType: 'Takeaway',
@@ -21,8 +23,15 @@ export const posSlice = createSlice({
   name: 'pos',
   initialState,
   reducers: {
-    setDiscountPercent: (state, action: PayloadAction<number>) => {
-      state.discountPercent = action.payload;
+    setDiscount: (
+      state,
+      action: PayloadAction<{ type: DiscountType; value: number }>
+    ) => {
+      state.discountType = action.payload.type;
+      state.discountValue = action.payload.value;
+    },
+    setDiscountValue: (state, action: PayloadAction<number>) => {
+      state.discountValue = action.payload;
     },
     setTaxPercent: (state, action: PayloadAction<number>) => {
       state.taxPercent = action.payload;
@@ -46,7 +55,8 @@ export const posSlice = createSlice({
 });
 
 export const {
-  setDiscountPercent,
+  setDiscount,
+  setDiscountValue,
   setTaxPercent,
   setServiceFee,
   setOrderType,

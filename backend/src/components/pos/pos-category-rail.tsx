@@ -1,11 +1,13 @@
 import React from "react";
 import { Category, Product } from "@/types/pos-types";
+import { useTranslation } from "@/lib/i18n/i18n";
 
 interface PosCategoryRailProps {
   categories: Category[];
   products: Product[];
   activeCategory: string;
   onSelectCategory: (id: string) => void;
+  totalProductsCount?: number | null;
 }
 
 export function PosCategoryRail({
@@ -13,13 +15,22 @@ export function PosCategoryRail({
   products,
   activeCategory,
   onSelectCategory,
+  totalProductsCount,
 }: PosCategoryRailProps) {
+  const { t } = useTranslation();
+
   return (
     <aside className="pos-category-sidebar">
       {categories.map((cat) => {
-        const count = products.filter(
+        const loadedCount = products.filter(
           (p) => cat.id === "all" || p.category === cat.id
         ).length;
+        const count =
+          cat.id === "all" && totalProductsCount !== null && totalProductsCount !== undefined
+            ? totalProductsCount
+            : cat.id === activeCategory && totalProductsCount !== null && totalProductsCount !== undefined
+            ? totalProductsCount
+            : loadedCount;
         const isActive = activeCategory === cat.id;
 
         return (
@@ -43,7 +54,9 @@ export function PosCategoryRail({
                 ></i>
               )}
             </div>
-            <span className="fs-12 fw-semibold lh-1">{cat.name}</span>
+            <span className="fs-12 fw-semibold lh-1">
+              {cat.id === "all" ? t("all") : cat.name}
+            </span>
             <small
               className={`fs-10 mt-1 opacity-75 ${
                 isActive ? "text-white" : "text-muted"

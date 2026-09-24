@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import { HeldOrder } from "@/types/pos-types";
+import { formatCurrency, useCurrency } from "@/lib/currency";
+import { useTranslation } from "@/lib/i18n/i18n";
 
 interface ModalHeldOrdersProps {
   heldOrders: HeldOrder[];
   cartCount: number;
   totalPayable: number;
   onRestoreOrder: (order: HeldOrder) => void;
-  onDeleteOrder: (id: string) => void;
+  onDeleteOrder: (order: HeldOrder) => void;
   onParkCurrentCart: (ref: string, notes: string) => void;
   onClose: () => void;
 }
@@ -20,6 +22,8 @@ export function ModalHeldOrders({
   onParkCurrentCart,
   onClose,
 }: ModalHeldOrdersProps) {
+  const currency = useCurrency();
+  const { t } = useTranslation();
   const [tab, setTab] = useState<"list" | "park">("list");
   const [refInput, setRefInput] = useState<string>("");
   const [noteInput, setNoteInput] = useState<string>("");
@@ -35,9 +39,9 @@ export function ModalHeldOrders({
                 <i className="ri-pause-circle-fill fs-18"></i>
               </div>
               <div>
-                <h6 className="modal-title fw-bold mb-0">Held Orders & Parked Bills</h6>
+                <h6 className="modal-title fw-bold mb-0">{t("heldOrdersAndParkedBills")}</h6>
                 <small className="text-muted">
-                  {heldOrders.length} order(s) currently held
+                  {heldOrders.length} {t("ordersCurrentlyHeld")}
                 </small>
               </div>
             </div>
@@ -52,7 +56,7 @@ export function ModalHeldOrders({
                   onClick={() => setTab("list")}
                 >
                   <i className="ri-list-check-2 me-1"></i>
-                  View Held ({heldOrders.length})
+                  {t("viewHeld")} ({heldOrders.length})
                 </button>
                 <button
                   type="button"
@@ -61,10 +65,10 @@ export function ModalHeldOrders({
                   }`}
                   onClick={() => setTab("park")}
                   disabled={cartCount === 0}
-                  title={cartCount === 0 ? "Cart is empty" : "Park Current Cart"}
+                  title={cartCount === 0 ? t("cartIsEmptyTitle") : t("holdCurrentCart")}
                 >
                   <i className="ri-add-circle-line me-1"></i>
-                  Hold Current Cart
+                  {t("holdCurrentCart")}
                 </button>
               </div>
               <button type="button" className="btn-close ms-2" onClick={onClose}></button>
@@ -83,9 +87,9 @@ export function ModalHeldOrders({
                       style={{ width: "100px", opacity: 0.5 }}
                       className="mx-auto mb-3"
                     />
-                    <h6 className="fw-bold text-muted mb-1">No Orders on Hold</h6>
+                    <h6 className="fw-bold text-muted mb-1">{t("noOrdersOnHold")}</h6>
                     <p className="text-muted fs-12 mb-3">
-                      All orders are cleared. You can park active carts anytime.
+                      {t("allOrdersCleared")}
                     </p>
                     {cartCount > 0 && (
                       <button
@@ -93,7 +97,7 @@ export function ModalHeldOrders({
                         className="btn btn-sm btn-primary rounded-pill px-3"
                         onClick={() => setTab("park")}
                       >
-                        Park Current Active Cart
+                        {t("parkCurrentActiveCart")}
                       </button>
                     )}
                   </div>
@@ -139,7 +143,7 @@ export function ModalHeldOrders({
                             )}
                           </div>
                           <span className="badge bg-light border text-body fs-11">
-                            {ho.cart.reduce((s, i) => s + i.quantity, 0)} Items
+                            {ho.cart.reduce((s, i) => s + i.quantity, 0)} {t("items")}
                           </span>
                         </div>
 
@@ -160,10 +164,10 @@ export function ModalHeldOrders({
                         <div className="d-flex align-items-center justify-content-between pt-2 border-top">
                           <div>
                             <span className="text-muted fs-11 d-block">
-                              Order Total
+                              {t("orderTotal")}
                             </span>
                             <h5 className="fw-bolder text-primary mb-0 font-monospace">
-                              ${ho.totalPayable.toFixed(2)}
+                              {formatCurrency(ho.totalPayable, currency)}
                             </h5>
                           </div>
 
@@ -171,11 +175,11 @@ export function ModalHeldOrders({
                             <button
                               type="button"
                               className="btn btn-sm btn-outline-danger px-2.5 py-1.5 rounded-2 d-flex align-items-center gap-1"
-                              onClick={() => onDeleteOrder(ho.id)}
-                              title="Discard this held order"
+                              onClick={() => onDeleteOrder(ho)}
+                              title={t("discard")}
                             >
                               <i className="ri-delete-bin-line"></i>
-                              <span className="d-none d-sm-inline">Discard</span>
+                              <span className="d-none d-sm-inline">{t("discard")}</span>
                             </button>
                             <button
                               type="button"
@@ -183,7 +187,7 @@ export function ModalHeldOrders({
                               onClick={() => onRestoreOrder(ho)}
                             >
                               <i className="ri-play-circle-line fs-14"></i>
-                              <span>Resume / Switch to Order</span>
+                              <span>{t("resumeSwitchToOrder")}</span>
                             </button>
                           </div>
                         </div>
@@ -200,26 +204,26 @@ export function ModalHeldOrders({
                 <div className="bg-light p-3 rounded-3 mb-3 border d-flex justify-content-between align-items-center">
                   <div>
                     <span className="text-muted fs-12 d-block">
-                      Current Active Cart
+                      {t("currentActiveCart")}
                     </span>
                     <h6 className="fw-bold mb-0 text-body">
-                      {cartCount} Items
+                      {cartCount} {t("items")}
                     </h6>
                   </div>
                   <h5 className="fw-bolder text-primary mb-0 font-monospace">
-                    ${totalPayable.toFixed(2)}
+                    {formatCurrency(totalPayable, currency)}
                   </h5>
                 </div>
 
                 <div className="mb-3">
                   <label className="form-label fs-12 fw-bold text-body">
-                    Hold Reference Name / Table Number{" "}
+                    {t("holdReferenceName")}{" "}
                     <span className="text-danger">*</span>
                   </label>
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="Enter a reference name or table number"
+                    placeholder={t("enterReferenceName")}
                     value={refInput}
                     onChange={(e) => setRefInput(e.target.value)}
                     autoFocus
@@ -228,12 +232,12 @@ export function ModalHeldOrders({
 
                 <div className="mb-3">
                   <label className="form-label fs-12 fw-bold text-body">
-                    Hold Reason / Remarks
+                    {t("holdReasonRemarks")}
                   </label>
                   <textarea
                     className="form-control"
                     rows={2}
-                    placeholder="Enter an optional note"
+                    placeholder={t("enterOptionalNote")}
                     value={noteInput}
                     onChange={(e) => setNoteInput(e.target.value)}
                   ></textarea>
@@ -245,7 +249,7 @@ export function ModalHeldOrders({
                     className="btn btn-light w-50"
                     onClick={() => setTab("list")}
                   >
-                    Back to List
+                    {t("backToList")}
                   </button>
                   <button
                     type="button"
@@ -253,7 +257,7 @@ export function ModalHeldOrders({
                     onClick={() => onParkCurrentCart(refInput, noteInput)}
                   >
                     <i className="ri-pause-circle-fill"></i>
-                    <span>Confirm Hold & Clear Cart</span>
+                    <span>{t("confirmHoldAndClearCart")}</span>
                   </button>
                 </div>
               </div>

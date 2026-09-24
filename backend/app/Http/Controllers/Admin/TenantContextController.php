@@ -40,7 +40,7 @@ class TenantContextController extends Controller
         $intendedUrl = $request->session()->pull('admin_intended_url');
         $redirectTo = $this->resolveRedirectTarget($request, (string) ($validated['redirect_to'] ?? ''));
 
-        return redirect()->to($redirectTo ?: $intendedUrl ?: route('home'))
+        return redirect()->to($redirectTo ?: $intendedUrl ?: route('admin.dashboard'))
             ->with('status', 'Tenant selected successfully.');
     }
 
@@ -49,7 +49,7 @@ class TenantContextController extends Controller
         $request->session()->forget('admin_selected_tenant_id');
 
         return redirect()
-            ->route('home')
+            ->route('admin.dashboard')
             ->with('status', 'Tenant selection cleared.');
     }
 

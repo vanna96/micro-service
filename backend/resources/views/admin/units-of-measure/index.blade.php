@@ -9,7 +9,9 @@
 @endpush
 
 @section('content')
-@php($canManageUom = admin_has_permission('units_of_measure.manage'))
+@php($canCreateUom = admin_has_permission('units_of_measure.create'))
+@php($canEditUom = admin_has_permission('units_of_measure.edit'))
+@php($canDeleteUom = admin_has_permission('units_of_measure.delete'))
 <div class="row">
     <div class="col-12">
         <div class="card">
@@ -21,7 +23,7 @@
                             Maintain UoM codes and names. Conversion ratios are maintained in UOM Group setup.
                         </p>
                     </div>
-                    @if ($canManageUom)
+                    @if ($canCreateUom)
                         <div class="mt-3 mt-sm-0 d-flex gap-2">
                             <a href="{{ route('admin.uom-groups.index') }}" class="btn btn-light waves-effect">UoM Groups</a>
                             <a href="{{ route('admin.units-of-measure.create') }}" class="btn btn-primary waves-effect waves-light">
@@ -75,14 +77,17 @@
                                         </span>
                                     </td>
                                     <td class="text-nowrap">
-                                        @if ($canManageUom)
+                                        @if ($canEditUom)
                                             <a href="{{ route('admin.units-of-measure.edit', ['units_of_measure' => $unit->id]) }}" class="btn btn-sm btn-outline-primary me-2">Edit</a>
+                                        @endif
+                                        @if ($canDeleteUom)
                                             <form action="{{ route('admin.units-of-measure.destroy', ['units_of_measure' => $unit->id]) }}" method="POST" class="d-inline">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this unit of measure?')">Delete</button>
                                             </form>
-                                        @else
+                                        @endif
+                                        @if (! $canEditUom && ! $canDeleteUom)
                                             <span class="text-muted">View only</span>
                                         @endif
                                     </td>

@@ -11,10 +11,12 @@ use App\Models\Item;
 use App\Models\ItemVariant;
 use App\Models\PriceList;
 use App\Models\UomGroup;
+use App\Models\UnitOfMeasure;
 use App\Repositories\CurrencyRepository;
 use App\Repositories\ItemRepository;
 use App\Rules\Base64Image;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
@@ -91,7 +93,7 @@ class ItemController extends Controller
         return response()->json([
             'success' => true,
             'message' => translate('Item created successfully.', request('lng')),
-            'data' => new ItemResource($item->load(['category', 'uomGroup', 'galleries', 'image', 'optionGroups.values', 'variants.optionValues'])),
+            'data' => new ItemResource($item->load(['category', 'uomGroup.units.unit', 'uomPrices.unit', 'galleries', 'image', 'optionGroups.values', 'variants.optionValues'])),
         ], 200);
     }
 
@@ -106,13 +108,13 @@ class ItemController extends Controller
     {
         $itemModel = $this->items->loadForAdminEdit((int) $item);
         $validated = $this->validateItem($request, $itemModel);
-        $validated = $this->prepareItemPayload($request, $validated);
+        $validated = $this->prepareItemPayload($request, $validated, $itemModel);
         $itemModel = $this->items->updateForAdmin($itemModel, $validated);
 
         return response()->json([
             'success' => true,
             'message' => translate('Item updated successfully.', request('lng')),
-            'data' => new ItemResource($itemModel->load(['category', 'currency', 'uomGroup', 'galleries', 'image', 'optionGroups.values', 'variants.optionValues'])),
+            'data' => new ItemResource($itemModel->load(['category', 'currency', 'uomGroup.units.unit', 'uomPrices.unit', 'galleries', 'image', 'optionGroups.values', 'variants.optionValues'])),
         ], 200);
     }
 
@@ -160,10 +162,14 @@ class ItemController extends Controller
             'branch_name' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'price' => [$requiredRule, 'numeric', 'min:0'],
-            'discount_percent' => ['nullable', 'integer', 'between:0,100'],
             'rating' => ['nullable', 'numeric', 'between:0,5'],
             'review_count' => ['nullable', 'integer', 'min:0'],
             'stock' => [$requiredRule, 'integer', 'min:0'],
+            'uom_prices' => ['nullable', 'array', 'max:100'],
+            'uom_prices.*.unit_of_measure_id' => ['required', 'integer', 'distinct', Rule::exists($this->unitOfMeasureValidationTable(), 'id')],
+            'uom_prices.*.reduce_by_percent' => ['nullable', 'numeric', 'between:0,100'],
+            'uom_prices.*.price' => ['nullable', 'numeric', 'min:0'],
+            'uom_prices.*.is_auto' => ['required', 'boolean'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'is_premium' => ['nullable', 'boolean'],
             'is_featured' => ['nullable', 'boolean'],
@@ -207,15 +213,11 @@ class ItemController extends Controller
             'variants.*.sort_order' => ['nullable', 'integer', 'min:0'],
             'variants.*.status' => ['nullable', Rule::in(['Active', 'Inactive'])],
             'variants.*.option_value_keys' => ['required', 'array', 'min:1'],
-            'variants.*.option_value_keys.*' => ['required', 'string', 'alpha_dash', 'distinct'],
+            'variants.*.option_value_keys.*' => ['required', 'string', 'alpha_dash'],
         ]);
 
-        $validator->after(function ($validator) use ($request) {
-            $currencyId = $request->input('currency_id');
-
-            if (! $currencyId || ! $request->filled('price')) {
-                return;
-            }
+        $validator->after(function ($validator) use ($request, $item) {
+            $currencyId = $request->input('currency_id', $item?->currency_id);
 
             $currency = $this->currencies->findActiveById((int) $currencyId);
 
@@ -223,12 +225,51 @@ class ItemController extends Controller
                 return;
             }
 
-            if (currency_decimal_count($request->input('price')) > (int) $currency->decimal_places) {
+            if ($request->filled('price')
+                && currency_decimal_count($request->input('price')) > (int) $currency->decimal_places) {
                 $validator->errors()->add(
                     'price',
                     $currency->code.' allows up to '.$currency->decimal_places.' decimal place(s).'
                 );
             }
+
+            collect($request->input('uom_prices', []))->each(function (array $row, int $index) use ($validator, $currency) {
+                if (! filter_var($row['is_auto'] ?? false, FILTER_VALIDATE_BOOLEAN)
+                    && (! array_key_exists('price', $row) || $row['price'] === '')) {
+                    $validator->errors()->add("uom_prices.{$index}.price", 'A manual UoM price is required when Auto is disabled.');
+                }
+
+                if (($row['price'] ?? '') !== ''
+                    && currency_decimal_count($row['price']) > (int) $currency->decimal_places) {
+                    $validator->errors()->add(
+                        "uom_prices.{$index}.price",
+                        $currency->code.' allows up to '.$currency->decimal_places.' decimal place(s).'
+                    );
+                }
+            });
+        });
+
+        $validator->after(function ($validator) use ($request, $item) {
+            $itemType = $request->input('item_type', $item?->item_type);
+            $uomGroupId = $request->input('uom_group_id', $item?->uom_group_id);
+
+            if ($itemType !== 'uom' || ! $uomGroupId) {
+                return;
+            }
+
+            $allowedUnitIds = UomGroup::query()
+                ->with('units')
+                ->find((int) $uomGroupId)
+                ?->units
+                ->pluck('unit_of_measure_id')
+                ->map(fn ($id) => (int) $id)
+                ->all() ?? [];
+
+            collect($request->input('uom_prices', []))->each(function (array $row, int $index) use ($validator, $allowedUnitIds) {
+                if (! in_array((int) ($row['unit_of_measure_id'] ?? 0), $allowedUnitIds, true)) {
+                    $validator->errors()->add("uom_prices.{$index}.unit_of_measure_id", 'This UoM does not belong to the selected UoM group.');
+                }
+            });
         });
 
         $validator->after(function ($validator) use ($request, $item) {
@@ -268,7 +309,9 @@ class ItemController extends Controller
                     }
                 }
 
-                if (($group['selection_type'] ?? null) === 'single' && $values->where('is_default', true)->count() > 1) {
+                if (($group['type'] ?? null) === 'modifier'
+                    && ($group['selection_type'] ?? null) === 'single'
+                    && $values->where('is_default', true)->count() > 1) {
                     $validator->errors()->add("option_groups.{$groupIndex}.values", 'A single-select group can have only one default value.');
                 }
 
@@ -281,6 +324,10 @@ class ItemController extends Controller
 
             $variants->values()->each(function (array $variant, int $variantIndex) use ($validator, $valueGroups, $variantGroupKeys) {
                 $selectedKeys = collect($variant['option_value_keys'] ?? []);
+
+                if ($selectedKeys->duplicates()->isNotEmpty()) {
+                    $validator->errors()->add("variants.{$variantIndex}.option_value_keys", 'A variant cannot contain the same option value more than once.');
+                }
 
                 $selectedKeys->each(function (string $key) use ($validator, $valueGroups, $variantIndex) {
                     if (! $valueGroups->has($key)) {
@@ -321,7 +368,15 @@ class ItemController extends Controller
         });
 
         if ($validator->fails()) {
-            $message = formatValidationErrors($validator->errors()->toArray());
+            $errors = $validator->errors()->toArray();
+            Log::warning('Item API validation failed', [
+                'tenant_id' => tenant()?->getTenantKey(),
+                'item_id' => $item?->id,
+                'error_fields' => array_keys($errors),
+                'errors' => $errors,
+            ]);
+
+            $message = formatValidationErrors($errors);
             if (in_array(request('lng'), explode(',', env('LNG_ALLOWED', 'en')), true)) {
                 $message = translate($message, request('lng'));
             }
@@ -332,11 +387,36 @@ class ItemController extends Controller
         return $validator->validated();
     }
 
-    protected function prepareItemPayload(Request $request, array $validated): array
+    protected function prepareItemPayload(Request $request, array $validated, ?Item $item = null): array
     {
+        if ($request->has('uom_group_id') && ! $request->has('uom_prices')) {
+            $validated['uom_prices'] = [];
+        }
+
         if ($request->has('item_type')) {
             $isVariation = $validated['item_type'] === 'variation';
             $validated['uom_group_id'] = $isVariation ? null : ($validated['uom_group_id'] ?? null);
+
+            if ($isVariation) {
+                $validated['uom_prices'] = [];
+            }
+        }
+
+        if (array_key_exists('uom_prices', $validated)) {
+            $currencyId = $validated['currency_id'] ?? $item?->currency_id;
+            $currency = $currencyId
+                ? $this->currencies->findActiveById((int) $currencyId)
+                : null;
+            $validated['uom_prices'] = collect($validated['uom_prices'])->values()->map(function (array $row) use ($currency): array {
+                $isAuto = (bool) ($row['is_auto'] ?? false);
+
+                return [
+                    'unit_of_measure_id' => (int) $row['unit_of_measure_id'],
+                    'reduce_by_percent' => round((float) ($row['reduce_by_percent'] ?? 0), 2),
+                    'price' => $isAuto ? null : format_currency_input($row['price'] ?? null, $currency, 2),
+                    'is_auto' => $isAuto,
+                ];
+            })->all();
         }
 
         if (array_key_exists('branch_id', $validated)) {
@@ -374,7 +454,7 @@ class ItemController extends Controller
                     'status' => $group['status'] ?? 'Active',
                     'values' => collect($group['values'])->values()->map(fn (array $value, int $valueIndex): array => array_merge($value, [
                         'price_adjustment' => (float) ($value['price_adjustment'] ?? 0),
-                        'is_default' => (bool) ($value['is_default'] ?? false),
+                        'is_default' => ! $isVariant && (bool) ($value['is_default'] ?? false),
                         'sort_order' => (int) ($value['sort_order'] ?? $valueIndex),
                         'status' => $value['status'] ?? 'Active',
                     ]))->all(),
@@ -455,6 +535,17 @@ class ItemController extends Controller
     protected function uomGroupValidationTable(): string
     {
         $table = (new UomGroup())->getTable();
+
+        if (tenant()) {
+            return tenant()->database_connection_name.'.'.$table;
+        }
+
+        return 'central.'.$table;
+    }
+
+    protected function unitOfMeasureValidationTable(): string
+    {
+        $table = (new UnitOfMeasure())->getTable();
 
         if (tenant()) {
             return tenant()->database_connection_name.'.'.$table;

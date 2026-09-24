@@ -21,7 +21,7 @@
                             Maintain delivery addresses for users in the currently selected tenant.
                         </p>
                     </div>
-                    @if ($canManageAddresses)
+                    @if ($canCreateAddresses)
                         <div class="mt-3 mt-sm-0">
                             <a href="{{ route('admin.addresses.create') }}" class="btn btn-primary waves-effect waves-light">
                                 <i class="uil uil-plus me-1"></i>Create Address
@@ -88,14 +88,17 @@
                                     </td>
                                     <td>{{ optional($address->updated_at)->format('d M Y, h:i A') ?: '-' }}</td>
                                     <td class="text-nowrap">
-                                        @if ($canManageAddresses)
+                                        @if ($canEditAddresses)
                                             <a href="{{ route('admin.addresses.edit', ['address' => $address->id]) }}" class="btn btn-sm btn-outline-primary me-2">Edit</a>
+                                        @endif
+                                        @if ($canDeleteAddresses)
                                             <form action="{{ route('admin.addresses.destroy', ['address' => $address->id]) }}" method="POST" class="d-inline">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this address?')">Delete</button>
                                             </form>
-                                        @else
+                                        @endif
+                                        @if (! $canEditAddresses && ! $canDeleteAddresses)
                                             <span class="text-muted">View only</span>
                                         @endif
                                     </td>

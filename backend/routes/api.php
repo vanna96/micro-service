@@ -36,6 +36,17 @@ Route::get('/tenant-host', function () {
     ]);
 });
 
+Route::post('/pos/display/sync', [\App\Http\Controllers\API\V1\Pos\PosDisplayController::class, 'sync']);
+Route::get('/pos/display/state', [\App\Http\Controllers\API\V1\Pos\PosDisplayController::class, 'state']);
+Route::get('/pos/display/promotions', [\App\Http\Controllers\API\V1\Pos\PosDisplayController::class, 'promotions']);
+Route::post('/pos/display/promotions', [\App\Http\Controllers\API\V1\Pos\PosDisplayController::class, 'savePromotions']);
+
+// Security Firewall API Endpoints (Used by Frontend & Next.js)
+Route::prefix('security')->group(function () {
+    Route::get('verify-ip', [\App\Http\Controllers\Admin\SecurityController::class, 'verifyIpApi']);
+    Route::get('client-config', [\App\Http\Controllers\Admin\SecurityController::class, 'clientConfigApi']);
+});
+
 if (! function_exists('grocery_storefront_products')) {
     function grocery_storefront_products(): array
     {

@@ -9,7 +9,10 @@
 @endpush
 
 @section('content')
-@php($canManage = admin_has_permission('items.manage'))
+@php($canCreate = admin_has_permission('item_variations.create'))
+@php($canCreateOptions = admin_has_permission('item_options.create'))
+@php($canEdit = admin_has_permission('item_variations.edit'))
+@php($canDelete = admin_has_permission('item_variations.delete'))
 <div class="row">
     <div class="col-12">
         <div class="card">
@@ -21,7 +24,7 @@
                             Maintain reusable item choices such as Size, Color, and Storage.
                         </p>
                     </div>
-                    @if ($canManage)
+                    @if ($canCreate)
                         <div class="mt-3 mt-sm-0 d-flex gap-2">
                             <a href="{{ route('admin.item-options.index') }}" class="btn btn-light waves-effect">Options</a>
                             <a href="{{ route('admin.item-variations.create') }}" class="btn btn-primary waves-effect waves-light">
@@ -77,15 +80,20 @@
                                     </td>
                                     <td>{{ optional($variation->updated_at)->format('d M Y, h:i A') ?: '-' }}</td>
                                     <td class="text-nowrap">
-                                        @if ($canManage)
+                                        @if ($canCreateOptions)
                                             <a href="{{ route('admin.item-options.create', ['variation' => $variation->id]) }}" class="btn btn-sm btn-primary me-2">Add Option</a>
+                                        @endif
+                                        @if ($canEdit)
                                             <a href="{{ route('admin.item-variations.edit', $variation->id) }}" class="btn btn-sm btn-outline-primary me-2">Edit</a>
+                                        @endif
+                                        @if ($canDelete)
                                             <form action="{{ route('admin.item-variations.destroy', $variation->id) }}" method="POST" class="d-inline">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this variation and its options?')">Delete</button>
                                             </form>
-                                        @else
+                                        @endif
+                                        @if (! $canCreateOptions && ! $canEdit && ! $canDelete)
                                             <span class="text-muted">View only</span>
                                         @endif
                                     </td>

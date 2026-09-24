@@ -22,7 +22,7 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
                 return false;
             }
 
-            return Gate::forUser($user)->check('viewTelescope');
+            return $this->app->environment('local') || Gate::forUser($user)->check('viewTelescope');
         });
     }
 
@@ -73,13 +73,21 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
     protected function gate(): void
     {
         Gate::define('viewTelescope', function (User $user) {
+            if ($this->app->environment('local')) {
+                return true;
+            }
+
             $allowedEmails = collect(config('telescope.auth_emails', []))
                 ->filter()
                 ->map(fn ($email) => Str::lower(trim((string) $email)))
                 ->values()
                 ->all();
 
-            return in_array(Str::lower((string) $user->email), $allowedEmails, true);
+            if (! empty($allowedEmails) && in_array(Str::lower((string) $user->email), $allowedEmails, true)) {
+                return true;
+            }
+
+            return admin_can_manage_administrators();
         });
     }
 }

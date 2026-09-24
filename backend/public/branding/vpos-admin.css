@@ -1,0 +1,418 @@
+/* ==========================================================================
+   V-POS Admin Sidebar & Theme Styles (Matching Next.js Frontend)
+   ========================================================================== */
+
+:root {
+    --pos-primary: #4f46e5;
+    --pos-primary-hover: #4338ca;
+    --pos-primary-light: #eef2ff;
+    --pos-primary-subtle: rgba(79, 70, 229, 0.08);
+
+    --pos-surface: #ffffff;
+    --pos-bg: #f8fafc;
+    --pos-subtle-bg: #f1f5f9;
+    --pos-border: #e2e8f0;
+
+    --pos-text: #0f172a;
+    --pos-text-secondary: #475569;
+    --pos-text-muted: #64748b;
+    --pos-text-subtle: #94a3b8;
+
+    --font-main: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+body {
+    font-family: var(--font-main) !important;
+    background-color: var(--pos-bg) !important;
+    color: var(--pos-text) !important;
+}
+
+/* Vertical Sidebar */
+.vertical-menu,
+body[data-sidebar=light] .vertical-menu,
+body[data-sidebar=colored] .vertical-menu {
+    background-color: #ffffff !important;
+    border-right: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+}
+
+/* Navbar Brand Box (top of sidebar & header) */
+.navbar-brand-box,
+body[data-sidebar=light] .navbar-brand-box,
+body[data-sidebar=colored] .navbar-brand-box {
+    background-color: #ffffff !important;
+    border-right: 1px solid #e2e8f0 !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+
+/* Force dark logo to display on white background */
+.navbar-brand-box .logo-dark,
+body[data-sidebar=light] .navbar-brand-box .logo-dark,
+body[data-sidebar=colored] .navbar-brand-box .logo-dark {
+    display: block !important;
+}
+
+.navbar-brand-box .logo-light,
+body[data-sidebar=light] .navbar-brand-box .logo-light,
+body[data-sidebar=colored] .navbar-brand-box .logo-light {
+    display: none !important;
+}
+
+/* Page Topbar Header */
+#page-topbar {
+    background-color: #ffffff !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03) !important;
+}
+
+/* Sidebar Menu Titles */
+#sidebar-menu ul li.menu-title,
+body[data-sidebar=colored] #sidebar-menu ul li.menu-title {
+    color: #94a3b8 !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    padding: 16px 20px 6px !important;
+}
+
+/* Sidebar Menu Item Links */
+#sidebar-menu ul li a,
+body[data-sidebar=colored] #sidebar-menu ul li a {
+    color: #475569 !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    padding: 8px 14px !important;
+    margin: 3px 12px !important;
+    border-radius: 10px !important;
+    display: flex !important;
+    align-items: center !important;
+    transition: all 0.15s ease-in-out !important;
+}
+
+/* Sidebar Menu Item Icons */
+#sidebar-menu ul li a i,
+body[data-sidebar=colored] #sidebar-menu ul li a i {
+    color: #64748b !important;
+    font-size: 18px !important;
+    min-width: 28px !important;
+    transition: all 0.15s ease-in-out !important;
+}
+
+/* Sidebar Menu Hover State */
+#sidebar-menu ul li a:hover,
+body[data-sidebar=colored] #sidebar-menu ul li a:hover {
+    color: #0f172a !important;
+    background-color: #f1f5f9 !important;
+}
+
+#sidebar-menu ul li a:hover i,
+body[data-sidebar=colored] #sidebar-menu ul li a:hover i {
+    color: #4f46e5 !important;
+}
+
+/* Sidebar Menu Active State */
+#sidebar-menu ul li.mm-active > a,
+#sidebar-menu ul li a.active,
+body[data-sidebar=colored] .mm-active > a,
+body[data-sidebar=colored] .mm-active .active {
+    color: #4f46e5 !important;
+    background-color: #eef2ff !important;
+    font-weight: 600 !important;
+}
+
+#sidebar-menu ul li.mm-active > a i,
+#sidebar-menu ul li a.active i,
+body[data-sidebar=colored] .mm-active > a > i,
+body[data-sidebar=colored] .mm-active .active i {
+    color: #4f46e5 !important;
+}
+
+/* Sidebar Arrow Dropdown Indicator */
+#sidebar-menu .has-arrow:after {
+    color: #94a3b8 !important;
+}
+
+#sidebar-menu ul li.mm-active > .has-arrow:after {
+    color: #4f46e5 !important;
+}
+
+/* Submenu Containers */
+#sidebar-menu ul li ul.sub-menu,
+body[data-sidebar=colored] #sidebar-menu ul li ul.sub-menu {
+    background-color: transparent !important;
+    padding: 4px 0 6px !important;
+}
+
+/* Submenu Links */
+#sidebar-menu ul li ul.sub-menu li a,
+body[data-sidebar=colored] #sidebar-menu ul li ul.sub-menu li a {
+    color: #64748b !important;
+    font-size: 13.5px !important;
+    font-weight: 500 !important;
+    padding: 6px 14px 6px 42px !important;
+    margin: 2px 12px !important;
+    border-radius: 8px !important;
+}
+
+#sidebar-menu ul li ul.sub-menu li a:hover,
+body[data-sidebar=colored] #sidebar-menu ul li ul.sub-menu li a:hover {
+    color: #0f172a !important;
+    background-color: #f1f5f9 !important;
+}
+
+#sidebar-menu ul li ul.sub-menu li a.active,
+#sidebar-menu ul li ul.sub-menu li.mm-active > a,
+body[data-sidebar=colored] #sidebar-menu ul li ul.sub-menu li a.active {
+    color: #4f46e5 !important;
+    background-color: #eef2ff !important;
+    font-weight: 600 !important;
+}
+
+/* Primary buttons & accents matching Next.js V-POS */
+.btn-primary {
+    background-color: #4f46e5 !important;
+    border-color: #4f46e5 !important;
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active {
+    background-color: #4338ca !important;
+    border-color: #4338ca !important;
+}
+
+.text-primary {
+    color: #4f46e5 !important;
+}
+
+.bg-primary {
+    background-color: #4f46e5 !important;
+}
+
+.badge.bg-primary-subtle,
+.badge.bg-primary {
+    background-color: #eef2ff !important;
+    color: #4f46e5 !important;
+}
+
+/* ==========================================================================
+   Sidebar Menu Search Input (Above MENU Section)
+   ========================================================================== */
+.sidebar-search-wrapper {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #ffffff;
+    padding: 14px 14px 4px;
+}
+
+.sidebar-search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.sidebar-search-input {
+    background-color: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 9px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: #0f172a !important;
+    padding: 7px 30px 7px 34px !important;
+    height: 36px !important;
+    width: 100% !important;
+    box-shadow: none !important;
+    transition: all 0.15s ease-in-out !important;
+}
+
+.sidebar-search-input::placeholder {
+    color: #94a3b8 !important;
+    font-size: 12.5px !important;
+}
+
+.sidebar-search-input:focus {
+    background-color: #ffffff !important;
+    border-color: #4f46e5 !important;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12) !important;
+    outline: none !important;
+}
+
+.sidebar-search-icon {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    font-size: 15px;
+    pointer-events: none;
+    line-height: 1;
+}
+
+.sidebar-search-clear {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    border: none;
+    background: transparent;
+    padding: 2px 4px;
+    line-height: 1;
+    font-size: 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.sidebar-search-clear:hover {
+    color: #0f172a;
+    background: #f1f5f9;
+}
+
+#sidebar-menu {
+    padding: 6px 0 100px 0 !important;
+}
+
+#sidebar-menu ul li.menu-title {
+    padding: 10px 20px 6px !important;
+}
+
+/* Hide search box in collapsed sidebar mode */
+body[data-sidebar-size="sm"] .sidebar-search-wrapper,
+body[data-sidebar-size="small"] .sidebar-search-wrapper {
+    display: none !important;
+}
+
+#sidebar-search-empty {
+    padding: 28px 16px;
+    color: #94a3b8;
+    font-size: 13px;
+    text-align: center;
+    list-style: none;
+}
+
+#sidebar-search-empty i {
+    font-size: 24px;
+    color: #cbd5e1;
+    display: block;
+    margin-bottom: 6px;
+}
+
+/* ==========================================================================
+   Sidebar Scroll & Viewport Constraints
+   ========================================================================== */
+.vertical-menu {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
+}
+
+.vertical-menu .sidebar-menu-scroll {
+    height: calc(100vh - 70px) !important;
+    height: calc(100% - 70px) !important;
+    max-height: calc(100vh - 70px) !important;
+    margin-top: 70px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+/* Ensure SimpleBar layers stay strictly inside the 100vh - 70px viewport */
+.vertical-menu .simplebar-wrapper {
+    max-height: calc(100vh - 70px) !important;
+    overflow: hidden !important;
+}
+
+.vertical-menu .simplebar-mask {
+    max-height: calc(100vh - 70px) !important;
+}
+
+.vertical-menu .simplebar-offset {
+    bottom: 0 !important;
+}
+
+.vertical-menu .simplebar-content-wrapper {
+    max-height: calc(100vh - 70px) !important;
+    height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+}
+
+/* Styled custom scrollbar for SimpleBar */
+.vertical-menu .simplebar-track.simplebar-vertical {
+    width: 6px !important;
+    right: 2px !important;
+    top: 2px !important;
+    bottom: 4px !important;
+    background: transparent !important;
+    z-index: 20 !important;
+}
+
+.vertical-menu .simplebar-scrollbar:before {
+    background-color: #cbd5e1 !important;
+    border-radius: 6px !important;
+    left: 0 !important;
+    right: 0 !important;
+    opacity: 0.5 !important;
+    transition: opacity 0.2s ease, background-color 0.2s ease !important;
+}
+
+.vertical-menu:hover .simplebar-scrollbar:before,
+.vertical-menu .simplebar-scrollbar.simplebar-visible:before {
+    opacity: 0.85 !important;
+    background-color: #94a3b8 !important;
+}
+
+.vertical-menu .simplebar-scrollbar:hover:before {
+    opacity: 1 !important;
+    background-color: #64748b !important;
+}
+
+/* Native webkit scrollbar styling */
+.vertical-menu .sidebar-menu-scroll::-webkit-scrollbar,
+.vertical-menu .simplebar-content-wrapper::-webkit-scrollbar {
+    width: 6px !important;
+}
+
+.vertical-menu .sidebar-menu-scroll::-webkit-scrollbar-track,
+.vertical-menu .simplebar-content-wrapper::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+.vertical-menu .sidebar-menu-scroll::-webkit-scrollbar-thumb,
+.vertical-menu .simplebar-content-wrapper::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1 !important;
+    border-radius: 6px !important;
+}
+
+.vertical-menu .sidebar-menu-scroll::-webkit-scrollbar-thumb:hover,
+.vertical-menu .simplebar-content-wrapper::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8 !important;
+}
+
+@media (max-width: 991.98px) {
+    .vertical-menu {
+        top: 70px !important;
+        height: calc(100vh - 70px) !important;
+        max-height: calc(100vh - 70px) !important;
+    }
+
+    .vertical-menu .sidebar-menu-scroll {
+        margin-top: 0 !important;
+        height: 100% !important;
+        max-height: 100% !important;
+    }
+
+    .vertical-menu .simplebar-wrapper,
+    .vertical-menu .simplebar-mask,
+    .vertical-menu .simplebar-content-wrapper {
+        max-height: 100% !important;
+    }
+}
+

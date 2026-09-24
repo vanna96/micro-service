@@ -1,36 +1,37 @@
 <?php
 
 use App\Http\Controllers\API\V1\Mobile\AddressController;
+use App\Http\Controllers\API\V1\Mobile\CartController;
 use App\Http\Controllers\API\V1\Mobile\AuthController;
 use App\Http\Controllers\API\V1\Mobile\CatalogController;
 use App\Http\Controllers\API\V1\Mobile\FavoriteController;
 use App\Http\Controllers\API\V1\Mobile\HomeController;
 use App\Http\Controllers\API\V1\Mobile\NotificationController;
 use App\Http\Controllers\API\V1\Mobile\OrderController;
-use App\Http\Controllers\API\V1\Mobile\PosCustomerController;
 use App\Http\Controllers\API\V1\Mobile\ProfileController;
+use App\Http\Middleware\InitializeTenancyByDomainOrRequestData;
 use Illuminate\Support\Facades\Route;
-use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 
 Route::prefix('mobile')
     ->middleware([
         'api',
-        InitializeTenancyByDomain::class,
+        InitializeTenancyByDomainOrRequestData::class,
         'tenant.active',
     ])->group(function () {
         Route::prefix('auth')->group(function () {
             Route::post('register', [AuthController::class, 'register']);
             Route::post('login', [AuthController::class, 'login']);
+            Route::post('refresh', [AuthController::class, 'refresh']);
         });
 
         Route::get('bootstrap', [HomeController::class, 'bootstrap']);
+        Route::get('legal', [HomeController::class, 'legal']);
         Route::get('branches', [CatalogController::class, 'branches']);
         Route::get('banners', [CatalogController::class, 'banners']);
         Route::get('categories', [CatalogController::class, 'categories']);
         Route::get('products', [CatalogController::class, 'products']);
         Route::get('products/{item}', [CatalogController::class, 'show']);
         Route::post('cart/price', [CatalogController::class, 'priceCart']);
-        Route::get('pos/customers', [PosCustomerController::class, 'index']);
 
         Route::middleware(['tenant.access'])->group(function () {
             Route::prefix('auth')->group(function () {
@@ -50,8 +51,14 @@ Route::prefix('mobile')
             Route::get('favorites', [FavoriteController::class, 'index']);
             Route::post('favorites/toggle', [FavoriteController::class, 'toggle']);
 
+            Route::get('cart', [CartController::class, 'index']);
+            Route::post('cart/sync', [CartController::class, 'sync']);
+            Route::delete('cart', [CartController::class, 'clear']);
+
             Route::get('orders', [OrderController::class, 'index']);
             Route::post('orders', [OrderController::class, 'store']);
+            Route::post('sales', [OrderController::class, 'store']);
+            Route::post('pos-sales', [OrderController::class, 'store']);
             Route::get('orders/{order}', [OrderController::class, 'show']);
 
             Route::get('notifications', [NotificationController::class, 'index']);

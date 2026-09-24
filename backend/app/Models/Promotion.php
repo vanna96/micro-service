@@ -42,7 +42,8 @@ class Promotion extends Model
     protected $casts = [
         'start_at' => 'datetime',
         'end_at' => 'datetime',
-        'threshold_amount' => 'decimal:2',
+        // Keep storage precision; presentation/rounding follows the tenant currency.
+        'threshold_amount' => 'decimal:8',
     ];
 
     protected function getCacheBaseTags(): array
@@ -140,8 +141,8 @@ class Promotion extends Model
         return match ($this->type) {
             self::TYPE_ITEM_PRICE => 'Attached item pricing rules',
             self::TYPE_SUBTOTAL_DISCOUNT => sprintf(
-                'Spend $%s, get %d%% off',
-                number_format((float) ($this->threshold_amount ?? 0), 2),
+                'Spend %s, get %d%% off',
+                format_currency_amount($this->threshold_amount ?? 0, tenant_base_currency()),
                 (int) ($this->reward_discount_percent ?? 0)
             ),
             self::TYPE_BOGO => sprintf(

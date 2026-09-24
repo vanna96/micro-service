@@ -15,7 +15,8 @@ class FileManagerController extends Controller
     public function __construct(protected FileManagerRepository $files)
     {
         $this->middleware('admin.permission:file_manager.view')->only(['index']);
-        $this->middleware('admin.permission:file_manager.manage')->except(['index']);
+        $this->middleware('admin.permission:file_manager.create')->only(['store', 'storeFolder']);
+        $this->middleware('admin.permission:file_manager.delete')->only(['destroy']);
     }
 
     public function index(Request $request): View

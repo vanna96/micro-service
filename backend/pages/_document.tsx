@@ -15,7 +15,10 @@ export default function Document() {
       data-colors="default"
     >
       <Head>
-        <link rel="shortcut icon" href="/assets/favicon-B-3ALmIB.ico" />
+        <link rel="icon" href="/branding/v-pos-mark.svg" type="image/svg+xml" />
+        <link rel="icon" href="/branding/v-pos-mark-32.png" type="image/png" sizes="32x32" />
+        <link rel="shortcut icon" href="/branding/v-pos-mark.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/branding/v-pos-mark.png" />
         {/* Google Fonts: Plus Jakarta Sans & Inter */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

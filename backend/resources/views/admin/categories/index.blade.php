@@ -32,7 +32,9 @@
 @endpush
 
 @section('content')
-@php($canManageCategories = admin_has_permission('categories.manage'))
+@php($canCreateCategories = admin_has_permission('categories.create'))
+@php($canEditCategories = admin_has_permission('categories.edit'))
+@php($canDeleteCategories = admin_has_permission('categories.delete'))
 <div class="row">
     <div class="col-12">
         <div class="card">
@@ -44,7 +46,7 @@
                             Manage category structure, parent relationships, and publishing status for the currently selected tenant.
                         </p>
                     </div>
-                    @if ($canManageCategories)
+                    @if ($canCreateCategories)
                         <div class="mt-3 mt-sm-0">
                             <a href="{{ route('admin.categories.create') }}" class="btn btn-primary waves-effect waves-light">
                                 <i class="uil uil-plus me-1"></i>Create Category
@@ -110,14 +112,17 @@
                                     </td>
                                     <td>{{ optional($category->updated_at)->format('d M Y, h:i A') ?: '-' }}</td>
                                     <td class="text-nowrap">
-                                        @if ($canManageCategories)
+                                        @if ($canEditCategories)
                                             <a href="{{ route('admin.categories.edit', ['category' => $category->id]) }}" class="btn btn-sm btn-outline-primary me-2">Edit</a>
+                                        @endif
+                                        @if ($canDeleteCategories)
                                             <form action="{{ route('admin.categories.destroy', ['category' => $category->id]) }}" method="POST" class="d-inline">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this category?')">Delete</button>
                                             </form>
-                                        @else
+                                        @endif
+                                        @if (! $canEditCategories && ! $canDeleteCategories)
                                             <span class="text-muted">View only</span>
                                         @endif
                                     </td>

@@ -21,6 +21,7 @@ services:
 
   minio-init:
     image: minio/mc:latest
+    container_name: minio-init
     depends_on:
       minio:
         condition: service_healthy
@@ -28,7 +29,7 @@ services:
       - .env
     entrypoint: ["/bin/sh", "-c"]
     command:
-      - 'mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" && mc mb --ignore-existing "local/$${MINIO_BUCKET}" && mc anonymous set download "local/$${MINIO_BUCKET}"'
+      - 'bucket="$${MINIO_BUCKET:-uploads}"; mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" && mc mb --ignore-existing "local/$$bucket" && mc anonymous set download "local/$$bucket"'
     networks:
       - app-network
 

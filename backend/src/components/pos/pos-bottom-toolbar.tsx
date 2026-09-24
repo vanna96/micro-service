@@ -1,39 +1,19 @@
 import React from "react";
+import { useTranslation } from "@/lib/i18n/i18n";
 
 interface PosBottomToolbarProps {
   heldCount: number;
-  selectedPayMethod: string;
   onOpenModal: (modal: string) => void;
 }
 
 export function PosBottomToolbar({
   heldCount,
-  selectedPayMethod,
   onOpenModal,
 }: PosBottomToolbarProps) {
-  const paymentModal = {
-    Cash: "cash",
-    Card: "card",
-    UPI: "upi",
-    Bank: "bank",
-    Split: "split",
-  }[selectedPayMethod];
+  const { t } = useTranslation();
 
   return (
     <div className="pos-bottom-features mt-auto">
-      <button
-        type="button"
-        className="pos-tool-btn"
-        onClick={() => paymentModal && onOpenModal(paymentModal)}
-        disabled={!paymentModal}
-        title={paymentModal ? "Open selected payment method" : "Select a payment method"}
-      >
-        <div className="pos-tool-icon bg-purple-subtle text-purple">
-          <i className="ri-money-dollar-box-line"></i>
-        </div>
-        <span>Payment</span>
-      </button>
-
       <button
         type="button"
         className="pos-tool-btn"
@@ -42,7 +22,7 @@ export function PosBottomToolbar({
         <div className="pos-tool-icon bg-warning-subtle text-warning">
           <i className="ri-pause-circle-line"></i>
         </div>
-        <span>Hold ({heldCount})</span>
+        <span>{t("hold")} ({heldCount})</span>
       </button>
 
       <button
@@ -53,7 +33,7 @@ export function PosBottomToolbar({
         <div className="pos-tool-icon bg-pink-subtle text-pink">
           <i className="ri-file-text-line"></i>
         </div>
-        <span>Invoice</span>
+        <span>{t("invoice")}</span>
       </button>
 
       <button
@@ -64,7 +44,7 @@ export function PosBottomToolbar({
         <div className="pos-tool-icon bg-secondary-subtle text-secondary">
           <i className="ri-time-line"></i>
         </div>
-        <span>Pay Later</span>
+        <span>{t("payLater")}</span>
       </button>
 
       <button
@@ -75,7 +55,7 @@ export function PosBottomToolbar({
         <div className="pos-tool-icon bg-danger-subtle text-danger">
           <i className="ri-history-line"></i>
         </div>
-        <span>History</span>
+        <span>{t("history")}</span>
       </button>
     </div>
   );

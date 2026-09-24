@@ -10,7 +10,9 @@
 @endpush
 
 @section('content')
-@php($canManageTenantUsers = admin_has_permission('tenant_users.manage'))
+@php($canCreateTenantUsers = admin_has_permission('tenant_users.create'))
+@php($canEditTenantUsers = admin_has_permission('tenant_users.edit'))
+@php($canDeleteTenantUsers = admin_has_permission('tenant_users.delete'))
 <div class="row">
     <div class="col-12">
         <div class="card">
@@ -22,7 +24,7 @@
                             Manage users stored inside the currently selected tenant database.
                         </p>
                     </div>
-                    @if ($canManageTenantUsers)
+                    @if ($canCreateTenantUsers)
                         <div class="mt-3 mt-sm-0">
                             <a href="{{ route('admin.tenant-users.create') }}" class="btn btn-primary waves-effect waves-light">
                                 <i class="uil uil-plus me-1"></i>Create User
@@ -83,14 +85,17 @@
                                     </td>
                                     <td>{{ optional($user->updated_at)->format('d M Y, h:i A') ?: '-' }}</td>
                                     <td class="text-nowrap">
-                                        @if ($canManageTenantUsers)
+                                        @if ($canEditTenantUsers)
                                             <a href="{{ route('admin.tenant-users.edit', ['tenant_user' => $user->id]) }}" class="btn btn-sm btn-outline-primary me-2">Edit</a>
+                                        @endif
+                                        @if ($canDeleteTenantUsers)
                                             <form action="{{ route('admin.tenant-users.destroy', ['tenant_user' => $user->id]) }}" method="POST" class="d-inline">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this user?')">Delete</button>
                                             </form>
-                                        @else
+                                        @endif
+                                        @if (! $canEditTenantUsers && ! $canDeleteTenantUsers)
                                             <span class="text-muted">View only</span>
                                         @endif
                                     </td>

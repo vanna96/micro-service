@@ -23,7 +23,9 @@ class TenantUserController extends Controller
         $this->users = $users;
         $this->roles = $roles;
         $this->middleware('admin.permission:tenant_users.view')->only(['index']);
-        $this->middleware('admin.permission:tenant_users.manage')->except(['index']);
+        $this->middleware('admin.permission:tenant_users.create')->only(['create', 'store']);
+        $this->middleware('admin.permission:tenant_users.edit')->only(['edit', 'update']);
+        $this->middleware('admin.permission:tenant_users.delete')->only(['destroy']);
     }
 
     public function index(Request $request): View

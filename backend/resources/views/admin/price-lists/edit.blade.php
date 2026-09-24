@@ -105,7 +105,7 @@
                                             value="{{ $itemOption->id }}"
                                             data-has-currency="{{ $itemOption->currency ? '1' : '0' }}"
                                             data-currency-code="{{ $itemOption->currency?->code }}"
-                                            data-input-step="{{ currency_input_step($itemOption->currency, 8) }}"
+                                            data-input-step="{{ currency_input_step($itemOption->currency, 2) }}"
                                             data-decimal-places="{{ $itemOption->currency?->decimal_places }}"
                                             data-format-example="{{ $itemOption->currency?->format_example ?? '2.22' }}"
                                             @selected(old('item_id') == $itemOption->id)
@@ -128,7 +128,7 @@
                             </div>
                             <div class="col-lg-2">
                                 <label class="form-label">Fixed Price</label>
-                                <input type="number" min="0" step="0.00000001" name="fixed_price" value="{{ old('fixed_price') }}"
+                                <input type="number" min="0" step="0.01" name="fixed_price" value="{{ format_currency_input(old('fixed_price'), null, 2) }}"
                                     class="form-control fixed-price-input @error('fixed_price') is-invalid @enderror" />
                                 @error('fixed_price')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                             </div>
@@ -185,7 +185,7 @@
                                                 action="{{ route('admin.price-lists.lines.update', ['price_list' => $priceList->id, 'line' => $line->id]) }}"
                                                 data-has-fixed-currency="{{ $line->item?->currency ? '1' : '0' }}"
                                                 data-currency-code="{{ $line->item?->currency?->code }}"
-                                                data-currency-step="{{ currency_input_step($line->item?->currency, 8) }}"
+                                                data-currency-step="{{ currency_input_step($line->item?->currency, 2) }}"
                                                 data-decimal-places="{{ $line->item?->currency?->decimal_places }}"
                                                 data-format-example="{{ $line->item?->currency?->format_example ?? '2.22' }}">
                                                 @csrf
@@ -201,8 +201,8 @@
                                                         </select>
                                                     </div>
                                                     <div class="col-lg-3">
-                                                        <input type="number" min="0" step="{{ currency_input_step($line->item?->currency, 8) }}" name="fixed_price"
-                                                            value="{{ old('fixed_price.' . $line->id, $line->fixed_price) }}"
+                                                        <input type="number" min="0" step="{{ currency_input_step($line->item?->currency, 2) }}" name="fixed_price"
+                                                            value="{{ format_currency_input(old('fixed_price.' . $line->id, $line->fixed_price), $line->item?->currency, 2) }}"
                                                             class="form-control fixed-price-input" placeholder="Fixed price" />
                                                         <div class="form-text fixed-price-help">
                                                             @if ($line->item?->currency)
@@ -287,7 +287,7 @@
                 let canUseFixed = container.dataset.hasFixedCurrency !== '0';
                 let hasSelectedItem = !itemSelect;
                 let currencyCode = container.dataset.currencyCode || '';
-                let inputStep = container.dataset.currencyStep || '0.00000001';
+                let inputStep = container.dataset.currencyStep || '0.01';
                 let decimalPlaces = container.dataset.decimalPlaces || '';
                 let formatExample = container.dataset.formatExample || '2.22';
 
@@ -300,7 +300,7 @@
                     hasSelectedItem = !!selectedOption?.value;
                     canUseFixed = selectedOption?.dataset.hasCurrency === '1';
                     currencyCode = selectedOption?.dataset.currencyCode || '';
-                    inputStep = selectedOption?.dataset.inputStep || '0.00000001';
+                    inputStep = selectedOption?.dataset.inputStep || '0.01';
                     decimalPlaces = selectedOption?.dataset.decimalPlaces || '';
                     formatExample = selectedOption?.dataset.formatExample || '2.22';
                 }

@@ -61,11 +61,19 @@
         <div class="card card-flush mb-10">
             <div class="card-header">
                 <div class="card-title">
-                    <h2>Customer Details</h2>
+                    <h2>{{ old('type', $customer->type ?? 'customer') === 'vendor' ? 'Vendor Details' : 'Customer Details' }}</h2>
                 </div>
             </div>
             <div class="card-body">
                 <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label required">Type</label>
+                        <select name="type" class="form-select @error('type') is-invalid @enderror">
+                            <option value="customer" @selected(old('type', $customer->type ?: 'customer') === 'customer')>Customer</option>
+                            <option value="vendor" @selected(old('type', $customer->type ?: 'customer') === 'vendor')>Vendor</option>
+                        </select>
+                        @error('type')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
                     <div class="col-md-6">
                         <label class="form-label required">Code</label>
                         <input type="text" name="code" value="{{ old('code', $customer->code) }}" class="form-control @error('code') is-invalid @enderror" />

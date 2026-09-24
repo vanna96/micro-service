@@ -9,7 +9,9 @@
 @endpush
 
 @section('content')
-@php($canManage = admin_has_permission('items.manage'))
+@php($canCreate = admin_has_permission('item_options.create'))
+@php($canEdit = admin_has_permission('item_options.edit'))
+@php($canDelete = admin_has_permission('item_options.delete'))
 <div class="row">
     <div class="col-12">
         <div class="card">
@@ -21,7 +23,7 @@
                             Maintain reusable option values and assign each one to a variation.
                         </p>
                     </div>
-                    @if ($canManage)
+                    @if ($canCreate)
                         <div class="mt-3 mt-sm-0 d-flex gap-2">
                             <a href="{{ route('admin.item-variations.index') }}" class="btn btn-light waves-effect">Variations</a>
                             <a href="{{ route('admin.item-options.create') }}" class="btn btn-primary waves-effect waves-light">
@@ -71,7 +73,7 @@
                                         @endif
                                         {{ $option->sku_suffix ?: '-' }}
                                     </td>
-                                    <td>{{ number_format((float) $option->price_adjustment, 2) }}</td>
+                                    <td>{{ format_currency_amount($option->price_adjustment, $baseCurrency) }}</td>
                                     <td>
                                         <span class="badge {{ $option->status === 'Active' ? 'bg-success' : 'bg-danger' }}">
                                             {{ $option->status }}
@@ -79,14 +81,17 @@
                                     </td>
                                     <td>{{ optional($option->updated_at)->format('d M Y, h:i A') ?: '-' }}</td>
                                     <td class="text-nowrap">
-                                        @if ($canManage)
+                                        @if ($canEdit)
                                             <a href="{{ route('admin.item-options.edit', $option->id) }}" class="btn btn-sm btn-outline-primary me-2">Edit</a>
+                                        @endif
+                                        @if ($canDelete)
                                             <form action="{{ route('admin.item-options.destroy', $option->id) }}" method="POST" class="d-inline">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this option?')">Delete</button>
                                             </form>
-                                        @else
+                                        @endif
+                                        @if (! $canEdit && ! $canDelete)
                                             <span class="text-muted">View only</span>
                                         @endif
                                     </td>

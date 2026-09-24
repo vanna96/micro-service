@@ -8,15 +8,25 @@ use App\Models\Branch;
 use App\Models\Category;
 use App\Models\Item;
 use App\Models\Slider;
+use App\Services\PromotionPricingService;
 use Illuminate\Http\Request;
 
 class HomeController extends Controller
 {
     use BuildsMobilePayloads;
 
+    public function __construct(protected PromotionPricingService $promotionPricing)
+    {
+    }
+
     public function bootstrap(Request $request)
     {
-        $selectedBranchId = $request->integer('branch_id') ?: null;
+        
+        $tenant = tenant();
+        $generalSettings = $tenant && is_array($tenant->general_settings) ? $tenant->general_settings : [];
+
+        $hasBranchParam = $request->has('branch_id') && $request->input('branch_id') !== '' && (int) $request->input('branch_id') !== 0;
+        $requestedBranchId = $hasBranchParam ? $request->integer('branch_id') : null;
 
         $branches = Branch::query()
             ->where('status', 'Active')
@@ -24,13 +34,30 @@ class HomeController extends Controller
             ->orderBy('name')
             ->get();
 
-        if (! $branches->pluck('id')->contains($selectedBranchId)) {
-            $selectedBranchId = $branches->first()?->id;
+        $selectedBranchId = null;
+        if ($hasBranchParam) {
+            $selectedBranchId = $branches->pluck('id')->contains($requestedBranchId)
+                ? $requestedBranchId
+                : $branches->first()?->id;
         }
 
         $baseItemsQuery = Item::query()
-            ->with(['category', 'branch', 'currency', 'image', 'galleries'])
+            ->with([
+                'category',
+                'branch',
+                'currency',
+                'image',
+                'galleries',
+                'uomGroup.units' => fn ($query) => $query->where('status', 'Active')->orderBy('sort_order'),
+                'uomGroup.units.unit',
+                'uomPrices',
+                'optionGroups' => fn ($query) => $query->where('status', 'Active'),
+                'optionGroups.values' => fn ($query) => $query->where('status', 'Active'),
+                'variants' => fn ($query) => $query->where('status', 'Active'),
+                'variants.optionValues',
+            ])
             ->where('status', 'Active')
+            ->where('sale', true)
             ->when($selectedBranchId, fn ($query) => $query->where('branch_id', $selectedBranchId));
 
         $banners = Slider::query()
@@ -80,18 +107,42 @@ class HomeController extends Controller
             ->limit(8)
             ->get();
 
+        $allItems = $featured->concat($newArrivals)->concat($bestSellers)->concat($recommended)->unique('id');
+        $promotionPreviews = $this->promotionPricing->catalogPromotionPreviews($allItems);
+
         return response()->json([
             'success' => true,
             'data' => [
+                                'mobile_version' => [
+                    'minimum_version' => $generalSettings['minimum_mobile_version'] ?? '1.0.0',
+                    'latest_version' => $generalSettings['latest_mobile_version'] ?? '1.0.0',
+                    'store_url_ios' => $generalSettings['store_url_ios'] ?? '',
+                    'store_url_android' => $generalSettings['store_url_android'] ?? '',
+                ],
                 'selected_branch_id' => $selectedBranchId,
                 'branches' => $branches->map(fn (Branch $branch) => $this->mobileBranchPayload($branch))->values(),
                 'banners' => $banners->map(fn (Slider $banner) => $this->mobileBannerPayload($banner))->values(),
                 'categories' => $categories->map(fn (Category $category) => $this->mobileCategoryPayload($category))->values(),
-                'featured_products' => $featured->map(fn (Item $item) => $this->mobileItemPayload($item))->values(),
-                'new_arrivals' => $newArrivals->map(fn (Item $item) => $this->mobileItemPayload($item))->values(),
-                'best_sellers' => $bestSellers->map(fn (Item $item) => $this->mobileItemPayload($item))->values(),
-                'recommended_products' => $recommended->map(fn (Item $item) => $this->mobileItemPayload($item))->values(),
+                'featured_products' => $featured->map(fn (Item $item) => $this->mobileItemPayload($item, $promotionPreviews[(int) $item->id] ?? []))->values(),
+                'new_arrivals' => $newArrivals->map(fn (Item $item) => $this->mobileItemPayload($item, $promotionPreviews[(int) $item->id] ?? []))->values(),
+                'best_sellers' => $bestSellers->map(fn (Item $item) => $this->mobileItemPayload($item, $promotionPreviews[(int) $item->id] ?? []))->values(),
+                'recommended_products' => $recommended->map(fn (Item $item) => $this->mobileItemPayload($item, $promotionPreviews[(int) $item->id] ?? []))->values(),
             ],
         ]);
     }
+
+    public function legal(Request $request)
+    {
+        $tenant = tenant();
+        $generalSettings = $tenant && is_array($tenant->general_settings) ? $tenant->general_settings : [];
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'terms_conditions' => $generalSettings['terms_conditions'] ?? '',
+                'privacy_policy' => $generalSettings['privacy_policy'] ?? '',
+            ]
+        ]);
+    }
+
 }

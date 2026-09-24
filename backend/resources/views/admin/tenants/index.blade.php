@@ -18,7 +18,7 @@
                     <div>
                         <h4 class="card-title mb-1">Default Datatable</h4>
                         <p class="card-title-desc mb-0">
-                            Review tenant databases, domains, and status with the Minible datatable layout.
+                            Review tenant databases, domains, and status.
                         </p>
                     </div>
                     <div class="mt-3 mt-sm-0">

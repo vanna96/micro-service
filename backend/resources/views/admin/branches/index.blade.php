@@ -10,7 +10,9 @@
 @endpush
 
 @section('content')
-@php($canManageBranches = admin_has_permission('branches.manage'))
+@php($canCreateBranches = admin_has_permission('branches.create'))
+@php($canEditBranches = admin_has_permission('branches.edit'))
+@php($canDeleteBranches = admin_has_permission('branches.delete'))
 <div class="row">
     <div class="col-12">
         <div class="card">
@@ -22,7 +24,7 @@
                             Manage branch options for the currently selected tenant and assign them to items from a controlled list.
                         </p>
                     </div>
-                    @if ($canManageBranches)
+                    @if ($canCreateBranches)
                         <div class="mt-3 mt-sm-0">
                             <a href="{{ route('admin.branches.create') }}" class="btn btn-primary waves-effect waves-light">
                                 <i class="uil uil-plus me-1"></i>Create Branch
@@ -70,14 +72,17 @@
                                     </td>
                                     <td>{{ optional($branch->updated_at)->format('d M Y, h:i A') ?: '-' }}</td>
                                     <td class="text-nowrap">
-                                        @if ($canManageBranches)
+                                        @if ($canEditBranches)
                                             <a href="{{ route('admin.branches.edit', ['branch' => $branch->id]) }}" class="btn btn-sm btn-outline-primary me-2">Edit</a>
+                                        @endif
+                                        @if ($canDeleteBranches)
                                             <form action="{{ route('admin.branches.destroy', ['branch' => $branch->id]) }}" method="POST" class="d-inline">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this branch?')">Delete</button>
                                             </form>
-                                        @else
+                                        @endif
+                                        @if (! $canEditBranches && ! $canDeleteBranches)
                                             <span class="text-muted">View only</span>
                                         @endif
                                     </td>

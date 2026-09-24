@@ -6,37 +6,98 @@ use App\Models\Item;
 use App\Models\ItemOptionGroup;
 use App\Models\ItemOptionValue;
 use App\Models\ItemVariant;
+use App\Models\UomGroupUnit;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 class ItemConfigurationService
 {
-    public function resolve(Item $item, ?int $variantId = null, array $optionValueIds = []): array
-    {
-        $item->loadMissing(['optionGroups.values', 'variants.optionValues']);
+    public function resolve(
+        Item $item,
+        ?int $variantId = null,
+        array $optionValueIds = [],
+        ?int $uomId = null
+    ): array {
+        $item->loadMissing(['currency', 'uomPrices', 'optionGroups.values', 'variants.optionValues', 'uomGroup.units.unit']);
+        $currency = $item->currency;
 
         $activeGroups = $item->optionGroups->where('status', 'Active');
         $variantGroups = $activeGroups->where('type', 'variant');
         $modifierGroups = $activeGroups->where('type', 'modifier');
         $variant = $this->resolveVariant($item, $variantGroups, $variantId);
-        $modifierValues = $this->resolveModifiers($modifierGroups, $optionValueIds);
-        $modifierTotal = round((float) $modifierValues->sum('price_adjustment'), 2);
-        $basePrice = round((float) ($variant?->price ?? $item->price), 2);
+        $uom = $this->resolveUom($item, $uomId);
+        $modifierValues = $this->resolveModifiers($modifierGroups, $optionValueIds, $variant);
+        $modifierTotal = round_currency_amount((float) $modifierValues->sum('price_adjustment'), $currency);
+        $uomConversionFactor = (float) ($uom?->conversion_factor_to_base ?? 1);
+        $basePrice = round_currency_amount(
+            (float) ($variant?->price ?? $item->price) * $uomConversionFactor,
+            $currency
+        );
+        $uomPrice = $uom
+            ? $item->uomPrices->firstWhere('unit_of_measure_id', $uom->unit_of_measure_id)
+            : null;
+        $sellingPrice = $uomPrice
+            ? $uomPrice->resolvedPrice((float) ($variant?->price ?? $item->price), $uomConversionFactor, $currency)
+            : $basePrice;
 
         return [
             'line_key' => implode(':', [
                 $item->id,
                 $variant?->id ?? 0,
+                $uom?->unit_of_measure_id ?? 0,
                 $modifierValues->pluck('id')->sort()->implode(','),
             ]),
             'item_variant_id' => $variant?->id,
+            'uom_id' => $uom?->unit_of_measure_id,
+            'uom_code' => $uom?->unit?->code,
+            'uom_name' => $uom?->unit?->name,
+            'uom_conversion_factor' => $uomConversionFactor,
             'sku' => (string) ($variant?->sku ?? $item->sku),
             'name' => (string) ($variant?->name ?: $item->name),
-            'base_price' => $basePrice,
+            'base_price' => $sellingPrice,
             'option_total' => $modifierTotal,
-            'unit_price' => round(max(0, $basePrice + $modifierTotal), 2),
+            'unit_price' => round_currency_amount(max(0, $sellingPrice + $modifierTotal), $currency),
             'selected_options' => $this->selectionSnapshot($variant, $modifierValues),
         ];
+    }
+
+    protected function resolveUom(Item $item, ?int $uomId): ?UomGroupUnit
+    {
+        if ($uomId === null) {
+            return $item->uomGroup?->units
+                ->where('status', 'Active')
+                ->first(function (UomGroupUnit $groupUnit): bool {
+                    return $groupUnit->is_base_unit
+                        && $groupUnit->unit !== null
+                        && $groupUnit->unit->status === 'Active';
+                });
+        }
+
+        $uom = $item->uomGroup?->units
+            ->where('status', 'Active')
+            ->first(function (UomGroupUnit $groupUnit) use ($uomId): bool {
+                return (int) $groupUnit->unit_of_measure_id === $uomId
+                    && $groupUnit->unit !== null
+                    && $groupUnit->unit->status === 'Active';
+            });
+
+        if (! $uom) {
+            throw ValidationException::withMessages([
+                'uom_id' => 'The selected unit of measure is unavailable for this item.',
+            ]);
+        }
+
+        $itemUomPrice = $item->relationLoaded('uomPrices')
+            ? $item->uomPrices->firstWhere('unit_of_measure_id', $uom->unit_of_measure_id)
+            : null;
+
+        if ($itemUomPrice && ! $itemUomPrice->is_active) {
+            throw ValidationException::withMessages([
+                'uom_id' => 'The selected unit of measure is inactive for this item.',
+            ]);
+        }
+
+        return $uom;
     }
 
     protected function resolveVariant(Item $item, Collection $variantGroups, ?int $variantId): ?ItemVariant
@@ -52,6 +113,15 @@ class ItemConfigurationService
         }
 
         if ($variantId === null) {
+            $defaultVariant = $item->variants
+                ->where('status', 'Active')
+                ->firstWhere('is_default', true)
+                ?? $item->variants->where('status', 'Active')->first();
+
+            if ($defaultVariant) {
+                return $defaultVariant;
+            }
+
             throw ValidationException::withMessages([
                 'variant_id' => 'Select a variant for this item.',
             ]);
@@ -80,11 +150,12 @@ class ItemConfigurationService
         return $variant;
     }
 
-    protected function resolveModifiers(Collection $modifierGroups, array $optionValueIds): Collection
+    protected function resolveModifiers(Collection $modifierGroups, array $optionValueIds, ?ItemVariant $variant = null): Collection
     {
+        $variantOptionIds = $variant ? $variant->optionValues->pluck('id')->map(fn ($id) => (int) $id)->all() : [];
         $selectedIds = collect($optionValueIds)
             ->map(fn ($id) => (int) $id)
-            ->filter(fn (int $id) => $id > 0)
+            ->filter(fn (int $id) => $id > 0 && ! in_array($id, $variantOptionIds, true))
             ->unique()
             ->values();
 

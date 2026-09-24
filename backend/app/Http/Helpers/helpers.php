@@ -359,7 +359,7 @@ if (! function_exists('currency_decimal_count')) {
             return 0;
         }
 
-        return strlen($matches[1] ?? '');
+        return strlen(rtrim($matches[1] ?? '', '0'));
     }
 }
 
@@ -388,6 +388,26 @@ if (! function_exists('format_currency_amount')) {
         }
 
         return $currencyCode . ' ' . $formattedAmount;
+    }
+}
+
+if (! function_exists('format_currency_input')) {
+    /**
+     * Format a numeric value for a currency-aware number input.
+     * Unlike format_currency_amount this intentionally omits symbols/codes.
+     */
+    function format_currency_input($amount, ?\App\Models\Currency $currency = null, int $fallback = 2): string
+    {
+        if ($amount === null || $amount === '') {
+            return '';
+        }
+
+        return number_format(
+            round_currency_amount($amount, $currency, $fallback),
+            currency_decimal_places($currency, $fallback),
+            '.',
+            ''
+        );
     }
 }
 

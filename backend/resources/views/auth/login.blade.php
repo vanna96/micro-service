@@ -14,8 +14,8 @@
             <div class="col-lg-12">
                 <div class="text-center">
                     <a href="{{ url('/') }}" class="mb-5 d-block auth-logo">
-                        <img src="{{ asset('minible/assets/images/logo-dark.png') }}" alt="" height="22" class="logo logo-dark">
-                        <img src="{{ asset('minible/assets/images/logo-light.png') }}" alt="" height="22" class="logo logo-light">
+                        <img src="{{ global_asset('branding/v-pos-logo.svg') }}" alt="V-POS" height="32" class="logo logo-dark">
+                        <img src="{{ global_asset('branding/v-pos-logo-light.svg') }}" alt="V-POS" height="32" class="logo logo-light">
                     </a>
                 </div>
             </div>

@@ -16,7 +16,7 @@ class EnsureAdminTenantSelected
             $request->session()->put('admin_intended_url', $request->fullUrl());
 
             return redirect()
-                ->route('home')
+                ->route('admin.dashboard')
                 ->with('tenant_required', 'Please select a tenant before opening the admin area.');
         }
 
@@ -38,7 +38,7 @@ class EnsureAdminTenantSelected
             $request->session()->put('admin_intended_url', $request->fullUrl());
 
             return redirect()
-                ->route('home')
+                ->route('admin.dashboard')
                 ->with('tenant_required', 'Your selected tenant is no longer available. Please choose another tenant.');
         }
 

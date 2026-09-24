@@ -10,7 +10,9 @@
 @endpush
 
 @section('content')
-@php($canManagePriceLists = admin_has_permission('price_lists.manage'))
+@php($canCreatePriceLists = admin_has_permission('price_lists.create'))
+@php($canEditPriceLists = admin_has_permission('price_lists.edit'))
+@php($canDeletePriceLists = admin_has_permission('price_lists.delete'))
 <div class="row">
     <div class="col-12">
         <div class="card">
@@ -22,7 +24,7 @@
                             Manage tenant price-list headers and choose which active list should behave as the default commercial price book.
                         </p>
                     </div>
-                    @if ($canManagePriceLists)
+                    @if ($canCreatePriceLists)
                         <div class="mt-3 mt-sm-0">
                             <a href="{{ route('admin.price-lists.create') }}" class="btn btn-primary waves-effect waves-light">
                                 <i class="uil uil-plus me-1"></i>Create Price List
@@ -78,14 +80,17 @@
                                     <td>{{ (int) $priceList->active_lines_count }}</td>
                                     <td>{{ optional($priceList->updated_at)->format('d M Y, h:i A') ?: '-' }}</td>
                                     <td class="text-nowrap">
-                                        @if ($canManagePriceLists)
+                                        @if ($canEditPriceLists)
                                             <a href="{{ route('admin.price-lists.edit', ['price_list' => $priceList->id]) }}" class="btn btn-sm btn-outline-primary me-2">Edit</a>
+                                        @endif
+                                        @if ($canDeletePriceLists)
                                             <form action="{{ route('admin.price-lists.destroy', ['price_list' => $priceList->id]) }}" method="POST" class="d-inline">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this price list?')">Delete</button>
                                             </form>
-                                        @else
+                                        @endif
+                                        @if (! $canEditPriceLists && ! $canDeletePriceLists)
                                             <span class="text-muted">View only</span>
                                         @endif
                                     </td>

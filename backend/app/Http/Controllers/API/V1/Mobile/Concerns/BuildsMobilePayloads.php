@@ -7,8 +7,7 @@ use App\Models\Branch;
 use App\Models\Category;
 use App\Models\Item;
 use App\Models\Notification;
-use App\Models\Order;
-use App\Models\OrderItem;
+use App\Models\PosSale;
 use App\Models\Slider;
 use App\Models\User;
 
@@ -46,18 +45,22 @@ trait BuildsMobilePayloads
         ];
     }
 
-    protected function mobileBannerPayload(Slider $slider): array
+    protected function mobileBannerPayload(Slider $banner): array
     {
-        return [
-            'id' => (int) $slider->id,
-            'title' => (string) ($slider->title ?? ''),
-            'subtitle' => (string) ($slider->subtitle ?? ''),
-            'placement' => (string) ($slider->placement ?? ''),
-            'target_url' => (string) ($slider->target_url ?? ''),
-            'image_url' => $slider->image_url,
-            'sort_order' => (int) ($slider->sort_order ?? 0),
-            'status' => (string) ($slider->status ?? 'Active'),
-        ];
+        $payload = $banner->toPromoSlidePayload();
+        $origin = rtrim(request()->getSchemeAndHttpHost(), '/');
+        $mediaUrl = trim((string) ($payload['mediaUrl'] ?? ''));
+
+        if ($mediaUrl !== '' && str_starts_with($mediaUrl, '//')) {
+            $mediaUrl = parse_url($origin, PHP_URL_SCHEME).':'.$mediaUrl;
+        } elseif ($mediaUrl !== '' && ! preg_match('#^https?://#i', $mediaUrl)) {
+            $mediaUrl = $origin.'/'.ltrim($mediaUrl, '/');
+        }
+
+        $payload['image_url'] = $mediaUrl;
+        unset($payload['mediaUrl'], $payload['media_url'], $payload['image']);
+
+        return $payload;
     }
 
     protected function mobileCategoryPayload(Category $category): array
@@ -73,7 +76,7 @@ trait BuildsMobilePayloads
         ];
     }
 
-    protected function mobileItemPayload(Item $item): array
+    protected function mobileItemPayload(Item $item, array $promotions = []): array
     {
         return [
             'id' => (int) $item->id,
@@ -84,9 +87,6 @@ trait BuildsMobilePayloads
             'description' => (string) ($item->description ?? ''),
             'price' => (float) $item->price,
             'formatted_price' => (string) format_currency_amount($item->price, $item->currency),
-            'discount_percent' => (int) ($item->discount_percent ?? 0),
-            'final_price' => (float) $item->final_price,
-            'formatted_final_price' => (string) format_currency_amount($item->final_price, $item->currency),
             'rating' => $item->rating !== null ? (float) $item->rating : null,
             'review_count' => (int) ($item->review_count ?? 0),
             'stock' => (int) ($item->stock ?? 0),
@@ -95,6 +95,10 @@ trait BuildsMobilePayloads
             'is_featured' => (bool) ($item->is_featured ?? false),
             'is_new_arrival' => (bool) ($item->is_new_arrival ?? false),
             'is_try_on_enabled' => (bool) ($item->is_try_on_enabled ?? false),
+            'stock_control' => (bool) ($item->stock_control ?? true),
+            'purchase' => (bool) ($item->purchase ?? true),
+            'sale' => (bool) ($item->sale ?? true),
+            'promotions' => array_values($promotions),
             'branch' => $item->branch ? [
                 'id' => (int) $item->branch->id,
                 'name' => (string) $item->branch->name,
@@ -109,23 +113,45 @@ trait BuildsMobilePayloads
             'currency' => $item->currency ? [
                 'id' => (int) $item->currency->id,
                 'code' => (string) $item->currency->code,
+                'symbol' => (string) ($item->currency->symbol ?? $item->currency->code),
+                'decimal_places' => (int) ($item->currency->decimal_places ?? 2),
             ] : null,
             'uom_group' => $item->relationLoaded('uomGroup') && $item->uomGroup ? [
                 'id' => (int) $item->uomGroup->id,
                 'code' => (string) $item->uomGroup->code,
                 'name' => (string) $item->uomGroup->name,
+                'foreign_name' => (string) ($item->uomGroup->foreign_name ?? ''),
                 'units' => $item->uomGroup->relationLoaded('units')
                     ? $item->uomGroup->units
                         ->filter(fn ($groupUnit) => $groupUnit->unit)
-                        ->map(fn ($groupUnit) => [
-                            'id' => (int) $groupUnit->unit->id,
-                            'name' => (string) $groupUnit->unit->name,
-                            'code' => (string) $groupUnit->unit->code,
-                            'symbol' => (string) ($groupUnit->unit->symbol ?: $groupUnit->unit->code),
-                            'conversion_factor_to_base' => (float) $groupUnit->conversion_factor_to_base,
-                            'is_base_unit' => (bool) $groupUnit->is_base_unit,
-                            'price' => round((float) $item->price * (float) $groupUnit->conversion_factor_to_base, 2),
-                        ])->values()->all()
+                        ->map(function ($groupUnit) use ($item) {
+                            $conversionFactor = (float) $groupUnit->conversion_factor_to_base;
+                            $basePrice = round_currency_amount((float) $item->price * $conversionFactor, $item->currency);
+                            $itemUomPrice = $item->relationLoaded('uomPrices')
+                                ? $item->uomPrices->firstWhere('unit_of_measure_id', $groupUnit->unit_of_measure_id)
+                                : null;
+
+                            $isActive = (bool) ($itemUomPrice ? $itemUomPrice->is_active : true);
+
+                            return [
+                                'id' => (int) $groupUnit->unit->id,
+                                'name' => (string) $groupUnit->unit->name,
+                                'foreign_name' => (string) ($groupUnit->unit->foreign_name ?? ''),
+                                'code' => (string) $groupUnit->unit->code,
+                                'symbol' => (string) ($groupUnit->unit->symbol ?: $groupUnit->unit->code),
+                                'conversion_factor_to_base' => $conversionFactor,
+                                'is_base_unit' => (bool) $groupUnit->is_base_unit,
+                                'base_price' => $basePrice,
+                                'reduce_by_percent' => (float) ($itemUomPrice?->reduce_by_percent ?? 0),
+                                'price' => $itemUomPrice
+                                    ? $itemUomPrice->resolvedPrice((float) $item->price, $conversionFactor, $item->currency)
+                                    : $basePrice,
+                                'is_auto' => (bool) ($itemUomPrice?->is_auto ?? true),
+                                'is_active' => $isActive,
+                            ];
+                        })
+                        ->filter(fn (array $unit): bool => $unit['is_active'])
+                        ->values()->all()
                     : [],
             ] : null,
             'thumbnail_url' => $item->image_url,
@@ -195,47 +221,50 @@ trait BuildsMobilePayloads
         ];
     }
 
-    protected function mobileOrderItemPayload(OrderItem $line): array
-    {
-        return [
-            'id' => (int) $line->id,
-            'item_id' => $line->item_id ? (int) $line->item_id : null,
-            'item_variant_id' => $line->item_variant_id ? (int) $line->item_variant_id : null,
-            'sku' => (string) ($line->sku ?? ''),
-            'name' => (string) $line->name,
-            'image_url' => $line->image_url,
-            'selected_options' => $line->selected_options ?? [],
-            'quantity' => (int) $line->quantity,
-            'unit_price' => (float) $line->unit_price,
-            'option_total' => (float) $line->option_total,
-            'line_subtotal' => (float) $line->line_subtotal,
-            'discount_amount' => (float) $line->discount_amount,
-            'line_total' => (float) $line->line_total,
-        ];
-    }
+        protected function mobileOrderPayload(PosSale $sale, bool $includeItems = true): array
+        {
+            return $this->mobilePosSalePayload($sale, $includeItems);
+        }
 
-    protected function mobileOrderPayload(Order $order, bool $includeItems = true): array
+    protected function mobilePosSalePayload(PosSale $sale, bool $includeItems = true): array
     {
+        $items = $includeItems && $sale->relationLoaded('items')
+            ? $sale->items->map(fn ($line) => [
+                'id' => (int) $line->id,
+                'product_id' => $line->item_id ? (int) $line->item_id : 0,
+                'item_id' => $line->item_id ? (int) $line->item_id : 0,
+                'sku' => (string) ($line->sku ?? ''),
+                'name' => (string) $line->name,
+                'foreign_name' => (string) ($line->item?->foreign_name ?? ''),
+                'quantity' => (int) $line->quantity,
+                'unit_price' => (float) $line->unit_price_base,
+                'discount_amount' => (float) $line->discount_base,
+                'line_total' => (float) $line->line_total_base,
+                'image' => (string) ($line->item?->image_url ?? ''),
+                'image_url' => (string) ($line->item?->image_url ?? ''),
+                'thumbnail_url' => (string) ($line->item?->image_url ?? ''),
+            ])->values()->all()
+            : [];
+
         return [
-            'id' => (int) $order->id,
-            'order_number' => (string) $order->order_number,
-            'status' => (string) $order->status,
-            'payment_status' => (string) $order->payment_status,
-            'payment_method' => (string) $order->payment_method,
-            'delivery_method' => (string) $order->delivery_method,
-            'currency_code' => (string) ($order->currency_code ?? ''),
-            'total_items' => (int) $order->total_items,
-            'subtotal' => (float) $order->subtotal,
-            'discount_total' => (float) $order->discount_total,
-            'total' => (float) $order->total,
-            'note' => (string) ($order->note ?? ''),
-            'placed_at' => optional($order->placed_at ?? $order->created_at)->toIso8601String(),
-            'address' => $order->relationLoaded('address') && $order->address
-                ? $this->mobileAddressPayload($order->address)
-                : null,
-            'items' => $includeItems && $order->relationLoaded('items')
-                ? $order->items->map(fn (OrderItem $line) => $this->mobileOrderItemPayload($line))->values()->all()
-                : [],
+            'id' => (int) $sale->id,
+            'order_number' => (string) ($sale->invoice_number ?: $sale->reference ?: ('SALE-'.$sale->id)),
+            'sale_from' => (string) ($sale->sale_from ?? 'mobile'),
+            'status' => (string) ($sale->status === 'completed' ? 'Completed' : $sale->status),
+            'payment_status' => (string) ($sale->status === 'completed' ? 'Paid' : 'Pending'),
+            'payment_method' => (string) ($sale->payment_method ?? 'Cash'),
+            'delivery_method' => (string) ($sale->order_type ?? 'Home Delivery'),
+            'currency_code' => (string) ($sale->base_currency_code ?? 'USD'),
+            'total_items' => (int) $sale->item_count,
+            'subtotal' => (float) $sale->subtotal_base,
+            'discount_total' => (float) $sale->discount_base,
+            'total' => (float) $sale->total_base,
+            'total_amount' => (float) $sale->total_base,
+            'note' => (string) ($sale->notes ?? ''),
+            'created_at' => optional($sale->completed_at ?? $sale->created_at)->toIso8601String(),
+            'placed_at' => optional($sale->completed_at ?? $sale->created_at)->toIso8601String(),
+            'lines' => $items,
+            'items' => $items,
         ];
     }
 

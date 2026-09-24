@@ -21,6 +21,7 @@ class Kernel extends HttpKernel
         \Illuminate\Foundation\Http\Middleware\ValidatePostSize::class,
         \App\Http\Middleware\TrimStrings::class,
         \Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull::class,
+        \App\Http\Middleware\EnforceSecurityFirewall::class,
     ];
 
     /**
@@ -70,5 +71,24 @@ class Kernel extends HttpKernel
         'admin.tenancy' => \App\Http\Middleware\InitializeAdminTenancy::class,
         'admin.administrator' => \App\Http\Middleware\EnsureAdministratorAccess::class,
         'admin.permission' => \App\Http\Middleware\EnsureTenantPermission::class,
+        'admin.central' => \App\Http\Middleware\PreventAccessFromTenantDomains::class,
+    ];
+
+    /**
+     * The priority-sorted list of middleware.
+     *
+     * Forces non-global middleware to always be in the given order.
+     *
+     * @var string[]
+     */
+    protected $middlewarePriority = [
+        \App\Http\Middleware\PreventAccessFromTenantDomains::class,
+        \App\Http\Middleware\Authenticate::class,
+        \App\Http\Middleware\EnsureTenantIsActive::class,
+        \App\Http\Middleware\EnsureTenantAccess::class,
+        \App\Http\Middleware\EnsureAdminTenantSelected::class,
+        \App\Http\Middleware\InitializeAdminTenancy::class,
+        \App\Http\Middleware\EnsureAdministratorAccess::class,
+        \App\Http\Middleware\EnsureTenantPermission::class,
     ];
 }

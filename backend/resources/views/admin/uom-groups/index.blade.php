@@ -9,7 +9,9 @@
 @endpush
 
 @section('content')
-@php($canManageUom = admin_has_permission('units_of_measure.manage'))
+@php($canCreateUom = admin_has_permission('uom_groups.create'))
+@php($canEditUom = admin_has_permission('uom_groups.edit'))
+@php($canDeleteUom = admin_has_permission('uom_groups.delete'))
 <div class="row">
     <div class="col-12">
         <div class="card">
@@ -21,7 +23,7 @@
                             Group related units together like SAP UoM groups, with one base unit and conversion units.
                         </p>
                     </div>
-                    @if ($canManageUom)
+                    @if ($canCreateUom)
                         <div class="mt-3 mt-sm-0 d-flex gap-2">
                             <a href="{{ route('admin.units-of-measure.index') }}" class="btn btn-light waves-effect">Units</a>
                             <a href="{{ route('admin.uom-groups.create') }}" class="btn btn-primary waves-effect waves-light">
@@ -79,14 +81,17 @@
                                     </td>
                                     <td>{{ optional($group->updated_at)->format('d M Y, h:i A') ?: '-' }}</td>
                                     <td class="text-nowrap">
-                                        @if ($canManageUom)
+                                        @if ($canEditUom)
                                             <a href="{{ route('admin.uom-groups.edit', ['uom_group' => $group->id]) }}" class="btn btn-sm btn-outline-primary me-2">Edit</a>
+                                        @endif
+                                        @if ($canDeleteUom)
                                             <form action="{{ route('admin.uom-groups.destroy', ['uom_group' => $group->id]) }}" method="POST" class="d-inline">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this UoM group and its units?')">Delete</button>
                                             </form>
-                                        @else
+                                        @endif
+                                        @if (! $canEditUom && ! $canDeleteUom)
                                             <span class="text-muted">View only</span>
                                         @endif
                                     </td>

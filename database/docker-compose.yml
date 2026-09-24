@@ -12,6 +12,7 @@ services:
       - "${DB_EXPOSE_PORT}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+      - ./init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
       interval: 10s
@@ -22,7 +23,7 @@ services:
       - app-network
 
   phpmyadmin:
-    image: phpmyadmin/phpmyadmin
+    image: phpmyadmin:5.2.3
     container_name: phpmyadmin
     restart: always
     depends_on:

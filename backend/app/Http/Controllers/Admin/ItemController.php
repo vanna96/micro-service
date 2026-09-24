@@ -10,18 +10,23 @@ use App\Models\ItemVariant;
 use App\Models\ItemVariation;
 use App\Models\PriceList;
 use App\Models\Tenant;
+use App\Models\UnitOfMeasure;
 use App\Models\UomGroup;
 use App\Repositories\BranchRepository;
 use App\Repositories\CurrencyRepository;
 use App\Repositories\ItemRepository;
 use App\Repositories\PriceListRepository;
 use App\Repositories\UomGroupRepository;
+use App\Services\ItemExcelImportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ItemController extends Controller
 {
@@ -48,7 +53,9 @@ class ItemController extends Controller
         $this->priceLists = $priceLists;
         $this->uomGroups = $uomGroups;
         $this->middleware('admin.permission:items.view')->only(['index']);
-        $this->middleware('admin.permission:items.manage')->except(['index']);
+        $this->middleware('admin.permission:items.create')->only(['create', 'store', 'importTemplate', 'import']);
+        $this->middleware('admin.permission:items.edit')->only(['edit', 'update', 'destroyGallery']);
+        $this->middleware('admin.permission:items.delete')->only(['destroy']);
     }
 
     public function index(Request $request): View
@@ -72,6 +79,9 @@ class ItemController extends Controller
             'item' => new Item([
                 'status' => 'Active',
                 'item_type' => 'uom',
+                'stock_control' => true,
+                'purchase' => true,
+                'sale' => true,
                 'is_try_on_enabled' => true,
                 'currency_id' => $baseCurrency?->id,
             ]),
@@ -98,10 +108,43 @@ class ItemController extends Controller
             ->with('status', 'Item created successfully.');
     }
 
+    public function importTemplate(Request $request, ItemExcelImportService $importer): StreamedResponse
+    {
+        $this->requiredTenant($request);
+        $spreadsheet = $importer->makeTemplate();
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            (new Xlsx($spreadsheet))->save('php://output');
+            $spreadsheet->disconnectWorksheets();
+        }, 'items-import-template.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
+        ]);
+    }
+
+    public function import(Request $request, ItemExcelImportService $importer): RedirectResponse
+    {
+        $this->requiredTenant($request);
+        $validated = $request->validate([
+            'import_file' => ['required', 'file', 'mimes:xlsx,xls', 'max:5120'],
+        ]);
+
+        $count = $importer->import($validated['import_file']);
+
+        return redirect()
+            ->route('admin.items.index')
+            ->with('status', $count.' item'.($count === 1 ? '' : 's').' imported successfully.');
+    }
+
     public function edit(Request $request, string $item): View
     {
         $selectedTenant = $this->requiredTenant($request);
         $itemModel = $this->items->loadForAdminEdit((int) $item);
+        $baseCurrency = $this->baseCurrency();
+
+        if (! $itemModel->currency_id && $baseCurrency) {
+            $itemModel->currency_id = $baseCurrency->id;
+        }
 
         return view('admin.items.edit', [
             'item' => $itemModel,
@@ -184,10 +227,20 @@ class ItemController extends Controller
             'foreign_name' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'price' => ['required', 'numeric', 'min:0'],
-            'discount_percent' => ['nullable', 'integer', 'between:0,100'],
             'rating' => ['nullable', 'numeric', 'between:0,5'],
             'review_count' => ['nullable', 'integer', 'min:0'],
             'stock' => ['required', 'integer', 'min:0'],
+            'stock_control' => ['nullable', 'boolean'],
+            'purchase' => ['nullable', 'boolean'],
+            'sale' => ['nullable', 'boolean'],
+            'is_purchase' => ['nullable', 'boolean'],
+            'is_sale' => ['nullable', 'boolean'],
+            'uom_prices' => ['nullable', 'array', 'max:100'],
+            'uom_prices.*.unit_of_measure_id' => ['required', 'integer', 'distinct', Rule::exists($this->unitOfMeasureValidationTable(), 'id')],
+            'uom_prices.*.reduce_by_percent' => ['nullable', 'numeric', 'between:0,100'],
+            'uom_prices.*.price' => ['nullable', 'numeric', 'min:0'],
+            'uom_prices.*.is_auto' => ['nullable', 'boolean'],
+            'uom_prices.*.is_active' => ['nullable', 'boolean'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'is_premium' => ['nullable', 'boolean'],
             'is_featured' => ['nullable', 'boolean'],
@@ -230,7 +283,7 @@ class ItemController extends Controller
             'variants.*.sort_order' => ['nullable', 'integer', 'min:0'],
             'variants.*.status' => ['nullable', Rule::in(['Active', 'Inactive'])],
             'variants.*.option_value_keys' => ['required', 'array', 'min:1'],
-            'variants.*.option_value_keys.*' => ['required', 'string', 'alpha_dash', 'distinct'],
+            'variants.*.option_value_keys.*' => ['required', 'string', 'alpha_dash'],
         ]);
 
         $validator->after(function ($validator) use ($request) {
@@ -246,6 +299,48 @@ class ItemController extends Controller
                     $currency->code.' allows up to '.$currency->decimal_places.' decimal place(s).'
                 );
             }
+
+            collect($request->input('uom_prices', []))->each(function (array $row, int $index) use ($validator, $currency) {
+                if (! filter_var($row['is_auto'] ?? false, FILTER_VALIDATE_BOOLEAN)
+                    && (! array_key_exists('price', $row) || $row['price'] === '')) {
+                    $validator->errors()->add("uom_prices.{$index}.price", 'A manual UoM price is required when Auto is disabled.');
+                }
+
+                if (($row['price'] ?? '') !== ''
+                    && currency_decimal_count($row['price']) > (int) $currency->decimal_places) {
+                    $validator->errors()->add(
+                        "uom_prices.{$index}.price",
+                        $currency->code.' allows up to '.$currency->decimal_places.' decimal place(s).'
+                    );
+                }
+            });
+        });
+
+        $validator->after(function ($validator) use ($request) {
+            if ($request->input('item_type') !== 'uom' || ! $request->filled('uom_group_id')) {
+                return;
+            }
+
+            $group = UomGroup::query()
+                ->with('units')
+                ->find((int) $request->input('uom_group_id'));
+
+            $allowedUnitIds = $group?->units
+                ->pluck('unit_of_measure_id')
+                ->map(fn ($id) => (int) $id)
+                ->all() ?? [];
+
+            $baseUnitId = (int) ($group?->units->firstWhere('is_base_unit', true)?->unit_of_measure_id ?? 0);
+
+            collect($request->input('uom_prices', []))->each(function (array $row, int $index) use ($validator, $allowedUnitIds, $baseUnitId) {
+                $unitId = (int) ($row['unit_of_measure_id'] ?? 0);
+                if (! in_array($unitId, $allowedUnitIds, true)) {
+                    $validator->errors()->add("uom_prices.{$index}.unit_of_measure_id", 'This UoM does not belong to the selected UoM group.');
+                }
+                if ($unitId === $baseUnitId && array_key_exists('is_active', $row) && ! filter_var($row['is_active'], FILTER_VALIDATE_BOOLEAN)) {
+                    $validator->errors()->add("uom_prices.{$index}.is_active", 'The base unit cannot be deactivated.');
+                }
+            });
         });
 
         $validator->after(function ($validator) use ($request, $item) {
@@ -289,7 +384,9 @@ class ItemController extends Controller
                     }
                 }
 
-                if (($group['selection_type'] ?? null) === 'single' && $values->where('is_default', true)->count() > 1) {
+                if (($group['type'] ?? null) === 'modifier'
+                    && ($group['selection_type'] ?? null) === 'single'
+                    && $values->where('is_default', true)->count() > 1) {
                     $validator->errors()->add("option_groups.{$groupIndex}.values", 'A single-select group can have only one default value.');
                 }
 
@@ -307,6 +404,10 @@ class ItemController extends Controller
             $combinationKeys = collect();
             $variants->values()->each(function (array $variant, int $variantIndex) use ($validator, $valueGroups, $variantGroupKeys, $combinationKeys) {
                 $selectedKeys = collect($variant['option_value_keys'] ?? []);
+
+                if ($selectedKeys->duplicates()->isNotEmpty()) {
+                    $validator->errors()->add("variants.{$variantIndex}.option_value_keys", 'A variant cannot contain the same option value more than once.');
+                }
 
                 $selectedKeys->each(function (string $key) use ($validator, $valueGroups, $variantIndex) {
                     if (! $valueGroups->has($key)) {
@@ -351,6 +452,16 @@ class ItemController extends Controller
                 }
             }
         });
+
+        if ($validator->fails()) {
+            $errors = $validator->errors()->toArray();
+            Log::warning('Admin item validation failed', [
+                'tenant_id' => tenant()?->getTenantKey(),
+                'item_id' => $itemId,
+                'error_fields' => array_keys($errors),
+                'errors' => $errors,
+            ]);
+        }
 
         return $validator->validate();
     }
@@ -432,6 +543,17 @@ class ItemController extends Controller
         return 'central.'.$table;
     }
 
+    private function unitOfMeasureValidationTable(): string
+    {
+        $table = (new UnitOfMeasure())->getTable();
+
+        if (tenant()) {
+            return tenant()->database_connection_name.'.'.$table;
+        }
+
+        return 'central.'.$table;
+    }
+
     private function requiredTenant(Request $request): Tenant
     {
         $tenant = admin_current_tenant();
@@ -445,15 +567,28 @@ class ItemController extends Controller
     {
         $itemType = (string) $request->input('item_type', 'uom');
         $configurationEnabled = $itemType === 'variation';
+        $currencyId = $request->input('currency_id') ?: $this->baseCurrency()?->id;
+
+        $hasScopeSubmitted = $request->has('scope_submitted');
+        $purchase = $hasScopeSubmitted
+            ? $request->boolean('purchase')
+            : ($request->has('purchase') ? $request->boolean('purchase') : ($request->has('is_purchase') ? $request->boolean('is_purchase') : true));
+        $sale = $hasScopeSubmitted
+            ? $request->boolean('sale')
+            : ($request->has('sale') ? $request->boolean('sale') : ($request->has('is_sale') ? $request->boolean('is_sale') : true));
 
         $request->merge([
             'item_type' => $itemType,
             'uom_group_id' => $configurationEnabled ? null : $request->input('uom_group_id'),
+            'uom_prices' => $configurationEnabled ? [] : $request->input('uom_prices', []),
+            'currency_id' => $currencyId,
+            'purchase' => $purchase,
+            'sale' => $sale,
             'is_premium' => $request->boolean('is_premium'),
             'is_featured' => $request->boolean('is_featured'),
             'is_new_arrival' => $request->boolean('is_new_arrival'),
             'is_try_on_enabled' => $request->boolean('is_try_on_enabled'),
-            'discount_percent' => $request->input('discount_percent', 0),
+            'stock_control' => $request->boolean('stock_control'),
             'review_count' => $request->input('review_count', 0),
             'sort_order' => $request->input('sort_order', 0),
             'configuration_enabled' => $configurationEnabled,
@@ -469,6 +604,21 @@ class ItemController extends Controller
 
     private function prepareConfigurationPayload(Request $request, array $validated): array
     {
+        $currency = $this->currencies->findActiveById((int) $request->input('currency_id'));
+        $validated['price'] = format_currency_input($validated['price'] ?? null, $currency, 2);
+        $validated['uom_prices'] = collect($validated['uom_prices'] ?? [])->values()->map(function (array $row) use ($currency): array {
+            $isAuto = array_key_exists('is_auto', $row) ? (bool) $row['is_auto'] : true;
+            $isActive = array_key_exists('is_active', $row) ? (bool) $row['is_active'] : true;
+
+            return [
+                'unit_of_measure_id' => (int) $row['unit_of_measure_id'],
+                'reduce_by_percent' => round((float) ($row['reduce_by_percent'] ?? 0), 2),
+                'price' => $isAuto ? null : format_currency_input($row['price'] ?? null, $currency, 2),
+                'is_auto' => $isAuto,
+                'is_active' => $isActive,
+            ];
+        })->all();
+
         if (! $request->boolean('configuration_enabled')) {
             $validated['option_groups'] = [];
             $validated['variants'] = [];
@@ -477,7 +627,7 @@ class ItemController extends Controller
             return $validated;
         }
 
-        $validated['option_groups'] = collect($validated['option_groups'] ?? [])->values()->map(function (array $group, int $index): array {
+        $validated['option_groups'] = collect($validated['option_groups'] ?? [])->values()->map(function (array $group, int $index) use ($currency): array {
             $isVariant = $group['type'] === 'variant';
             $isRequired = $isVariant || (bool) ($group['is_required'] ?? false);
 
@@ -489,8 +639,8 @@ class ItemController extends Controller
                 'sort_order' => (int) ($group['sort_order'] ?? $index),
                 'status' => $group['status'] ?? 'Active',
                 'values' => collect($group['values'])->values()->map(fn (array $value, int $valueIndex): array => array_merge($value, [
-                    'price_adjustment' => (float) ($value['price_adjustment'] ?? 0),
-                    'is_default' => (bool) ($value['is_default'] ?? false),
+                    'price_adjustment' => format_currency_input($value['price_adjustment'] ?? 0, $currency, 2),
+                    'is_default' => ! $isVariant && (bool) ($value['is_default'] ?? false),
                     'sort_order' => (int) ($value['sort_order'] ?? $valueIndex),
                     'status' => $value['status'] ?? 'Active',
                 ]))->all(),
@@ -498,6 +648,7 @@ class ItemController extends Controller
         })->all();
 
         $validated['variants'] = collect($validated['variants'] ?? [])->values()->map(fn (array $variant, int $index): array => array_merge($variant, [
+            'price' => format_currency_input($variant['price'] ?? null, $currency, 2),
             'stock' => (int) ($variant['stock'] ?? 0),
             'is_default' => (bool) ($variant['is_default'] ?? false),
             'sort_order' => (int) ($variant['sort_order'] ?? $index),

@@ -12,9 +12,12 @@
         "laravel/tinker": "^2.7",
         "laravel/ui": "^4.6",
         "league/flysystem-aws-s3-v3": "^3.0",
+        "phpoffice/phpspreadsheet": "^1.30",
         "propaganistas/laravel-phone": "^5.1",
+        "pusher/pusher-php-server": "^7.3",
         "rennokki/laravel-eloquent-query-cache": "^3.4",
         "rinvex/laravel-repositories": "dev-master",
+        "sentry/sentry-laravel": "^4.27",
         "spatie/laravel-activitylog": "^4.7.3",
         "stancl/tenancy": "^3.8"
     },

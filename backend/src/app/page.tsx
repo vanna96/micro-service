@@ -1,4 +1,4 @@
-import { GotPosDashboard } from "@/components/gotpos-dashboard";
+import { VPosDashboard } from "@/components/vpos-dashboard";
 export default function HomePage() {
-  return <GotPosDashboard />;
+  return <VPosDashboard />;
 }

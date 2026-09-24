@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "@/lib/i18n/i18n";
 
 interface ModalConfirmClearProps {
   onConfirm: () => void;
@@ -6,6 +7,8 @@ interface ModalConfirmClearProps {
 }
 
 export function ModalConfirmClear({ onConfirm, onClose }: ModalConfirmClearProps) {
+  const { t } = useTranslation();
+
   return (
     <div className="modal fade show d-block" tabIndex={-1} style={{ zIndex: 1060 }}>
       <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: "340px" }}>
@@ -16,20 +19,20 @@ export function ModalConfirmClear({ onConfirm, onClose }: ModalConfirmClearProps
           >
             <i className="ri-delete-bin-line fs-28"></i>
           </div>
-          <h6 className="fw-bolder mb-1">Clear Current Cart?</h6>
+          <h6 className="fw-bolder mb-1">{t("clearCurrentCart")}</h6>
           <p className="text-muted fs-12 mb-4">
-            All items in the current cart will be removed.
+            {t("allItemsWillBeRemoved")}
           </p>
           <div className="d-flex gap-2">
             <button type="button" className="btn btn-light flex-fill" onClick={onClose}>
-              Cancel
+              {t("cancel")}
             </button>
             <button
               type="button"
               className="btn btn-danger flex-fill fw-semibold"
               onClick={onConfirm}
             >
-              Yes, Clear
+              {t("yesClear")}
             </button>
           </div>
         </div>

@@ -37,6 +37,10 @@ class UomGroupRepository extends RepositoryBase
 
         return $this->uomGroupModel()
             ->newQuery()
+            ->with([
+                'units' => fn ($query) => $query->orderBy('sort_order')->orderBy('id'),
+                'units.unit',
+            ])
             ->where(function ($query) use ($selectedGroupId, $groupKeyName) {
                 $query->where('status', 'Active');
 

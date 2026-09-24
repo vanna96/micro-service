@@ -322,21 +322,65 @@ trait InteractsWithMobileUsers
 
     protected function issueMobileToken(User $centralUser, Request $request): array
     {
-        $tokenResult = $centralUser->createToken('mobile-auth');
+        $accessExpiresMinutes = 60;
+        $refreshExpiresDays = 30;
+
+        $tokenResult = $centralUser->createToken('mobile-auth', ['*'], now()->addMinutes($accessExpiresMinutes));
         $plainTextToken = $tokenResult->plainTextToken;
-        $timeout = 60;
 
         $tokenResult->accessToken->forceFill([
-            'expires_at' => now()->addMinutes($timeout),
-            'tenant_id' => null,
+            'tenant_id'   => null,
             'device_name' => 'mobile',
-            'device_ip' => $request->ip(),
-            'user_agent' => $request->userAgent(),
+            'device_ip'   => $request->ip(),
+            'user_agent'  => $request->userAgent(),
         ])->save();
 
+        $refreshTokenResult = $centralUser->createToken('mobile-refresh', ['issue-token'], now()->addDays($refreshExpiresDays));
+        $plainTextRefreshToken = $refreshTokenResult->plainTextToken;
+
+        $refreshTokenResult->accessToken->forceFill([
+            'tenant_id'   => null,
+            'device_name' => 'mobile',
+            'device_ip'   => $request->ip(),
+            'user_agent'  => $request->userAgent(),
+        ])->save();
+
+        $expiresInSeconds = $accessExpiresMinutes * 60;
+
         return [
-            'token' => $plainTextToken,
-            'timeout' => $timeout,
+            'token'           => $plainTextToken,
+            'access_token'    => $plainTextToken,
+            'refresh_token'   => $plainTextRefreshToken,
+            'token_type'      => 'Bearer',
+            'expires_in'      => $expiresInSeconds,
+            'timeout'         => $expiresInSeconds,
+            'timeout_minutes' => $accessExpiresMinutes,
         ];
+    }
+
+    protected function findPersonalAccessToken(string $tokenString): ?\Laravel\Sanctum\PersonalAccessToken
+    {
+        foreach (array_unique(['central', config('database.default')]) as $connection) {
+            try {
+                $model = (new \Laravel\Sanctum\PersonalAccessToken())->setConnection($connection);
+                if (! str_contains($tokenString, '|')) {
+                    $instance = $model->newQuery()->where('token', hash('sha256', $tokenString))->first();
+                } else {
+                    [$id, $plain] = explode('|', $tokenString, 2);
+                    $instance = $model->newQuery()->find($id);
+                    if ($instance && ! hash_equals($instance->token, hash('sha256', $plain))) {
+                        $instance = null;
+                    }
+                }
+
+                if ($instance instanceof \Laravel\Sanctum\PersonalAccessToken) {
+                    return $instance;
+                }
+            } catch (\Throwable $e) {
+                // Try next connection
+            }
+        }
+
+        return \Laravel\Sanctum\PersonalAccessToken::findToken($tokenString);
     }
 }

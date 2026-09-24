@@ -30,6 +30,7 @@ Route::middleware([
         $r->group([ 'prefix' => 'user'], function ($r) {
             $r->post('register', [AuthController::class, 'register']);
             $r->post('login', [AuthController::class, 'login'])->middleware('tenant.active');
+            $r->post('refresh', [AuthController::class, 'refreshToken'])->middleware('tenant.active');
 
             $r->middleware(['auth:sanctum',  'tenant.active'])->group(function ($r) {
                 $r->post('store', [AuthController::class, 'register']);

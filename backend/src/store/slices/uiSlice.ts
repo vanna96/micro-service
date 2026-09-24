@@ -17,7 +17,7 @@ const initialState: UiState = {
   activeModal: null,
   openDropdown: null,
   isFullscreen: false,
-  selectedPayMethod: '',
+  selectedPayMethod: 'Cash',
 };
 
 export const uiSlice = createSlice({

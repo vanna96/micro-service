@@ -20,9 +20,11 @@ class CartPricingController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.item_id' => ['required', 'integer', Rule::exists((new Item())->getTable(), 'id')],
             'items.*.variant_id' => ['nullable', 'integer', 'min:1'],
+            'items.*.uom_id' => ['nullable', 'integer', 'min:1'],
             'items.*.option_value_ids' => ['nullable', 'array'],
             'items.*.option_value_ids.*' => ['required', 'integer', 'min:1', 'distinct'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.unit_price' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         return response()->json(

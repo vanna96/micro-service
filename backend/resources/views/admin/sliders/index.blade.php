@@ -10,7 +10,9 @@
 @endpush
 
 @section('content')
-@php($canManageSliders = admin_has_permission('sliders.manage'))
+@php($canCreateSliders = admin_has_permission('sliders.create'))
+@php($canEditSliders = admin_has_permission('sliders.edit'))
+@php($canDeleteSliders = admin_has_permission('sliders.delete'))
 <div class="row">
     <div class="col-12">
         <div class="card">
@@ -22,7 +24,7 @@
                             Manage promotional sliders for website and mobile placements within the selected tenant.
                         </p>
                     </div>
-                    @if ($canManageSliders)
+                    @if ($canCreateSliders)
                         <div class="mt-3 mt-sm-0">
                             <a href="{{ route('admin.sliders.create') }}" class="btn btn-primary waves-effect waves-light">
                                 <i class="uil uil-plus me-1"></i>Create Slider
@@ -60,17 +62,58 @@
                             @foreach ($sliders as $slider)
                                 <tr>
                                     <td>
-                                        @if ($slider->image_url)
-                                            <img src="{{ $slider->image_url }}" alt="{{ $slider->title ?: $slider->placement }}" class="rounded border" style="width: 96px; height: 54px; object-fit: cover;">
+                                        @if ($slider->media_type === 'video' || (!empty($slider->media_url) && str_ends_with(strtolower($slider->media_url), '.mp4')))
+                                            <div class="rounded border d-flex flex-column align-items-center justify-content-center text-white p-1" style="width: 104px; height: 58px; background: #0f172a;">
+                                                <i class="uil uil-video fs-18 text-warning mb-0.5"></i>
+                                                <span class="fs-10 fw-bold text-uppercase">Video Reel</span>
+                                            </div>
+                                        @elseif ($slider->image_url)
+                                            <img src="{{ $slider->image_url }}" alt="{{ $slider->title ?: $slider->placement }}" class="rounded border" style="width: 104px; height: 58px; object-fit: cover;">
+                                        @elseif ($slider->gradient)
+                                            <div class="rounded border d-flex align-items-center justify-content-center text-white shadow-sm" style="width: 104px; height: 58px; background: {{ $slider->gradient }};">
+                                                <i class="{{ $slider->icon ?: 'ri-gift-line' }} fs-18"></i>
+                                            </div>
                                         @else
-                                            <span class="text-muted">No image</span>
+                                            <span class="text-muted fs-12">No media</span>
                                         @endif
                                     </td>
                                     <td>
-                                        <div class="fw-semibold">{{ $slider->title ?: '-' }}</div>
-                                        <div class="text-muted font-size-12">{{ $slider->subtitle ?: $slider->recommended_dimensions }}</div>
+                                        <div class="d-flex align-items-center gap-1.5 flex-wrap mb-1">
+                                            @if ($slider->badge)
+                                                <span class="badge shadow-sm rounded-pill px-2 py-0.5 fs-10 fw-bold" style="background-color: {{ $slider->badge_bg ?: '#ffffff' }}; color: {{ $slider->badge_color ?: '#0f172a' }}; border: 1px solid rgba(0,0,0,0.1);">
+                                                    @if ($slider->icon)<i class="{{ $slider->icon }} me-1"></i>@endif{{ $slider->badge }}
+                                                </span>
+                                            @endif
+                                            @if ($slider->discount)
+                                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-2 py-0.5 fs-10 fw-bold">
+                                                    {{ $slider->discount }}
+                                                </span>
+                                            @endif
+                                        </div>
+                                        <div class="fw-semibold fs-14">{{ $slider->title ?: '-' }}</div>
+                                        @if ($slider->subtitle)
+                                            <div class="text-muted fs-12 text-truncate" style="max-width: 320px;">{{ $slider->subtitle }}</div>
+                                        @endif
                                     </td>
-                                    <td>{{ $slider->placement }}</td>
+                                    <td>
+                                        @if ($slider->placement === 'second_screen' || strtolower($slider->placement) === 'secondscreen')
+                                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1 fs-11">
+                                                📺 2nd Screen (POS)
+                                            </span>
+                                        @elseif (strtolower($slider->placement) === 'mobile')
+                                            <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 px-2 py-1 fs-11">
+                                                📱 Mobile App
+                                            </span>
+                                        @elseif (strtolower($slider->placement) === 'all')
+                                            <span class="badge bg-dark bg-opacity-10 text-dark border border-dark border-opacity-25 px-2 py-1 fs-11">
+                                                🌐 All Channels
+                                            </span>
+                                        @else
+                                            <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 px-2 py-1 fs-11">
+                                                💻 Website
+                                            </span>
+                                        @endif
+                                    </td>
                                     <td>
                                         @if ($slider->target_url)
                                             <a href="{{ $slider->target_url }}" target="_blank" rel="noopener noreferrer">{{ $slider->target_url }}</a>
@@ -86,14 +129,17 @@
                                     </td>
                                     <td>{{ optional($slider->updated_at)->format('d M Y, h:i A') ?: '-' }}</td>
                                     <td class="text-nowrap">
-                                        @if ($canManageSliders)
+                                        @if ($canEditSliders)
                                             <a href="{{ route('admin.sliders.edit', ['slider' => $slider->id]) }}" class="btn btn-sm btn-outline-primary me-2">Edit</a>
+                                        @endif
+                                        @if ($canDeleteSliders)
                                             <form action="{{ route('admin.sliders.destroy', ['slider' => $slider->id]) }}" method="POST" class="d-inline">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this slider?')">Delete</button>
                                             </form>
-                                        @else
+                                        @endif
+                                        @if (! $canEditSliders && ! $canDeleteSliders)
                                             <span class="text-muted">View only</span>
                                         @endif
                                     </td>

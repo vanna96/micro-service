@@ -93,7 +93,13 @@
                                     <select name="item_id" class="form-select promotion-item-combobox @error('item_id') is-invalid @enderror">
                                         <option value="">Select item</option>
                                         @foreach ($itemOptions as $itemOption)
-                                            <option value="{{ $itemOption->id }}" @selected(old('item_id') == $itemOption->id)>
+                                            <option value="{{ $itemOption->id }}"
+                                                data-has-currency="{{ $itemOption->currency ? '1' : '0' }}"
+                                                data-currency-code="{{ $itemOption->currency?->code }}"
+                                                data-input-step="{{ currency_input_step($itemOption->currency, 2) }}"
+                                                data-decimal-places="{{ $itemOption->currency?->decimal_places }}"
+                                                data-format-example="{{ $itemOption->currency?->format_example ?? '2.22' }}"
+                                                @selected(old('item_id') == $itemOption->id)>
                                                 {{ $itemOption->name }} ({{ $itemOption->sku }})
                                             </option>
                                         @endforeach
@@ -112,7 +118,7 @@
                                     </div>
                                     <div class="col-lg-2">
                                         <label class="form-label">Fixed Price</label>
-                                        <input type="number" min="0" step="0.01" name="fixed_price" value="{{ old('fixed_price') }}" class="form-control fixed-price-input @error('fixed_price') is-invalid @enderror" />
+                                        <input type="number" min="0" step="0.01" name="fixed_price" value="{{ format_currency_input(old('fixed_price'), null, 2) }}" class="form-control fixed-price-input @error('fixed_price') is-invalid @enderror" />
                                         @error('fixed_price')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                                     </div>
                                     <div class="col-lg-2">
@@ -170,7 +176,9 @@
                                             <div class="text-muted font-size-12">{{ $line->item?->sku ?: '-' }}</div>
                                         </td>
                                         <td colspan="4">
-                                            <form id="promotion-line-update-{{ $line->id }}" method="POST" action="{{ route('admin.promotions.lines.update', ['promotion' => $promotion->id, 'line' => $line->id]) }}">
+                                            <form id="promotion-line-update-{{ $line->id }}" method="POST" action="{{ route('admin.promotions.lines.update', ['promotion' => $promotion->id, 'line' => $line->id]) }}"
+                                                data-currency-step="{{ currency_input_step($line->item?->currency, 2) }}"
+                                                data-format-example="{{ $line->item?->currency?->format_example ?? '2.22' }}">
                                                 @csrf
                                                 @method('PUT')
                                                 <div class="row g-2 align-items-end">
@@ -182,7 +190,7 @@
                                                             </select>
                                                         </div>
                                                         <div class="col-lg-3">
-                                                            <input type="number" min="0" step="0.01" name="fixed_price" value="{{ old('fixed_price.' . $line->id, $line->fixed_price) }}" class="form-control fixed-price-input" placeholder="Fixed price" />
+                                                            <input type="number" min="0" step="{{ currency_input_step($line->item?->currency, 2) }}" name="fixed_price" value="{{ format_currency_input(old('fixed_price.' . $line->id, $line->fixed_price), $line->item?->currency, 2) }}" class="form-control fixed-price-input" placeholder="Fixed price" />
                                                         </div>
                                                         <div class="col-lg-2">
                                                             <input type="number" min="0" max="100" step="1" name="discount_percent" value="{{ old('discount_percent.' . $line->id, $line->discount_percent) }}" class="form-control discount-percent-input" placeholder="Discount %" />
@@ -221,10 +229,10 @@
                                                     <div class="col-lg-2">
                                                         @if ($promotion->supportsLinePricing())
                                                             <div class="text-muted font-size-12">
-                                                                Base: ${{ number_format((float) ($line->item?->price ?? 0), 2) }}
+                                                                Base: {{ format_currency_amount($line->item?->price ?? 0, $line->item?->currency) }}
                                                             </div>
                                                             <div class="fw-semibold">
-                                                                Final: ${{ number_format($line->resolved_final_price, 2) }}
+                                                                Final: {{ format_currency_amount($line->resolved_final_price, $line->item?->currency) }}
                                                             </div>
                                                         @elseif ($promotion->type === \App\Models\Promotion::TYPE_BOGO)
                                                             <div class="text-muted font-size-12">
@@ -281,10 +289,21 @@
                 const methodSelect = container.querySelector('.pricing-method-select');
                 const fixedInput = container.querySelector('.fixed-price-input');
                 const discountInput = container.querySelector('.discount-percent-input');
+                const itemSelect = container.querySelector('.promotion-item-combobox');
 
                 if (!methodSelect || !fixedInput || !discountInput) {
                     return;
                 }
+
+                const selectedOption = itemSelect?.selectedOptions[0];
+                fixedInput.setAttribute(
+                    'step',
+                    selectedOption?.dataset.inputStep || container.dataset.currencyStep || '0.01'
+                );
+                fixedInput.setAttribute(
+                    'placeholder',
+                    selectedOption?.dataset.formatExample || container.dataset.formatExample || 'Fixed price'
+                );
 
                 if (methodSelect.value === 'fixed') {
                     fixedInput.removeAttribute('disabled');
@@ -305,6 +324,10 @@
                 applyMethodState(formElement);
 
                 formElement.querySelector('.pricing-method-select').addEventListener('change', function () {
+                    applyMethodState(formElement);
+                });
+
+                formElement.querySelector('.promotion-item-combobox')?.addEventListener('change', function () {
                     applyMethodState(formElement);
                 });
             });

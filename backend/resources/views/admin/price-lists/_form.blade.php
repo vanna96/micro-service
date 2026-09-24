@@ -96,7 +96,7 @@
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Header Fixed Price{{ $baseCurrency ? ' (' . $baseCurrency->code . ')' : '' }}</label>
-                        <input id="price-list-header-fixed-price" type="number" min="0" step="{{ currency_input_step($baseCurrency, 8) }}" name="header_fixed_price" value="{{ old('header_fixed_price', $priceList->header_fixed_price) }}" class="form-control @error('header_fixed_price') is-invalid @enderror" placeholder="{{ $baseCurrency?->format_example ?: 'Set base currency first' }}" />
+                        <input id="price-list-header-fixed-price" type="number" min="0" step="{{ currency_input_step($baseCurrency, 2) }}" name="header_fixed_price" value="{{ format_currency_input(old('header_fixed_price', $priceList->header_fixed_price), $baseCurrency, 2) }}" class="form-control @error('header_fixed_price') is-invalid @enderror" placeholder="{{ $baseCurrency?->format_example ?: 'Set base currency first' }}" />
                         <div class="form-text">
                             @if ($baseCurrency)
                                 Header fixed price uses the tenant base currency {{ $baseCurrency->code }}.

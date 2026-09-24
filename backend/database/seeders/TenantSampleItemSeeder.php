@@ -29,7 +29,8 @@ class TenantSampleItemSeeder extends Seeder
         DB::connection(tenant()->database_connection_name)->transaction(function () use ($categories, $uomGroups, $currency) {
             foreach ($this->products() as $sortOrder => $productData) {
                 $configuration = $productData['configuration'] ?? [];
-                unset($productData['configuration']);
+                $uomPrices = $productData['uom_prices'] ?? [];
+                unset($productData['configuration'], $productData['uom_prices']);
 
                 $categoryName = $productData['category'];
                 $uomGroupCode = $productData['uom_group'] ?? null;
@@ -49,6 +50,7 @@ class TenantSampleItemSeeder extends Seeder
 
                 $this->syncThumbnail($item, $imageAsset);
                 $this->syncConfiguration($item, $configuration);
+                $this->syncUomPrices($item, $uomPrices);
             }
         });
 
@@ -194,6 +196,33 @@ class TenantSampleItemSeeder extends Seeder
         }
     }
 
+    private function syncUomPrices(Item $item, array $uomPrices): void
+    {
+        $item->uomPrices()->delete();
+
+        if ($item->item_type !== 'uom' || ! $item->uom_group_id || empty($uomPrices)) {
+            return;
+        }
+
+        $unitsByCode = $item->uomGroup?->units->loadMissing('unit')->keyBy(fn ($groupUnit) => $groupUnit->unit?->code) ?? collect();
+
+        foreach ($uomPrices as $uomPriceData) {
+            $unitCode = $uomPriceData['unit_code'];
+            $groupUnit = $unitsByCode->get($unitCode);
+            if (! $groupUnit || ! $groupUnit->unit) {
+                continue;
+            }
+
+            $item->uomPrices()->create([
+                'unit_of_measure_id' => $groupUnit->unit_of_measure_id,
+                'reduce_by_percent' => (float) ($uomPriceData['reduce_by_percent'] ?? 0),
+                'price' => isset($uomPriceData['price']) ? (float) $uomPriceData['price'] : null,
+                'is_auto' => (bool) ($uomPriceData['is_auto'] ?? true),
+                'is_active' => (bool) ($uomPriceData['is_active'] ?? true),
+            ]);
+        }
+    }
+
     private function products(): array
     {
         return array_merge($this->uomProducts(), $this->variationProducts(), $this->standardProducts());
@@ -202,12 +231,50 @@ class TenantSampleItemSeeder extends Seeder
     private function uomProducts(): array
     {
         return [
-            $this->item('FD-DRY-005', 'Full Cream Fresh Milk', 2.49, 'Food', 'pr-25-2HQ0Uvnq.png', 'uom', 'VOLUME', 72, 'FarmFresh'),
-            $this->item('FD-BEV-004', 'Cold Pressed Orange Juice', 3.99, 'Food', 'pr-24-CaCL_grq.png', 'uom', 'VOLUME', 60, 'FreshJuice'),
-            $this->item('FD-DRY-002', 'Premium Roasted Almonds', 8.99, 'Food', 'pr-22-AujqxRgd.png', 'uom', 'WEIGHT', 45, 'NutriBite'),
-            $this->item('FD-SNK-001', 'Classic Salted Potato Chips', 2.99, 'Food', 'pr-21-Dip6sWIz.png', 'uom', 'WEIGHT', 80, 'CrunchBite'),
-            $this->item('FD-BEV-003', 'Instant Espresso Coffee Roast', 6.99, 'Food', 'pr-23-DKNsLIkt.png', 'uom', 'WEIGHT', 36, 'AromaRoast'),
-            $this->item('FD-SNK-006', 'Instant Masala Noodles Pack', 1.99, 'Food', 'pr-26-CbwXBE4S.png', 'uom', 'COUNT', 120, 'QuickMeal'),
+            array_merge(
+                $this->item('FD-SNK-001', 'Classic Salted Potato Chips', 2.99, 'Food', 'pr-21-Dip6sWIz.png', 'uom', 'WEIGHT', 80, 'CrunchBite'),
+                ['uom_prices' => [
+                    ['unit_code' => 'KG', 'reduce_by_percent' => 10, 'price' => null, 'is_auto' => true, 'is_active' => true],
+                    ['unit_code' => 'G', 'reduce_by_percent' => 0, 'price' => 0.05, 'is_auto' => false, 'is_active' => true],
+                ]]
+            ),
+            array_merge(
+                $this->item('FD-DRY-005', 'Full Cream Fresh Milk', 2.49, 'Food', 'pr-25-2HQ0Uvnq.png', 'uom', 'VOLUME', 72, 'FarmFresh'),
+                ['uom_prices' => [
+                    ['unit_code' => 'L', 'reduce_by_percent' => 0, 'price' => 2.49, 'is_auto' => true, 'is_active' => true],
+                    ['unit_code' => 'ML', 'reduce_by_percent' => 10, 'price' => null, 'is_auto' => true, 'is_active' => true],
+                ]]
+            ),
+            array_merge(
+                $this->item('FD-BEV-004', 'Cold Pressed Orange Juice', 3.99, 'Food', 'pr-24-CaCL_grq.png', 'uom', 'VOLUME', 60, 'FreshJuice'),
+                ['uom_prices' => [
+                    ['unit_code' => 'L', 'reduce_by_percent' => 0, 'price' => 3.99, 'is_auto' => true, 'is_active' => true],
+                    ['unit_code' => 'ML', 'reduce_by_percent' => 5, 'price' => null, 'is_auto' => true, 'is_active' => true],
+                ]]
+            ),
+            array_merge(
+                $this->item('FD-DRY-002', 'Premium Roasted Almonds', 8.99, 'Food', 'pr-22-AujqxRgd.png', 'uom', 'WEIGHT', 45, 'NutriBite'),
+                ['uom_prices' => [
+                    ['unit_code' => 'KG', 'reduce_by_percent' => 0, 'price' => 8.99, 'is_auto' => true, 'is_active' => true],
+                    ['unit_code' => 'G', 'reduce_by_percent' => 0, 'price' => 0.02, 'is_auto' => false, 'is_active' => true],
+                ]]
+            ),
+            array_merge(
+                $this->item('FD-BEV-003', 'Instant Espresso Coffee Roast', 6.99, 'Food', 'pr-23-DKNsLIkt.png', 'uom', 'WEIGHT', 36, 'AromaRoast'),
+                ['uom_prices' => [
+                    ['unit_code' => 'KG', 'reduce_by_percent' => 0, 'price' => 6.99, 'is_auto' => true, 'is_active' => true],
+                    ['unit_code' => 'G', 'reduce_by_percent' => 0, 'price' => 0.01, 'is_auto' => false, 'is_active' => true],
+                ]]
+            ),
+            array_merge(
+                $this->item('FD-SNK-006', 'Instant Masala Noodles Pack', 1.99, 'Food', 'pr-26-CbwXBE4S.png', 'uom', 'COUNT', 120, 'QuickMeal'),
+                ['uom_prices' => [
+                    ['unit_code' => 'EA', 'reduce_by_percent' => 0, 'price' => 1.99, 'is_auto' => true, 'is_active' => true],
+                    ['unit_code' => 'PK', 'reduce_by_percent' => 5, 'price' => null, 'is_auto' => true, 'is_active' => true],
+                    ['unit_code' => 'BX', 'reduce_by_percent' => 10, 'price' => null, 'is_auto' => true, 'is_active' => true],
+                    ['unit_code' => 'DOZ', 'reduce_by_percent' => 10, 'price' => null, 'is_auto' => true, 'is_active' => false],
+                ]]
+            ),
         ];
     }
 
@@ -354,7 +421,6 @@ class TenantSampleItemSeeder extends Seeder
             'foreign_name' => null,
             'description' => $brand.' sample catalog item.',
             'price' => $price,
-            'discount_percent' => 0,
             'stock' => $stock,
             'item_type' => $itemType,
             'uom_group' => $uomGroup,

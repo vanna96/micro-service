@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\SecuritySetting;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
 use Illuminate\Http\Request;
@@ -17,7 +18,7 @@ class RouteServiceProvider extends ServiceProvider
      *
      * @var string
      */
-    public const HOME = '/home';
+    public const HOME = '/admin/dashboard';
 
     /**
      * Define your route model bindings, pattern filters, and other route configuration.
@@ -29,6 +30,18 @@ class RouteServiceProvider extends ServiceProvider
         $this->configureRateLimiting();
 
         $this->routes(function () {
+            $centralDomains = array_unique(array_filter(array_merge(
+                (array) config('tenancy.central_domains', []),
+                ['localhost', '127.0.0.1']
+            )));
+
+            foreach ($centralDomains as $centralDomain) {
+                Route::middleware('api')
+                    ->domain($centralDomain)
+                    ->prefix('v1/api')
+                    ->group(base_path('routes/v1/api/admin.php'));
+            }
+
             Route::middleware('api')
                 ->prefix('v1/api')
                 ->group(base_path('routes/v1/api/admin.php'));
@@ -36,6 +49,10 @@ class RouteServiceProvider extends ServiceProvider
             Route::middleware('api')
                 ->prefix('v1/api')
                 ->group(base_path('routes/v1/api/mobile.php'));
+
+            Route::middleware('api')
+                ->prefix('v1/api')
+                ->group(base_path('routes/v1/api/pos.php'));
 
             Route::middleware('api')
                 ->prefix('v1/api')
@@ -71,7 +88,10 @@ class RouteServiceProvider extends ServiceProvider
     protected function configureRateLimiting()
     {
         RateLimiter::for('api', function (Request $request) {
-            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+            $isUnderAttack = SecuritySetting::getBool('under_attack_mode', false);
+            $limit = $isUnderAttack ? 30 : SecuritySetting::getInt('global_rate_limit_per_minute', 120);
+
+            return Limit::perMinute($limit)->by($request->user()?->id ?: $request->ip());
         });
     }
 }

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\LogsTenantActivity;
 use App\Models\Concerns\UsesQueryCache;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -29,10 +30,14 @@ class Item extends Model
         'branch_name',
         'description',
         'price',
-        'discount_percent',
         'rating',
         'review_count',
         'stock',
+        'stock_control',
+        'purchase',
+        'sale',
+        'is_purchase',
+        'is_sale',
         'is_premium',
         'is_featured',
         'is_new_arrival',
@@ -46,10 +51,22 @@ class Item extends Model
         'currency_id' => 'integer',
         'price' => 'decimal:8',
         'rating' => 'decimal:2',
+        'stock_control' => 'boolean',
+        'purchase' => 'boolean',
+        'sale' => 'boolean',
+        'is_purchase' => 'boolean',
+        'is_sale' => 'boolean',
         'is_premium' => 'boolean',
         'is_featured' => 'boolean',
         'is_new_arrival' => 'boolean',
         'is_try_on_enabled' => 'boolean',
+    ];
+
+    protected $attributes = [
+        'purchase' => true,
+        'sale' => true,
+        'stock_control' => true,
+        'status' => 'Active',
     ];
 
     protected function getCacheBaseTags(): array
@@ -123,6 +140,11 @@ class Item extends Model
         return $this->hasMany(ItemVariant::class)->orderBy('sort_order')->orderBy('id');
     }
 
+    public function uomPrices(): HasMany
+    {
+        return $this->hasMany(ItemUomPrice::class);
+    }
+
     public function getImageUrlAttribute(): ?string
     {
         $image = $this->relationLoaded('image')
@@ -144,27 +166,48 @@ class Item extends Model
         return null;
     }
 
-    public function getFinalPriceAttribute(): float
+    public function getIsPurchaseAttribute(): bool
     {
-        $discount = max(0, min(100, (int) $this->discount_percent));
+        return (bool) ($this->attributes['purchase'] ?? true);
+    }
 
-        return round_currency_amount(
-            (float) $this->price * (1 - ($discount / 100)),
-            $this->resolvedCurrency()
-        );
+    public function setIsPurchaseAttribute($value): void
+    {
+        $this->attributes['purchase'] = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    public function getIsSaleAttribute(): bool
+    {
+        return (bool) ($this->attributes['sale'] ?? true);
+    }
+
+    public function setIsSaleAttribute($value): void
+    {
+        $this->attributes['sale'] = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    public function scopePurchase(Builder $query): Builder
+    {
+        return $query->where('purchase', true);
+    }
+
+    public function scopeSale(Builder $query): Builder
+    {
+        return $query->where('sale', true);
+    }
+
+    public function scopeForPurchase(Builder $query): Builder
+    {
+        return $query->where('purchase', true);
+    }
+
+    public function scopeForSale(Builder $query): Builder
+    {
+        return $query->where('sale', true);
     }
 
     protected function activityLogIgnoredOnlyAttributes(): array
     {
         return ['image_id'];
-    }
-
-    private function resolvedCurrency(): ?Currency
-    {
-        if ($this->relationLoaded('currency')) {
-            return $this->getRelation('currency');
-        }
-
-        return $this->currency()->first();
     }
 }

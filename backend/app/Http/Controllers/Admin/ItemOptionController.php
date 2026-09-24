@@ -15,8 +15,10 @@ class ItemOptionController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('admin.permission:items.view')->only(['index']);
-        $this->middleware('admin.permission:items.manage')->except(['index']);
+        $this->middleware('admin.permission:item_options.view')->only(['index']);
+        $this->middleware('admin.permission:item_options.create')->only(['create', 'store']);
+        $this->middleware('admin.permission:item_options.edit')->only(['edit', 'update']);
+        $this->middleware('admin.permission:item_options.delete')->only(['destroy']);
     }
 
     public function index(Request $request): View
@@ -31,7 +33,12 @@ class ItemOptionController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('admin.item-options.index', compact('options', 'search', 'selectedTenant'));
+        return view('admin.item-options.index', [
+            'options' => $options,
+            'search' => $search,
+            'selectedTenant' => $selectedTenant,
+            'baseCurrency' => tenant_base_currency(),
+        ]);
     }
 
     public function create(Request $request): View
@@ -44,6 +51,7 @@ class ItemOptionController extends Controller
             ]),
             'variationOptions' => $this->variationOptions(),
             'selectedTenant' => $this->requiredTenant(),
+            'baseCurrency' => tenant_base_currency(),
         ]);
     }
 
@@ -62,6 +70,7 @@ class ItemOptionController extends Controller
             'option' => $this->find($item_option),
             'variationOptions' => $this->variationOptions(),
             'selectedTenant' => $this->requiredTenant(),
+            'baseCurrency' => tenant_base_currency(),
         ]);
     }
 
@@ -89,7 +98,7 @@ class ItemOptionController extends Controller
         $request->merge(['is_default' => $request->boolean('is_default')]);
         $variationId = (int) $request->input('item_variation_id');
 
-        return $request->validate([
+        $validated = $request->validate([
             'item_variation_id' => ['required', 'integer', Rule::exists($this->variationTable(), 'id')],
             'name' => [
                 'required',
@@ -107,6 +116,19 @@ class ItemOptionController extends Controller
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'status' => ['required', Rule::in(['Active', 'Inactive'])],
         ]);
+
+        $variation = ItemVariation::query()->find($variationId);
+        if ($variation?->type !== 'modifier') {
+            $validated['is_default'] = false;
+        }
+
+        $validated['price_adjustment'] = format_currency_input(
+            $validated['price_adjustment'] ?? 0,
+            tenant_base_currency(),
+            2
+        );
+
+        return $validated;
     }
 
     private function variationOptions()

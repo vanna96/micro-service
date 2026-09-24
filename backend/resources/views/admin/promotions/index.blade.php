@@ -10,7 +10,9 @@
 @endpush
 
 @section('content')
-@php($canManagePromotions = admin_has_permission('promotions.manage'))
+@php($canCreatePromotions = admin_has_permission('promotions.create'))
+@php($canEditPromotions = admin_has_permission('promotions.edit'))
+@php($canDeletePromotions = admin_has_permission('promotions.delete'))
 <div class="row">
     <div class="col-12">
         <div class="card">
@@ -22,7 +24,7 @@
                             Manage automatic promotion campaigns independently from price lists.
                         </p>
                     </div>
-                    @if ($canManagePromotions)
+                    @if ($canCreatePromotions)
                         <div class="mt-3 mt-sm-0">
                             <a href="{{ route('admin.promotions.create') }}" class="btn btn-primary waves-effect waves-light">
                                 <i class="uil uil-plus me-1"></i>Create Promotion
@@ -81,14 +83,17 @@
                                     <td>{{ (int) $promotion->active_lines_count }}</td>
                                     <td>{{ optional($promotion->updated_at)->format('d M Y, h:i A') ?: '-' }}</td>
                                     <td class="text-nowrap">
-                                        @if ($canManagePromotions)
+                                        @if ($canEditPromotions)
                                             <a href="{{ route('admin.promotions.edit', ['promotion' => $promotion->id]) }}" class="btn btn-sm btn-outline-primary me-2">Edit</a>
+                                        @endif
+                                        @if ($canDeletePromotions)
                                             <form action="{{ route('admin.promotions.destroy', ['promotion' => $promotion->id]) }}" method="POST" class="d-inline">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this promotion?')">Delete</button>
                                             </form>
-                                        @else
+                                        @endif
+                                        @if (! $canEditPromotions && ! $canDeletePromotions)
                                             <span class="text-muted">View only</span>
                                         @endif
                                     </td>

@@ -27,7 +27,7 @@ class EnsureTenantPermission
         }
 
         return redirect()
-            ->route('home')
+            ->route('admin.dashboard')
             ->with('status', 'You do not have permission to access that page.');
     }
 }

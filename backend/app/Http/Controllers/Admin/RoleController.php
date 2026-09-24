@@ -19,7 +19,9 @@ class RoleController extends Controller
     {
         $this->roles = $roles;
         $this->middleware('admin.permission:roles.view')->only(['index']);
-        $this->middleware('admin.permission:roles.manage')->except(['index']);
+        $this->middleware('admin.permission:roles.create')->only(['create', 'store']);
+        $this->middleware('admin.permission:roles.edit')->only(['edit', 'update']);
+        $this->middleware('admin.permission:roles.delete')->only(['destroy']);
     }
 
     public function index(Request $request): View

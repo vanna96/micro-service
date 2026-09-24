@@ -22,14 +22,20 @@ class RateIndexController extends Controller
         $this->rateIndexes = $rateIndexes;
         $this->currencies = $currencies;
         $this->middleware('admin.permission:rate_indexes.view')->only(['index']);
-        $this->middleware('admin.permission:rate_indexes.manage')->except(['index']);
+        $this->middleware('admin.permission:rate_indexes.edit')->only(['update']);
     }
 
     public function index(Request $request): View
     {
         $selectedTenant = $this->requiredTenant($request);
-        $year = max((int) $request->get('year', now()->year), 2000);
-        $month = min(max((int) $request->get('month', now()->month), 1), 12);
+        $tenantTimezone = (string) data_get(
+            $selectedTenant->general_settings,
+            'timezone',
+            config('app.timezone', 'UTC')
+        );
+        $today = Carbon::now($tenantTimezone);
+        $year = max((int) $request->get('year', $today->year), 2000);
+        $month = min(max((int) $request->get('month', $today->month), 1), 12);
         $baseCurrencyCode = strtoupper(trim((string) data_get($selectedTenant->general_settings, 'currency', '')));
         $baseCurrency = $this->currencies->findActiveByCode($baseCurrencyCode);
         $currencies = $baseCurrency
@@ -52,7 +58,8 @@ class RateIndexController extends Controller
             'days' => range(1, 31),
             'daysInMonth' => Carbon::create($year, $month, 1)->daysInMonth,
             'monthLabel' => Carbon::create($year, $month, 1)->format('F'),
-            'yearOptions' => range(now()->year - 2, now()->year + 3),
+            'todayDay' => $year === $today->year && $month === $today->month ? $today->day : null,
+            'yearOptions' => range($today->year - 2, $today->year + 3),
         ]);
     }
 
@@ -70,7 +77,7 @@ class RateIndexController extends Controller
                     'year' => $validated['year'],
                     'month' => $validated['month'],
                 ])
-                ->with('status', 'Set an active base currency in General settings before editing the rate index.');
+                ->with('status', 'Set an active base currency in General settings before editing exchange rates.');
         }
 
         $currencies = $this->rateIndexes->getSelectableCurrencies($baseCurrency->code);

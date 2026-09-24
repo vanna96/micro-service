@@ -17,7 +17,9 @@ class AddressController extends Controller
     public function __construct()
     {
         $this->middleware('admin.permission:addresses.view')->only(['index']);
-        $this->middleware('admin.permission:addresses.manage')->except(['index']);
+        $this->middleware('admin.permission:addresses.create')->only(['create', 'store']);
+        $this->middleware('admin.permission:addresses.edit')->only(['edit', 'update']);
+        $this->middleware('admin.permission:addresses.delete')->only(['destroy']);
     }
 
     public function index(Request $request): View
@@ -50,7 +52,9 @@ class AddressController extends Controller
             'addresses' => $addresses,
             'search' => $search,
             'selectedTenant' => $selectedTenant,
-            'canManageAddresses' => admin_has_permission('addresses.manage'),
+            'canCreateAddresses' => admin_has_permission('addresses.create'),
+            'canEditAddresses' => admin_has_permission('addresses.edit'),
+            'canDeleteAddresses' => admin_has_permission('addresses.delete'),
         ]);
     }
 

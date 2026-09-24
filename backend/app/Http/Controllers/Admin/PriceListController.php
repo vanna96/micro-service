@@ -25,7 +25,9 @@ class PriceListController extends Controller
         $this->priceLists = $priceLists;
         $this->currencies = $currencies;
         $this->middleware('admin.permission:price_lists.view')->only(['index']);
-        $this->middleware('admin.permission:price_lists.manage')->except(['index']);
+        $this->middleware('admin.permission:price_lists.create')->only(['create', 'store']);
+        $this->middleware('admin.permission:price_lists.edit')->only(['edit', 'update', 'storeLine', 'updateLine', 'destroyLine']);
+        $this->middleware('admin.permission:price_lists.delete')->only(['destroy']);
     }
 
     public function index(Request $request): View

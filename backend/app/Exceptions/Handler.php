@@ -44,7 +44,24 @@ class Handler extends ExceptionHandler
     public function register()
     {
         $this->reportable(function (Throwable $e) {
-            //
+            \Sentry\Laravel\Integration::captureUnhandledException($e);
+
+            try {
+                /** @var \App\Services\TelegramNotificationService $telegram */
+                $telegram = app(\App\Services\TelegramNotificationService::class);
+                if ($telegram->isErrorLogEnabled()) {
+                    $record = [
+                        'level_name' => 'ERROR',
+                        'message' => $e->getMessage(),
+                        'context' => [
+                            'exception' => $e,
+                        ],
+                    ];
+                    $telegram->notifyErrorRecord($record);
+                }
+            } catch (Throwable) {
+                // Ignore any failure during error reporting
+            }
         });
     }
 }

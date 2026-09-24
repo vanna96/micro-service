@@ -65,6 +65,7 @@ class PromotionRepository extends RepositoryBase
     {
         $query = $this->itemModel()
             ->newQuery()
+            ->with('currency')
             ->where('status', 'Active')
             ->orderBy('name');
 
@@ -127,6 +128,7 @@ class PromotionRepository extends RepositoryBase
 
     public function updateLineForAdmin(PromotionItem $line, array $attributes): PromotionItem
     {
+        $attributes['item_id'] = $attributes['item_id'] ?? $line->item_id;
         $attributes = $this->normalizeLineAttributes($line->promotion, $attributes);
 
         $line->fill($attributes);
@@ -147,6 +149,14 @@ class PromotionRepository extends RepositoryBase
     protected function normalizePromotionAttributes(array $attributes): array
     {
         $type = $attributes['type'] ?? Promotion::TYPE_ITEM_PRICE;
+
+        if ($type === Promotion::TYPE_SUBTOTAL_DISCOUNT && array_key_exists('threshold_amount', $attributes)) {
+            $attributes['threshold_amount'] = format_currency_input(
+                $attributes['threshold_amount'],
+                tenant_base_currency(),
+                2
+            );
+        }
 
         $attributes['threshold_amount'] = $type === Promotion::TYPE_SUBTOTAL_DISCOUNT
             ? ($attributes['threshold_amount'] ?? null)
@@ -185,6 +195,13 @@ class PromotionRepository extends RepositoryBase
         }
 
         $attributes['line_role'] = 'item';
+
+        if (array_key_exists('fixed_price', $attributes) && ($attributes['pricing_method'] ?? null) === 'fixed') {
+            $item = ! empty($attributes['item_id'])
+                ? $this->itemModel()->newQuery()->with('currency')->find($attributes['item_id'])
+                : null;
+            $attributes['fixed_price'] = format_currency_input($attributes['fixed_price'], $item?->currency, 2);
+        }
 
         if (($attributes['pricing_method'] ?? null) === 'fixed') {
             $attributes['discount_percent'] = null;

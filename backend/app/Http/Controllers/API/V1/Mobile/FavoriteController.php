@@ -27,6 +27,13 @@ class FavoriteController extends Controller
                 'item.currency',
                 'item.image',
                 'item.galleries',
+                'item.uomGroup.units' => fn ($query) => $query->where('status', 'Active')->orderBy('sort_order'),
+                'item.uomGroup.units.unit',
+                'item.uomPrices',
+                'item.optionGroups' => fn ($query) => $query->where('status', 'Active'),
+                'item.optionGroups.values' => fn ($query) => $query->where('status', 'Active'),
+                'item.variants' => fn ($query) => $query->where('status', 'Active'),
+                'item.variants.optionValues',
             ])
             ->where('user_id', $centralUser->id)
             ->latest('id')

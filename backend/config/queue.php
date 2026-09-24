@@ -42,6 +42,15 @@ return [
             'after_commit' => false,
         ],
 
+        'tenant' => [
+            'driver' => 'database',
+            'connection' => 'tenant',
+            'table' => 'jobs',
+            'queue' => 'default',
+            'retry_after' => 90,
+            'after_commit' => false,
+        ],
+
         'beanstalkd' => [
             'driver' => 'beanstalkd',
             'host' => 'localhost',
@@ -86,7 +95,7 @@ return [
 
     'failed' => [
         'driver' => env('QUEUE_FAILED_DRIVER', 'database-uuids'),
-        'database' => env('DB_CONNECTION', 'mysql'),
+        'database' => env('QUEUE_FAILED_DATABASE', null),
         'table' => 'failed_jobs',
     ],
 

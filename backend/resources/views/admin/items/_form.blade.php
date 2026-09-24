@@ -54,23 +54,140 @@
                 background: linear-gradient(135deg, #f8fbff 0%, #eef4ff 100%);
                 min-height: 220px;
                 padding: 1rem;
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                align-items: start;
+                gap: 0.875rem;
             }
 
             .item-gallery-dropzone .dz-message {
-                margin: 2.5rem 0;
+                grid-column: 1 / -1;
+                min-height: 170px;
+                margin: 0;
                 color: #5b73e8;
                 font-weight: 600;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+            }
+
+            .item-gallery-dropzone.dz-started .dz-message {
+                display: none;
+            }
+
+            .item-gallery-dropzone .dz-preview {
+                position: relative;
+                width: 100%;
+                min-width: 0;
+                min-height: 0;
+                margin: 0;
+                padding: 0.5rem;
+                display: flex;
+                flex-direction: column;
+                border: 1px solid #e0e7f2;
+                border-radius: 16px;
+                background: #fff;
+                box-shadow: 0 6px 18px rgba(39, 48, 78, 0.08);
+                overflow: hidden;
             }
 
             .item-gallery-dropzone .dz-preview .dz-image {
-                border-radius: 16px;
+                width: 100%;
+                height: auto;
+                aspect-ratio: 1 / 1;
+                border-radius: 12px;
+                background: #eef2f8;
+            }
+
+            .item-gallery-dropzone .dz-preview .dz-image img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                transform: none;
+                filter: none;
+            }
+
+            .item-gallery-dropzone .dz-preview:hover .dz-image img {
+                transform: none;
+                filter: none;
+            }
+
+            .item-gallery-dropzone .dz-preview .dz-details {
+                position: static;
+                min-width: 0;
+                max-width: none;
+                padding: 0.65rem 0.15rem 0.25rem;
+                color: #4b5565;
+                line-height: 1.35;
+                text-align: left;
+                opacity: 1;
+            }
+
+            .item-gallery-dropzone .dz-preview .dz-details .dz-size {
+                margin-bottom: 0.25rem;
+                color: #8a94a6;
+                font-size: 0.75rem;
+            }
+
+            .item-gallery-dropzone .dz-preview .dz-details .dz-filename {
+                overflow: hidden;
+                color: #30384a;
+                font-size: 0.78rem;
+                font-weight: 600;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+            }
+
+            .item-gallery-dropzone .dz-preview .dz-details .dz-filename span,
+            .item-gallery-dropzone .dz-preview .dz-details .dz-size span {
+                padding: 0;
+                border: 0;
+                background: transparent;
+            }
+
+            .item-gallery-dropzone .dz-preview .dz-success-mark,
+            .item-gallery-dropzone .dz-preview .dz-error-mark,
+            .item-gallery-dropzone .dz-preview .dz-progress {
+                display: none;
             }
 
             .item-gallery-dropzone .dz-preview .dz-remove {
-                margin-top: 0.5rem;
-                display: inline-block;
-                color: #f46a6a;
+                width: 100%;
+                margin-top: 0.35rem;
+                padding: 0.4rem 0.65rem;
+                display: block;
+                border-radius: 9px;
+                background: #fff0f0;
+                color: #e45555;
+                font-size: 0.76rem;
                 font-weight: 600;
+                text-align: center;
+                cursor: pointer;
+                transition: background-color 0.18s ease, color 0.18s ease;
+            }
+
+            .item-gallery-dropzone .dz-preview .dz-remove:hover {
+                background: #f46a6a;
+                color: #fff;
+                text-decoration: none;
+            }
+
+            .item-gallery-dropzone .dz-preview.dz-error {
+                border-color: #f8b4b4;
+            }
+
+            .item-gallery-dropzone .dz-preview .dz-error-message {
+                position: static;
+                width: auto;
+                margin-top: 0.35rem;
+                padding: 0.45rem 0.6rem;
+                border-radius: 8px;
+                font-size: 0.72rem;
+            }
+
+            .item-gallery-dropzone .dz-preview .dz-error-message::after {
+                display: none;
             }
 
             .item-existing-gallery-grid {
@@ -242,6 +359,11 @@
                 grid-template-columns: minmax(150px, 1.5fr) minmax(110px, 0.8fr) minmax(125px, 0.8fr) 90px 46px;
                 gap: 0.65rem;
                 align-items: center;
+            }
+
+            .item-option-value-head--no-default,
+            .item-option-value-row--no-default {
+                grid-template-columns: minmax(150px, 1.5fr) minmax(110px, 0.8fr) minmax(125px, 0.8fr) 46px;
             }
 
             .item-option-value-head {
@@ -424,7 +546,17 @@
         <script src="{{ global_asset('minible/assets/libs/select2/js/select2.min.js') }}"></script>
         <script src="{{ global_asset('minible/assets/libs/dropzone/min/dropzone.min.js') }}"></script>
         <script>
+            Dropzone.autoDiscover = false;
+
             $(function () {
+                const formErrors = document.getElementById('item-form-errors');
+                if (formErrors) {
+                    window.requestAnimationFrame(() => {
+                        formErrors.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        formErrors.focus({ preventScroll: true });
+                    });
+                }
+
                 $('.item-category-combobox').select2({
                     width: '100%',
                     placeholder: 'Select category',
@@ -465,7 +597,7 @@
                     const selectedOption = currencySelect.options[currencySelect.selectedIndex];
                     const currencyCode = selectedOption?.dataset.currencyCode || '';
                     const decimalPlaces = selectedOption?.dataset.decimalPlaces || '';
-                    const inputStep = selectedOption?.dataset.inputStep || '0.00000001';
+                    const inputStep = selectedOption?.dataset.inputStep || '0.01';
                     const formatExample = selectedOption?.dataset.formatExample || '2.22';
 
                     priceInput.setAttribute('step', inputStep);
@@ -509,8 +641,6 @@
                     });
                 }
 
-                Dropzone.autoDiscover = false;
-
                 const galleryInput = document.getElementById('item-gallery-input');
                 const galleryDropzoneElement = document.getElementById('item-gallery-dropzone');
                 const itemForm = document.getElementById('item-form');
@@ -543,6 +673,9 @@
                         clickable: true,
                         previewsContainer: galleryDropzoneElement,
                         dictDefaultMessage: 'Drop gallery images here or click to browse',
+                        dictRemoveFile: 'Remove',
+                        dictFileTooBig: 'Image is larger than 2MB.',
+                        dictInvalidFileType: 'Use a JPG, PNG, or WEBP image.',
                     });
 
                     const browseGalleryButton = document.getElementById('item-gallery-browse');
@@ -607,6 +740,54 @@
     @endpush
 @endonce
 
+@if ($errors->any())
+    <div id="item-form-errors" class="alert alert-danger mb-4" role="alert" tabindex="-1">
+        <div class="fw-semibold mb-1">Item was not saved. Please fix the following:</div>
+        <ul class="mb-0 ps-3">
+            @foreach (collect($errors->all())->unique() as $message)
+                <li>{{ $message }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
+
+@php
+    $selectedItemType = old(
+        'item_type',
+        $item->item_type ?: (($item->relationLoaded('optionGroups') && $item->optionGroups->isNotEmpty()) ? 'variation' : 'uom')
+    );
+    $postedUomPrices = old('uom_prices');
+    $storedUomPrices = $postedUomPrices !== null
+        ? collect($postedUomPrices)
+        : ($item->relationLoaded('uomPrices') ? $item->uomPrices : collect());
+    $serializedUomPrices = $storedUomPrices->mapWithKeys(function ($row) {
+        $unitId = (int) (is_array($row) ? ($row['unit_of_measure_id'] ?? 0) : $row->unit_of_measure_id);
+
+        return [$unitId => [
+            'reduce_by_percent' => (float) (is_array($row) ? ($row['reduce_by_percent'] ?? 0) : $row->reduce_by_percent),
+            'price' => is_array($row) ? ($row['price'] ?? null) : ($row->price !== null ? (float) $row->price : null),
+            'is_auto' => filter_var(is_array($row) ? ($row['is_auto'] ?? true) : ($row->is_auto ?? true), FILTER_VALIDATE_BOOLEAN),
+            'is_active' => filter_var(is_array($row) ? ($row['is_active'] ?? true) : ($row->is_active ?? true), FILTER_VALIDATE_BOOLEAN),
+        ]];
+    });
+    $uomPricingJson = json_encode([
+        'groups' => $uomGroupOptions->values()->map(fn ($group) => [
+            'id' => (int) $group->id,
+            'units' => $group->units
+                ->filter(fn ($groupUnit) => $groupUnit->status === 'Active' && $groupUnit->unit?->status === 'Active')
+                ->values()
+                ->map(fn ($groupUnit) => [
+                    'id' => (int) $groupUnit->unit_of_measure_id,
+                    'code' => (string) $groupUnit->unit->code,
+                    'name' => (string) $groupUnit->unit->name,
+                    'conversion_factor' => (float) $groupUnit->conversion_factor_to_base,
+                    'is_base_unit' => (bool) $groupUnit->is_base_unit,
+                ])->all(),
+        ])->all(),
+        'prices' => $serializedUomPrices,
+    ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
+@endphp
+
 <div class="row g-2">
     <div class="col-xl-8">
         <div class="card card-flush mb-10">
@@ -635,12 +816,6 @@
                             class="form-control @error('foreign_name') is-invalid @enderror" />
                         @error('foreign_name')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
-                    @php
-                        $selectedItemType = old(
-                            'item_type',
-                            $item->item_type ?: (($item->relationLoaded('optionGroups') && $item->optionGroups->isNotEmpty()) ? 'variation' : 'uom')
-                        );
-                    @endphp
                     <div class="col-md-6">
                         <label class="form-label required">Item Type</label>
                         <select id="item-type" name="item_type"
@@ -732,21 +907,41 @@
                             class="form-control @error('description') is-invalid @enderror">{{ old('description', $item->description) }}</textarea>
                         @error('description')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label required">Price</label>
-                        <input id="item-price" type="number" min="0" step="0.00000001" name="price" value="{{ old('price', $item->price) }}"
-                            class="form-control @error('price') is-invalid @enderror" />
-                        @error('price')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Discount %</label>
-                        <input type="number" min="0" max="100" step="1" name="discount_percent"
-                            value="{{ old('discount_percent', $item->discount_percent ?? 0) }}"
-                            class="form-control @error('discount_percent') is-invalid @enderror" />
-                        @error('discount_percent')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                    </div>
                     <div class="col-md-4">
-                        <label class="form-label required">Stock</label>
+                        <label class="form-label required">Price</label>
+                        @php
+                            $selectedPriceCurrency = $currencyOptions->firstWhere('id', (int) old('currency_id', $item->currency_id));
+                        @endphp
+                        <div class="input-group">
+                            <input id="item-price" type="number" min="0" step="{{ currency_input_step($selectedPriceCurrency, 2) }}" name="price" value="{{ format_currency_input(old('price', $item->price), $selectedPriceCurrency, 2) }}"
+                                class="form-control @error('price') is-invalid @enderror" />
+                            <button
+                                id="item-uom-pricing-trigger"
+                                type="button"
+                                class="btn btn-outline-secondary {{ $selectedItemType === 'uom' ? '' : 'd-none' }} @if($errors->has('uom_prices') || $errors->has('uom_prices.*')) border-danger text-danger @endif"
+                                data-bs-toggle="modal"
+                                data-bs-target="#item-uom-pricing-modal"
+                                title="Edit UoM pricing"
+                                aria-label="Edit UoM pricing"
+                                aria-controls="item-uom-pricing-modal"
+                            >
+                                <i class="mdi mdi-dots-horizontal"></i>
+                            </button>
+                        </div>
+                        @error('price')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                        @error('uom_prices')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                        @error('uom_prices.*')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                    </div>
+                    <div class="w-100"></div>
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <label class="form-label mb-0 required">Stock</label>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" name="stock_control" value="1"
+                                    id="item-stock-control" @checked(old('stock_control', $item->stock_control ?? true))>
+                                <label class="form-check-label fs-12 fw-semibold" for="item-stock-control">Stock Control</label>
+                            </div>
+                        </div>
                         <input type="number" min="0" step="1" name="stock" value="{{ old('stock', $item->stock ?? 0) }}"
                             class="form-control @error('stock') is-invalid @enderror" />
                         @error('stock')<div class="invalid-feedback">{{ $message }}</div>@enderror
@@ -761,6 +956,33 @@
                             @endforeach
                         </select>
                         @error('status')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
+                    <div class="col-12">
+                        <fieldset class="border rounded-3 p-3">
+                            <legend class="float-none w-auto px-2 fs-6 fw-semibold text-dark mb-2">
+                                <i class="uil uil-tag-alt me-1 text-primary"></i>{{ __('Item Scope') }}
+                            </legend>
+                            <input type="hidden" name="scope_submitted" value="1">
+                            <div class="d-flex flex-wrap align-items-center gap-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="purchase" value="1"
+                                        id="item-purchase" @checked(old('purchase', $item->purchase ?? true))>
+                                    <label class="form-check-label fw-semibold" for="item-purchase">
+                                        <i class="uil uil-shopping-cart-alt me-1 text-muted"></i>{{ __('Purchase') }}
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="sale" value="1"
+                                        id="item-sale" @checked(old('sale', $item->sale ?? true))>
+                                    <label class="form-check-label fw-semibold" for="item-sale">
+                                        <i class="uil uil-bill me-1 text-muted"></i>{{ __('Sale') }}
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="form-text text-muted mt-2">
+                                {{ __('Enable whether this item is available for purchasing, selling, or both. Items for purchase orders require Stock Control to be enabled.') }}
+                            </div>
+                        </fieldset>
                     </div>
                     <div class="col-12">
                         <div class="border rounded-3 p-3">
@@ -781,12 +1003,7 @@
                                         id="item-is-new-arrival" @checked(old('is_new_arrival', $item->is_new_arrival))>
                                     <label class="form-check-label" for="item-is-new-arrival">New arrival</label>
                                 </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="is_try_on_enabled" value="1"
-                                        id="item-is-try-on-enabled" @checked(old('is_try_on_enabled', $item->is_try_on_enabled ?? true))>
-                                    <label class="form-check-label" for="item-is-try-on-enabled">Virtual try-on
-                                        enabled</label>
-                                </div>
+                                <input type="hidden" name="is_try_on_enabled" value="{{ old('is_try_on_enabled', $item->is_try_on_enabled ?? true) ? '1' : '0' }}">
                             </div>
                         </div>
                     </div>
@@ -864,7 +1081,7 @@
                         <i class="mdi mdi-image-multiple me-1"></i>Choose Gallery Images
                     </button>
                 </div>
-                <div id="item-gallery-dropzone" class="item-gallery-dropzone"></div>
+                <div id="item-gallery-dropzone" class="dropzone item-gallery-dropzone"></div>
                 <input id="item-gallery-input" type="file" name="gallery_images[]"
                     accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple class="d-none">
                 <div class="form-text">Use the gallery uploader to preview images before save and remove them one by
@@ -875,6 +1092,194 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="item-uom-pricing-modal" tabindex="-1" aria-labelledby="item-uom-pricing-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title" id="item-uom-pricing-modal-label">UoM Pricing</h5>
+                    <div class="text-muted small mt-1">Set SAP-style reductions or turn off Auto to enter a manual selling price.</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>UoM Code</th>
+                                <th>UoM Name</th>
+                                <th>Base Price</th>
+                                <th style="min-width: 140px;">Reduce By %</th>
+                                <th style="min-width: 150px;">Price</th>
+                                <th class="text-center" style="width: 70px;">Auto</th>
+                                <th class="text-center" style="width: 70px;">Active</th>
+                            </tr>
+                        </thead>
+                        <tbody id="item-uom-pricing-rows"></tbody>
+                    </table>
+                </div>
+                <div id="item-uom-pricing-empty" class="text-muted text-center py-5 d-none">
+                    Select a UoM group to configure its prices.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Done</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="application/json" id="item-uom-pricing-state">{!! $uomPricingJson !!}</script>
+
+@push('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const stateElement = document.getElementById('item-uom-pricing-state');
+        const itemTypeSelect = document.getElementById('item-type');
+        const groupSelect = document.getElementById('item-uom-group-id');
+        const currencySelect = document.getElementById('item-currency-id');
+        const itemPriceInput = document.getElementById('item-price');
+        const trigger = document.getElementById('item-uom-pricing-trigger');
+        const rows = document.getElementById('item-uom-pricing-rows');
+        const empty = document.getElementById('item-uom-pricing-empty');
+
+        if (!stateElement || !itemTypeSelect || !groupSelect || !trigger || !rows || !empty) {
+            return;
+        }
+
+        const state = JSON.parse(stateElement.textContent || '{"groups":[],"prices":{}}');
+        const prices = new Map(Object.entries(state.prices || {}).map(([unitId, price]) => [Number(unitId), {
+            reduce_by_percent: Number(price.reduce_by_percent || 0),
+            price: price.price === null || price.price === '' ? null : Number(price.price),
+            is_auto: price.is_auto === true || price.is_auto === 1 || price.is_auto === '1',
+            is_active: price.is_active !== false && price.is_active !== 0 && price.is_active !== '0',
+        }]));
+        const escapeHtml = (value) => String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+        const decimalPlaces = () => Number(currencySelect?.selectedOptions[0]?.dataset.decimalPlaces || 2);
+        const inputStep = () => currencySelect?.selectedOptions[0]?.dataset.inputStep || '0.01';
+        const formatPrice = (value) => Number.isFinite(Number(value))
+            ? Number(value).toFixed(decimalPlaces())
+            : Number(0).toFixed(decimalPlaces());
+        const calculatedPrice = (basePrice, reduction) => Math.max(0, basePrice * (1 - (Math.min(100, Math.max(0, reduction)) / 100)));
+
+        const updateRowPrice = (row) => {
+            const unitId = Number(row.dataset.unitId);
+            const pricing = prices.get(unitId);
+            const priceInput = row.querySelector('[data-uom-price]');
+            const autoInput = row.querySelector('[data-uom-auto]');
+
+            if (!pricing || !priceInput || !autoInput) return;
+
+            if (pricing.is_auto) {
+                const basePrice = Number(row.dataset.basePrice || 0);
+                pricing.price = calculatedPrice(basePrice, pricing.reduce_by_percent);
+                priceInput.value = formatPrice(pricing.price);
+            }
+
+            priceInput.readOnly = pricing.is_auto || !pricing.is_active;
+            priceInput.classList.toggle('bg-light', pricing.is_auto || !pricing.is_active);
+            autoInput.value = pricing.is_auto ? '1' : '0';
+        };
+
+        const render = () => {
+            const isUomItem = itemTypeSelect.value === 'uom';
+            trigger.classList.toggle('d-none', !isUomItem);
+
+            if (!isUomItem) {
+                rows.innerHTML = '';
+                return;
+            }
+
+            const group = (state.groups || []).find((entry) => Number(entry.id) === Number(groupSelect.value));
+            const units = group?.units || [];
+            empty.classList.toggle('d-none', units.length > 0);
+            rows.classList.toggle('d-none', units.length === 0);
+
+            rows.innerHTML = units.map((unit, index) => {
+                const basePrice = Number(itemPriceInput?.value || 0) * Number(unit.conversion_factor || 1);
+                const pricing = prices.get(Number(unit.id)) || {
+                    reduce_by_percent: 0,
+                    price: null,
+                    is_auto: true,
+                    is_active: true,
+                };
+                if (unit.is_base_unit) {
+                    pricing.is_active = true;
+                }
+                pricing.price = pricing.is_auto
+                    ? calculatedPrice(basePrice, pricing.reduce_by_percent)
+                    : Number(pricing.price ?? basePrice);
+                prices.set(Number(unit.id), pricing);
+                const isActive = Boolean(pricing.is_active);
+
+                return `
+                    <tr data-unit-id="${unit.id}" data-base-price="${basePrice}" class="${isActive ? '' : 'table-light opacity-50'}">
+                        <td><span class="fw-semibold">${escapeHtml(unit.code)}</span>${unit.is_base_unit ? '<span class="badge bg-primary-subtle text-primary ms-2">Base</span>' : ''}</td>
+                        <td>${escapeHtml(unit.name)}</td>
+                        <td class="font-monospace">${formatPrice(basePrice)}</td>
+                        <td>
+                            <input type="number" min="0" max="100" step="0.01" name="uom_prices[${index}][reduce_by_percent]" value="${pricing.reduce_by_percent}" class="form-control form-control-sm" data-uom-reduction ${!isActive ? 'disabled' : ''}>
+                        </td>
+                        <td>
+                            <input type="number" min="0" step="${inputStep()}" name="uom_prices[${index}][price]" value="${formatPrice(pricing.price)}" class="form-control form-control-sm ${pricing.is_auto || !isActive ? 'bg-light' : ''}" data-uom-price ${pricing.is_auto || !isActive ? 'readonly' : ''}>
+                        </td>
+                        <td class="text-center">
+                            <input type="hidden" name="uom_prices[${index}][unit_of_measure_id]" value="${unit.id}">
+                            <input type="hidden" name="uom_prices[${index}][is_auto]" value="${pricing.is_auto ? 1 : 0}" data-uom-auto>
+                            <input type="checkbox" class="form-check-input" ${pricing.is_auto ? 'checked' : ''} ${!isActive ? 'disabled' : ''} data-uom-auto-toggle aria-label="Automatically calculate ${escapeHtml(unit.code)} price">
+                        </td>
+                        <td class="text-center">
+                            <input type="hidden" name="uom_prices[${index}][is_active]" value="${isActive ? 1 : 0}" data-uom-active>
+                            <input type="checkbox" class="form-check-input" ${isActive ? 'checked' : ''} ${unit.is_base_unit ? 'disabled title="Base unit cannot be deactivated"' : ''} data-uom-active-toggle aria-label="Active status for ${escapeHtml(unit.code)}">
+                        </td>
+                    </tr>`;
+            }).join('');
+        };
+
+        rows.addEventListener('input', function (event) {
+            const row = event.target.closest('[data-unit-id]');
+            if (!row) return;
+
+            const pricing = prices.get(Number(row.dataset.unitId));
+            if (!pricing) return;
+
+            if (event.target.matches('[data-uom-reduction]')) {
+                pricing.reduce_by_percent = Number(event.target.value || 0);
+                updateRowPrice(row);
+            } else if (event.target.matches('[data-uom-price]') && !pricing.is_auto) {
+                pricing.price = Number(event.target.value || 0);
+            }
+        });
+
+        rows.addEventListener('change', function (event) {
+            const row = event.target.closest('[data-unit-id]');
+            const pricing = prices.get(Number(row?.dataset.unitId));
+            if (!row || !pricing) return;
+
+            if (event.target.matches('[data-uom-auto-toggle]')) {
+                pricing.is_auto = event.target.checked;
+                updateRowPrice(row);
+            } else if (event.target.matches('[data-uom-active-toggle]')) {
+                pricing.is_active = event.target.checked;
+                render();
+            }
+        });
+
+        groupSelect.addEventListener('change', render);
+        itemTypeSelect.addEventListener('change', render);
+        itemPriceInput?.addEventListener('input', render);
+        currencySelect?.addEventListener('change', render);
+        render();
+    });
+</script>
+@endpush
 
 @php
     $oldOptionGroups = old('option_groups');
@@ -1036,6 +1441,21 @@
             return;
         }
 
+        // Keep pricing helpers in the configurator scope; this script is separate
+        // from the general item-price script above.
+        const currencySelect = document.getElementById('item-currency-id');
+        const priceInputStep = () => currencySelect?.selectedOptions[0]?.dataset.inputStep || '0.01';
+        const priceDecimalPlaces = () => Number(currencySelect?.selectedOptions[0]?.dataset.decimalPlaces || 2);
+        const formatPriceInput = (value) => {
+            if (value === null || value === undefined || value === '') {
+                return '';
+            }
+
+            const numeric = Number(value);
+
+            return Number.isFinite(numeric) ? numeric.toFixed(priceDecimalPlaces()) : '';
+        };
+
         const state = JSON.parse(stateElement.textContent || '{}');
         const variationMasters = JSON.parse(masterStateElement.textContent || '[]');
         const itemTypeSelect = document.getElementById('item-type');
@@ -1069,47 +1489,64 @@
             return `${prefix}_${token.replace(/-/g, '_')}`;
         };
 
+        const toBoolean = (value) => value === true
+            || value === 1
+            || value === '1'
+            || (typeof value === 'string' && ['true', 'on', 'yes'].includes(value.toLowerCase()));
         const checked = (value) => value ? 'checked' : '';
         const selected = (value, expected) => value === expected ? 'selected' : '';
         const inputValue = (value) => value === null || value === undefined ? '' : value;
 
-        const normalizeGroup = (group, index) => ({
-            key: group.key || uniqueKey('group'),
-            item_variation_id: group.item_variation_id ? Number(group.item_variation_id) : null,
-            name: group.name || '',
-            foreign_name: group.foreign_name || '',
-            type: group.type === 'modifier' ? 'modifier' : 'variant',
-            selection_type: group.type === 'variant' ? 'single' : (group.selection_type || 'single'),
-            is_required: group.type === 'variant' ? true : Boolean(group.is_required),
-            min_selections: group.type === 'variant' ? 1 : Number(group.min_selections || 0),
-            max_selections: group.type === 'variant' ? 1 : inputValue(group.max_selections),
-            sort_order: Number(group.sort_order ?? index),
-            status: group.status || 'Active',
-            values: Array.isArray(group.values) ? group.values.map((value, valueIndex) => ({
-                key: value.key || uniqueKey('value'),
-                name: value.name || '',
-                foreign_name: value.foreign_name || '',
-                sku_suffix: value.sku_suffix || '',
-                color_hex: value.color_hex || '',
-                price_adjustment: inputValue(value.price_adjustment ?? 0),
-                is_default: Boolean(value.is_default),
-                sort_order: Number(value.sort_order ?? valueIndex),
-                status: value.status || 'Active',
-            })) : [],
-        });
+        const normalizeGroup = (group, index) => {
+            const type = group.type === 'modifier' ? 'modifier' : 'variant';
+
+            return {
+                key: group.key || uniqueKey('group'),
+                item_variation_id: group.item_variation_id ? Number(group.item_variation_id) : null,
+                name: group.name || '',
+                foreign_name: group.foreign_name || '',
+                type,
+                selection_type: type === 'variant' ? 'single' : (group.selection_type || 'single'),
+                is_required: type === 'variant' ? true : toBoolean(group.is_required),
+                min_selections: type === 'variant' ? 1 : Number(group.min_selections || 0),
+                max_selections: type === 'variant' ? 1 : inputValue(group.max_selections),
+                sort_order: Number(group.sort_order ?? index),
+                status: group.status || 'Active',
+                values: Array.isArray(group.values) ? group.values.map((value, valueIndex) => ({
+                    key: value.key || uniqueKey('value'),
+                    name: value.name || '',
+                    foreign_name: value.foreign_name || '',
+                    sku_suffix: value.sku_suffix || '',
+                    color_hex: value.color_hex || '',
+                    price_adjustment: inputValue(value.price_adjustment ?? 0),
+                    is_default: type === 'modifier' && toBoolean(value.is_default),
+                    sort_order: Number(value.sort_order ?? valueIndex),
+                    status: value.status || 'Active',
+                })) : [],
+            };
+        };
 
         state.option_groups = state.option_groups.map(normalizeGroup);
-        state.variants = state.variants.map((variant, index) => ({
-            sku: variant.sku || '',
-            barcode: variant.barcode || '',
-            name: variant.name || '',
-            price: inputValue(variant.price),
-            stock: Number(variant.stock || 0),
-            is_default: Boolean(variant.is_default),
-            sort_order: Number(variant.sort_order ?? index),
-            status: variant.status || 'Active',
-            option_value_keys: Array.isArray(variant.option_value_keys) ? variant.option_value_keys : [],
-        }));
+        let hasDefaultVariant = false;
+        state.variants = state.variants.map((variant, index) => {
+            const isDefault = toBoolean(variant.is_default) && !hasDefaultVariant;
+            hasDefaultVariant ||= isDefault;
+
+            return {
+                sku: variant.sku || '',
+                barcode: variant.barcode || '',
+                name: variant.name || '',
+                price: inputValue(variant.price),
+                stock: Number(variant.stock || 0),
+                is_default: isDefault,
+                sort_order: Number(variant.sort_order ?? index),
+                status: variant.status || 'Active',
+                option_value_keys: Array.isArray(variant.option_value_keys) ? variant.option_value_keys : [],
+            };
+        });
+        if (state.variants.length && !hasDefaultVariant) {
+            state.variants[0].is_default = true;
+        }
 
         const renderGroupSettings = (group, groupIndex, prefix) => {
             const isVariant = group.type === 'variant';
@@ -1164,26 +1601,27 @@
             const prefix = `option_groups[${groupIndex}]`;
             const variation = variationMasters.find((entry) => Number(entry.id) === Number(group.item_variation_id));
             const isCustom = !variation;
+            const showsValueDefaults = group.type === 'modifier';
 
             if (isCustom) {
                 const valueRows = group.values.map((value, valueIndex) => {
                     const valuePrefix = `${prefix}[values][${valueIndex}]`;
 
                     return `
-                        <div class="item-option-value-row">
+                        <div class="item-option-value-row ${showsValueDefaults ? '' : 'item-option-value-row--no-default'}">
                             <div class="item-option-value-name d-grid gap-1">
                                 <input type="text" name="${valuePrefix}[name]" value="${escapeHtml(value.name)}" class="form-control form-control-sm" placeholder="Value name" required data-group-index="${groupIndex}" data-value-index="${valueIndex}" data-value-field="name">
                                 <input type="text" name="${valuePrefix}[color_hex]" value="${escapeHtml(value.color_hex)}" class="form-control form-control-sm" placeholder="Color HEX, optional" data-group-index="${groupIndex}" data-value-index="${valueIndex}" data-value-field="color_hex">
                             </div>
                             <input type="text" name="${valuePrefix}[sku_suffix]" value="${escapeHtml(value.sku_suffix)}" class="form-control form-control-sm" placeholder="RED or XL" data-group-index="${groupIndex}" data-value-index="${valueIndex}" data-value-field="sku_suffix">
-                            <input type="number" step="0.00000001" name="${valuePrefix}[price_adjustment]" value="${escapeHtml(value.price_adjustment)}" class="form-control form-control-sm" placeholder="0.00" data-group-index="${groupIndex}" data-value-index="${valueIndex}" data-value-field="price_adjustment">
-                            <div class="form-check d-flex justify-content-center">
-                                <input class="form-check-input" type="checkbox" ${checked(value.is_default)} data-value-default data-group-index="${groupIndex}" data-value-index="${valueIndex}" title="Default value">
-                            </div>
+                            <input type="number" step="${priceInputStep()}" name="${valuePrefix}[price_adjustment]" value="${escapeHtml(formatPriceInput(value.price_adjustment))}" class="form-control form-control-sm" placeholder="0.00" data-group-index="${groupIndex}" data-value-index="${valueIndex}" data-value-field="price_adjustment">
+                            ${showsValueDefaults ? `<div class="form-check d-flex justify-content-center">
+                                <input class="form-check-input" type="checkbox" ${checked(value.is_default)} data-value-default data-group-index="${groupIndex}" data-value-index="${valueIndex}" title="Selected by default">
+                            </div>` : ''}
                             <button type="button" class="btn btn-outline-danger btn-sm item-config-icon-button item-option-value-remove" data-remove-option-value data-group-index="${groupIndex}" data-value-index="${valueIndex}" title="Remove value"><i class="mdi mdi-delete-outline"></i></button>
                             <input type="hidden" name="${valuePrefix}[key]" value="${escapeHtml(value.key)}">
                             <input type="hidden" name="${valuePrefix}[foreign_name]" value="${escapeHtml(value.foreign_name)}">
-                            <input type="hidden" name="${valuePrefix}[is_default]" value="${value.is_default ? 1 : 0}">
+                            <input type="hidden" name="${valuePrefix}[is_default]" value="${showsValueDefaults && value.is_default ? 1 : 0}">
                             <input type="hidden" name="${valuePrefix}[sort_order]" value="${valueIndex}">
                             <input type="hidden" name="${valuePrefix}[status]" value="${escapeHtml(value.status || 'Active')}">
                         </div>`;
@@ -1194,7 +1632,7 @@
                         <div class="item-option-group-header">
                             <div class="d-flex align-items-center gap-2">
                                 <span class="item-option-group-index">${groupIndex + 1}</span>
-                                <div><strong>Option group ${groupIndex + 1}</strong><div class="text-muted small">Builds sellable combinations</div></div>
+                                <div><strong>Option group ${groupIndex + 1}</strong><div class="text-muted small">${group.type === 'variant' ? 'Builds sellable combinations' : 'Adds choices to a sellable item'}</div></div>
                             </div>
                             <button type="button" class="btn btn-outline-danger btn-sm item-config-icon-button" data-remove-option-group data-group-index="${groupIndex}" title="Remove group"><i class="mdi mdi-delete-outline"></i></button>
                         </div>
@@ -1208,7 +1646,7 @@
                                 <label class="form-label mb-0">Values</label>
                                 <button type="button" class="btn btn-outline-primary btn-sm" data-add-option-value data-group-index="${groupIndex}"><i class="mdi mdi-plus me-1"></i>Add value</button>
                             </div>
-                            <div class="item-option-value-head"><span>Value / color</span><span>SKU suffix</span><span>Price adjustment</span><span>Default</span><span></span></div>
+                            <div class="item-option-value-head ${showsValueDefaults ? '' : 'item-option-value-head--no-default'}"><span>Value / color</span><span>SKU suffix</span><span>Price adjustment</span>${showsValueDefaults ? '<span>Selected by default</span>' : ''}<span></span></div>
                             <div>${valueRows}</div>
                             <input type="hidden" name="${prefix}[key]" value="${escapeHtml(group.key)}">
                             <input type="hidden" name="${prefix}[item_variation_id]" value="">
@@ -1233,7 +1671,7 @@
                     <input type="hidden" name="${valuePrefix}[sku_suffix]" value="${escapeHtml(value.sku_suffix)}">
                     <input type="hidden" name="${valuePrefix}[color_hex]" value="${escapeHtml(value.color_hex)}">
                     <input type="hidden" name="${valuePrefix}[price_adjustment]" value="${escapeHtml(value.price_adjustment)}">
-                    <input type="hidden" name="${valuePrefix}[is_default]" value="${value.is_default ? 1 : 0}">
+                    <input type="hidden" name="${valuePrefix}[is_default]" value="${showsValueDefaults && value.is_default ? 1 : 0}">
                     <input type="hidden" name="${valuePrefix}[sort_order]" value="${valueIndex}">
                     <input type="hidden" name="${valuePrefix}[status]" value="${escapeHtml(value.status || 'Active')}">`;
             }).join('');
@@ -1300,7 +1738,7 @@
                         </td>
                         <td data-label="SKU"><input type="text" name="${prefix}[sku]" value="${escapeHtml(variant.sku)}" class="form-control form-control-sm" required data-variant-index="${index}" data-variant-field="sku"></td>
                         <td data-label="Barcode"><input type="text" name="${prefix}[barcode]" value="${escapeHtml(variant.barcode)}" class="form-control form-control-sm" data-variant-index="${index}" data-variant-field="barcode"></td>
-                        <td data-label="Price"><input type="number" min="0" step="0.00000001" name="${prefix}[price]" value="${escapeHtml(variant.price)}" class="form-control form-control-sm" placeholder="Base price" data-variant-index="${index}" data-variant-field="price"></td>
+                        <td data-label="Price"><input type="number" min="0" step="${priceInputStep()}" name="${prefix}[price]" value="${escapeHtml(formatPriceInput(variant.price))}" class="form-control form-control-sm" placeholder="Base price" data-variant-index="${index}" data-variant-field="price"></td>
                         <td data-label="Stock"><input type="number" min="0" step="1" name="${prefix}[stock]" value="${escapeHtml(variant.stock)}" class="form-control form-control-sm" required data-variant-index="${index}" data-variant-field="stock"></td>
                         <td data-label="Default / status">
                             <input type="hidden" name="${prefix}[is_default]" value="${variant.is_default ? 1 : 0}">
@@ -1330,6 +1768,31 @@
                 </div>`;
         };
 
+        const syncGroupOptionSelection = (target) => {
+            const groupIndex = Number(target.dataset.groupIndex);
+            const group = state.option_groups[groupIndex];
+            const variation = variationMasters.find((entry) => Number(entry.id) === Number(group?.item_variation_id));
+
+            if (!group || !variation) {
+                return false;
+            }
+
+            const selectedIds = Array.from(target.selectedOptions).map((option) => Number(option.value));
+            const existingByName = new Map(group.values.map((value) => [value.name, value]));
+
+            group.values = variation.options
+                .filter((option) => selectedIds.includes(Number(option.id)))
+                .map((option) => ({
+                    ...option,
+                    key: existingByName.get(option.name)?.key || uniqueKey('value'),
+                    is_default: group.type === 'modifier' && toBoolean(
+                        existingByName.get(option.name)?.is_default ?? option.is_default
+                    ),
+                }));
+
+            return true;
+        };
+
         const render = () => {
             enabledInput.value = state.enabled ? '1' : '0';
             root.classList.toggle('d-none', !state.enabled);
@@ -1343,11 +1806,18 @@
                 : '<div class="item-option-empty"><i class="mdi mdi-format-list-bulleted d-block fs-2 mb-2"></i>Add a variation group.</div>';
 
             if (window.jQuery && window.jQuery.fn.select2) {
-                window.jQuery('.item-group-option-select').select2({
+                const groupOptionSelects = window.jQuery('.item-group-option-select');
+
+                groupOptionSelects.select2({
                     width: '100%',
                     placeholder: 'Select options',
                     closeOnSelect: false,
                 });
+                groupOptionSelects
+                    .off('select2:select.itemConfigurator select2:unselect.itemConfigurator')
+                    .on('select2:select.itemConfigurator select2:unselect.itemConfigurator', function () {
+                        this.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
             }
 
             const valueCount = state.option_groups.reduce((total, group) => total + group.values.length, 0);
@@ -1426,6 +1896,10 @@
         const combinationKey = (keys) => [...keys].sort().join('|');
 
         const generateVariants = () => {
+            groupContainer.querySelectorAll('[data-group-option-select]').forEach((select) => {
+                syncGroupOptionSelection(select);
+            });
+
             const groups = state.option_groups.filter((group) => group.type === 'variant');
 
             if (!groups.length) {
@@ -1585,16 +2059,7 @@
             }
 
             if (target.matches('[data-group-option-select]')) {
-                const groupIndex = Number(target.dataset.groupIndex);
-                const group = state.option_groups[groupIndex];
-                const variation = variationMasters.find((entry) => Number(entry.id) === Number(group.item_variation_id));
-                const selectedIds = Array.from(target.selectedOptions).map((option) => Number(option.value));
-                const existingByName = new Map(group.values.map((value) => [value.name, value]));
-
-                if (variation) {
-                    group.values = variation.options
-                        .filter((option) => selectedIds.includes(Number(option.id)))
-                        .map((option) => ({ ...option, key: existingByName.get(option.name)?.key || uniqueKey('value') }));
+                if (syncGroupOptionSelection(target)) {
                     clearVariants();
                     render();
                 }
@@ -1609,6 +2074,7 @@
                     group.is_required = true;
                     group.min_selections = 1;
                     group.max_selections = 1;
+                    group.values.forEach((value) => value.is_default = false);
                 } else {
                     group.is_required = false;
                     group.min_selections = 0;
@@ -1634,9 +2100,19 @@
             if (target.matches('[data-value-default]')) {
                 const groupIndex = Number(target.dataset.groupIndex);
                 const valueIndex = Number(target.dataset.valueIndex);
-                state.option_groups[groupIndex].values.forEach((value, index) => {
-                    value.is_default = target.checked && index === valueIndex;
-                });
+                const group = state.option_groups[groupIndex];
+
+                if (group.type !== 'modifier') {
+                    return;
+                }
+
+                if (group.selection_type === 'multiple') {
+                    group.values[valueIndex].is_default = target.checked;
+                } else {
+                    group.values.forEach((value, index) => {
+                        value.is_default = target.checked && index === valueIndex;
+                    });
+                }
                 render();
             }
 

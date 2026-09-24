@@ -58,12 +58,14 @@ class SliderRepository extends RepositoryBase
     public function createForAdmin(array $attributes): Slider
     {
         $image = $attributes['image'] ?? null;
-        unset($attributes['image']);
+        $videoFile = $attributes['video_file'] ?? null;
+        unset($attributes['image'], $attributes['video_file']);
 
         $slider = $this->sliderModel();
         $slider->fill($this->normalizeAttributes($attributes));
         $slider->save();
         $this->syncImageUpload($slider, $image);
+        $this->syncVideoUpload($slider, $videoFile);
         Slider::flushQueryCache();
 
         return $slider;
@@ -72,11 +74,13 @@ class SliderRepository extends RepositoryBase
     public function updateForAdmin(Slider $slider, array $attributes): Slider
     {
         $image = $attributes['image'] ?? null;
-        unset($attributes['image']);
+        $videoFile = $attributes['video_file'] ?? null;
+        unset($attributes['image'], $attributes['video_file']);
 
         $slider->fill($this->normalizeAttributes($attributes));
         $slider->save();
         $this->syncImageUpload($slider, $image);
+        $this->syncVideoUpload($slider, $videoFile);
         Slider::flushQueryCache();
 
         return $slider;
@@ -95,6 +99,16 @@ class SliderRepository extends RepositoryBase
         $attributes['recommended_dimensions'] = $this->recommendedDimensionsForPlacement($placement);
         $attributes['sort_order'] = (int) ($attributes['sort_order'] ?? 0);
 
+        if (empty($attributes['media_type'])) {
+            if (!empty($attributes['media_url'])) {
+                $attributes['media_type'] = 'video';
+            } elseif (!empty($attributes['gradient'])) {
+                $attributes['media_type'] = 'gradient';
+            } else {
+                $attributes['media_type'] = 'image';
+            }
+        }
+
         return $attributes;
     }
 
@@ -102,6 +116,14 @@ class SliderRepository extends RepositoryBase
     {
         if ($placement === 'Mobile') {
             return 'Recommended mobile banner ratio 4:5 or 9:16, for example 1080x1350 or 1080x1920.';
+        }
+
+        if ($placement === 'second_screen') {
+            return 'Recommended customer display 16:9 widescreen or video showcase loop (e.g. 1920x1080 or MP4 video).';
+        }
+
+        if ($placement === 'All') {
+            return 'Universal multi-channel placement across Website, Mobile App, and Customer Display.';
         }
 
         return 'Recommended website banner ratio 16:9 or wider, for example 1600x900 or 1920x800.';
@@ -126,7 +148,7 @@ class SliderRepository extends RepositoryBase
             'name' => $fileName,
         ]);
 
-        $slider->forceFill(['image_id' => $gallery->id])->save();
+        $slider->forceFill(['image_id' => $gallery->id, 'media_url' => null, 'media_type' => 'image'])->save();
     }
 
     protected function deleteSliderImage(Slider $slider): void
@@ -149,6 +171,23 @@ class SliderRepository extends RepositoryBase
 
         $gallery->delete();
         $slider->forceFill(['image_id' => null])->save();
+    }
+
+    protected function syncVideoUpload(Slider $slider, $videoFile): void
+    {
+        if (! $videoFile instanceof UploadedFile) {
+            return;
+        }
+
+        $extension = strtolower($videoFile->getClientOriginalExtension() ?: $videoFile->extension() ?: 'mp4');
+        $fileName = 'video_' . Str::uuid()->toString() . '.' . $extension;
+
+        Storage::disk('slider')->putFileAs('videos', $videoFile, $fileName);
+
+        $slider->forceFill([
+            'media_url' => '/uploads/slider/videos/' . $fileName,
+            'media_type' => 'video',
+        ])->save();
     }
 
     protected function sliderCacheTtl(): int

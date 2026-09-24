@@ -17,7 +17,7 @@ class CustomerRepository extends RepositoryBase
 
     protected $model = 'App\Models\Customer';
 
-    public function getAdminListing(string $search = ''): Collection
+    public function getAdminListing(string $search = '', ?string $type = null): Collection
     {
         $query = $this->customerModel()
             ->newQuery()
@@ -25,10 +25,14 @@ class CustomerRepository extends RepositoryBase
             ->cachePrefix($this->customerListingCachePrefix())
             ->cacheTags($this->customerListingCacheTags())
             ->with(['profile', 'priceList'])
+            ->when(in_array($type, Customer::TYPES, true), function ($query) use ($type) {
+                $query->where('type', $type);
+            })
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($innerQuery) use ($search) {
                     $innerQuery->where('code', 'like', "%{$search}%")
                         ->orWhere('name', 'like', "%{$search}%")
+                        ->orWhere('type', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%")
                         ->orWhere('phone', 'like', "%{$search}%")
                         ->orWhere('address', 'like', "%{$search}%")
@@ -45,6 +49,35 @@ class CustomerRepository extends RepositoryBase
         $this->reportCacheState($query, 'admin.customers.index');
 
         return $query->get();
+    }
+
+    public function getTypeCounts(string $search = ''): array
+    {
+        $baseQuery = $this->customerModel()
+            ->newQuery()
+            ->cacheFor($this->customerCacheTtl())
+            ->cachePrefix($this->customerListingCachePrefix())
+            ->cacheTags($this->customerListingCacheTags())
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($innerQuery) use ($search) {
+                    $innerQuery->where('code', 'like', "%{$search}%")
+                        ->orWhere('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('address', 'like', "%{$search}%")
+                        ->orWhere('notes', 'like', "%{$search}%")
+                        ->orWhere('status', 'like', "%{$search}%")
+                        ->orWhereHas('priceList', fn ($priceListQuery) => $priceListQuery
+                            ->where('name', 'like', "%{$search}%")
+                            ->orWhere('code', 'like', "%{$search}%"));
+                });
+            });
+
+        return [
+            'all' => (clone $baseQuery)->count(),
+            Customer::TYPE_CUSTOMER => (clone $baseQuery)->where('type', Customer::TYPE_CUSTOMER)->count(),
+            Customer::TYPE_VENDOR => (clone $baseQuery)->where('type', Customer::TYPE_VENDOR)->count(),
+        ];
     }
 
     public function loadForAdminEdit(int $customerId): Customer

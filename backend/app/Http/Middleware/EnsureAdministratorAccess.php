@@ -11,7 +11,7 @@ class EnsureAdministratorAccess
     {
         if (admin_is_tenant_user()) {
             return redirect()
-                ->route('home')
+                ->route('admin.dashboard')
                 ->with('tenant_required', 'Tenant users cannot access administrator management.');
         }
 

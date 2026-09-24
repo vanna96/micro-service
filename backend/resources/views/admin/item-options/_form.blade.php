@@ -6,10 +6,10 @@
         <div class="row g-3">
             <div class="col-md-6">
                 <label class="form-label required">Variation</label>
-                <select name="item_variation_id" class="form-select @error('item_variation_id') is-invalid @enderror" required>
+                <select name="item_variation_id" id="option-variation" class="form-select @error('item_variation_id') is-invalid @enderror" required>
                     <option value="">Select variation</option>
                     @foreach ($variationOptions as $variationOption)
-                        <option value="{{ $variationOption->id }}" @selected((string) old('item_variation_id', $option->item_variation_id) === (string) $variationOption->id)>
+                        <option value="{{ $variationOption->id }}" data-type="{{ $variationOption->type }}" @selected((string) old('item_variation_id', $option->item_variation_id) === (string) $variationOption->id)>
                             {{ $variationOption->name }}
                         </option>
                     @endforeach
@@ -42,7 +42,7 @@
             </div>
             <div class="col-md-4">
                 <label class="form-label">Price Adjustment</label>
-                <input type="number" step="0.00000001" name="price_adjustment" value="{{ old('price_adjustment', $option->price_adjustment ?? 0) }}"
+                <input type="number" step="{{ currency_input_step($baseCurrency, 2) }}" name="price_adjustment" value="{{ format_currency_input(old('price_adjustment', $option->price_adjustment ?? 0), $baseCurrency, 2) }}"
                     class="form-control @error('price_adjustment') is-invalid @enderror">
                 @error('price_adjustment')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
@@ -61,14 +61,40 @@
                 </select>
                 @error('status')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
-            <div class="col-12">
+            <div class="col-12" id="option-default-field">
                 <div class="form-check form-switch">
                     <input type="hidden" name="is_default" value="0">
                     <input class="form-check-input" type="checkbox" name="is_default" value="1" id="option-default"
                         @checked(old('is_default', $option->is_default))>
-                    <label class="form-check-label" for="option-default">Default option for this variation</label>
+                    <label class="form-check-label" for="option-default">Selected by default for this modifier</label>
                 </div>
+                <div class="form-text">Sellable variations choose their default in Item Master instead.</div>
             </div>
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const variation = document.getElementById('option-variation');
+        const defaultField = document.getElementById('option-default-field');
+        const defaultCheckbox = document.getElementById('option-default');
+
+        const syncDefaultField = () => {
+            const isModifier = variation?.selectedOptions[0]?.dataset.type === 'modifier';
+            defaultField?.classList.toggle('d-none', !isModifier);
+
+            if (defaultCheckbox) {
+                defaultCheckbox.disabled = !isModifier;
+                if (!isModifier) {
+                    defaultCheckbox.checked = false;
+                }
+            }
+        };
+
+        variation?.addEventListener('change', syncDefaultField);
+        syncDefaultField();
+    });
+</script>
+@endpush

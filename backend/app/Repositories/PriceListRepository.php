@@ -148,6 +148,7 @@ class PriceListRepository extends RepositoryBase
 
     public function updateLineForAdmin(PriceListItem $line, array $attributes): PriceListItem
     {
+        $attributes['item_id'] = $attributes['item_id'] ?? $line->item_id;
         $attributes = $this->normalizeLineAttributes($attributes);
 
         $line->fill($attributes);
@@ -172,6 +173,11 @@ class PriceListRepository extends RepositoryBase
         $attributes['is_default'] = (bool) ($attributes['is_default'] ?? false);
 
         if (($attributes['header_pricing_method'] ?? null) === 'fixed') {
+            $attributes['header_fixed_price'] = format_currency_input(
+                $attributes['header_fixed_price'] ?? null,
+                tenant_base_currency(),
+                2
+            );
             $attributes['header_discount_percent'] = null;
         } elseif (($attributes['header_pricing_method'] ?? null) === 'discount') {
             $attributes['header_fixed_price'] = null;
@@ -191,6 +197,10 @@ class PriceListRepository extends RepositoryBase
     protected function normalizeLineAttributes(array $attributes): array
     {
         if (($attributes['pricing_method'] ?? null) === 'fixed') {
+            $item = ! empty($attributes['item_id'])
+                ? $this->itemModel()->newQuery()->with('currency')->find($attributes['item_id'])
+                : null;
+            $attributes['fixed_price'] = format_currency_input($attributes['fixed_price'] ?? null, $item?->currency, 2);
             $attributes['discount_percent'] = null;
         }
 

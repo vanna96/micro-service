@@ -2,12 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Models\Gallery;
 use App\Models\ActivityLog;
 use App\Models\Branch;
 use App\Models\Category;
-use App\Models\Customer;
 use App\Models\Currency;
+use App\Models\Customer;
+use App\Models\Gallery;
 use App\Models\Item;
 use App\Models\PriceList;
 use App\Models\PriceListItem;
@@ -17,6 +17,9 @@ use App\Models\RateIndexValue;
 use App\Models\Role;
 use App\Models\Slider;
 use App\Models\Tenant;
+use App\Models\UnitOfMeasure;
+use App\Models\UomGroup;
+use App\Models\UomGroupUnit;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
@@ -25,6 +28,8 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Stancl\Tenancy\Events\TenantCreated;
 use Stancl\Tenancy\Events\TenantDeleted;
 use Tests\TestCase;
@@ -32,6 +37,7 @@ use Tests\TestCase;
 class AdminCrudManagementTest extends TestCase
 {
     protected string $databasePath;
+
     protected array $tenantDatabasePaths = [];
 
     protected function setUp(): void
@@ -78,6 +84,11 @@ class AdminCrudManagementTest extends TestCase
 
     protected function tearDown(): void
     {
+        DB::disconnect('central');
+        DB::disconnect('mysql');
+        DB::purge('central');
+        DB::purge('mysql');
+
         if (isset($this->databasePath) && File::exists($this->databasePath)) {
             File::delete($this->databasePath);
         }
@@ -231,7 +242,7 @@ class AdminCrudManagementTest extends TestCase
             ->assertSee('datatable-tenant-users', false)
             ->assertSee('Create User')
             ->assertSee('Showing users for tenant', false)
-            ->assertSee('<strong>' . $tenant->db_name . '</strong>', false);
+            ->assertSee('<strong>'.$tenant->db_name.'</strong>', false);
 
         $this->actingAs($admin)
             ->withSession(['admin_selected_tenant_id' => $tenant->id])
@@ -371,7 +382,7 @@ class AdminCrudManagementTest extends TestCase
             ->get(route('admin.tenant-users.index'))
             ->assertOk()
             ->assertSee('Showing users for tenant', false)
-            ->assertSee('<strong>' . $tenantA->id . '</strong>', false)
+            ->assertSee('<strong>'.$tenantA->id.'</strong>', false)
             ->assertSee('Tenant A User')
             ->assertDontSee('Tenant B User');
 
@@ -380,7 +391,7 @@ class AdminCrudManagementTest extends TestCase
             ->get(route('admin.tenant-users.index'))
             ->assertOk()
             ->assertSee('Showing users for tenant', false)
-            ->assertSee('<strong>' . $tenantB->id . '</strong>', false)
+            ->assertSee('<strong>'.$tenantB->id.'</strong>', false)
             ->assertSee('Tenant B User')
             ->assertDontSee('Tenant A User');
     }
@@ -388,7 +399,7 @@ class AdminCrudManagementTest extends TestCase
     public function test_tenant_user_can_login_and_cannot_access_administrator_or_tenants(): void
     {
         $tenant = $this->createSqliteTenant('tenant-login');
-        $username = 'tenant-login-user-' . uniqid();
+        $username = 'tenant-login-user-'.uniqid();
 
         tenancy()->initialize($tenant);
         User::query()->create([
@@ -418,7 +429,7 @@ class AdminCrudManagementTest extends TestCase
         $this->get(route('admin.tenant-users.index'))
             ->assertOk()
             ->assertSee('Showing users for tenant', false)
-            ->assertSee('<strong>' . $tenant->id . '</strong>', false);
+            ->assertSee('<strong>'.$tenant->id.'</strong>', false);
 
         $this->get(route('admin.users.index'))
             ->assertRedirect(route('home'));
@@ -515,7 +526,7 @@ class AdminCrudManagementTest extends TestCase
 
         $this->assertDatabaseHas('domains', [
             'tenant_id' => 'beta',
-            'domain' => 'beta.' . env('TENANT_HOST', 'localhost'),
+            'domain' => 'beta.'.env('TENANT_HOST', 'localhost'),
         ], 'central');
 
         $this->actingAs($admin)
@@ -612,6 +623,9 @@ class AdminCrudManagementTest extends TestCase
                 'timezone' => 'Asia/Phnom_Penh',
                 'locale' => 'en',
                 'receipt_footer' => 'Thank you for shopping with us.',
+                'telegram_notifications_enabled' => '1',
+                'telegram_bot_token' => '123456:ABC-DEF',
+                'telegram_chat_id' => '-100987654321',
             ])
             ->assertRedirect(route('admin.general-settings.index'));
 
@@ -626,6 +640,177 @@ class AdminCrudManagementTest extends TestCase
         $this->assertSame('Asia/Phnom_Penh', data_get($tenant->general_settings, 'timezone'));
         $this->assertSame('en', data_get($tenant->general_settings, 'locale'));
         $this->assertSame('Thank you for shopping with us.', data_get($tenant->general_settings, 'receipt_footer'));
+        $this->assertTrue((bool) data_get($tenant->general_settings, 'telegram_notifications_enabled'));
+        $this->assertSame('123456:ABC-DEF', data_get($tenant->general_settings, 'telegram_bot_token'));
+        $this->assertSame('-100987654321', data_get($tenant->general_settings, 'telegram_chat_id'));
+    }
+
+    public function test_admin_can_send_test_telegram_notification(): void
+    {
+        \Illuminate\Support\Facades\Http::fake([
+            'https://api.telegram.org/bot123456:ABC-DEF/sendMessage' => \Illuminate\Support\Facades\Http::response(['ok' => true], 200),
+        ]);
+
+        $admin = $this->createUser([
+            'username' => 'telegram-admin',
+            'email' => 'telegram-admin@example.com',
+            'phone' => '72727272',
+        ]);
+
+        $tenant = $this->createSqliteTenant('telegram-test-tenant');
+        $admin->tenants()->sync([$tenant->id]);
+
+        $response = $this->actingAs($admin)
+            ->withSession(['admin_selected_tenant_id' => $tenant->id])
+            ->postJson(route('admin.general-settings.test-telegram'), [
+                'telegram_bot_token' => '123456:ABC-DEF',
+                'telegram_chat_id' => '-100987654321',
+            ]);
+
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+            ]);
+    }
+
+    public function test_admin_can_view_and_update_dedicated_telegram_notifications_page(): void
+    {
+        \Illuminate\Support\Facades\Http::fake([
+            'https://api.telegram.org/botMY_BOT_TOKEN/sendMessage' => \Illuminate\Support\Facades\Http::response(['ok' => true], 200),
+        ]);
+
+        $admin = $this->createUser([
+            'username' => 'telegram-view-admin',
+            'email' => 'telegram-view-admin@example.com',
+            'phone' => '73737373',
+        ]);
+
+        $tenant = $this->createSqliteTenant('telegram-view-tenant');
+        $admin->tenants()->sync([$tenant->id]);
+
+        // 1. Visit index page
+        $this->actingAs($admin)
+            ->withSession(['admin_selected_tenant_id' => $tenant->id])
+            ->get(route('admin.telegram-notifications.index'))
+            ->assertOk()
+            ->assertSee('Order & POS Receipts', false)
+            ->assertSee('System Error Logs')
+            ->assertSee('Send Real Sample Order Receipt');
+
+        // 2. Update credentials
+        $this->actingAs($admin)
+            ->withSession(['admin_selected_tenant_id' => $tenant->id])
+            ->put(route('admin.telegram-notifications.update'), [
+                'telegram_notifications_enabled' => '1',
+                'telegram_bot_token' => 'MY_BOT_TOKEN',
+                'telegram_chat_id' => '-1005555555555',
+            ])
+            ->assertRedirect(route('admin.telegram-notifications.index', ['tab' => 'orders']));
+
+        $tenant->refresh();
+        $this->assertTrue((bool) data_get($tenant->general_settings, 'telegram_notifications_enabled'));
+        $this->assertSame('MY_BOT_TOKEN', data_get($tenant->general_settings, 'telegram_bot_token'));
+        $this->assertSame('-1005555555555', data_get($tenant->general_settings, 'telegram_chat_id'));
+
+        // 3. Send test notification via dedicated test endpoint
+        $testResponse = $this->actingAs($admin)
+            ->withSession(['admin_selected_tenant_id' => $tenant->id])
+            ->postJson(route('admin.telegram-notifications.test'), [
+                'telegram_bot_token' => 'MY_BOT_TOKEN',
+                'telegram_chat_id' => '-1005555555555',
+            ]);
+
+        $testResponse->assertOk()->assertJson(['success' => true]);
+    }
+
+    public function test_admin_can_update_and_test_error_log_telegram_settings(): void
+    {
+        \Illuminate\Support\Facades\Http::fake([
+            'https://api.telegram.org/botMY_ERR_TOKEN/sendMessage' => \Illuminate\Support\Facades\Http::response(['ok' => true], 200),
+        ]);
+
+        $admin = $this->createUser([
+            'username' => 'error-log-admin',
+            'email' => 'error-log-admin@example.com',
+            'phone' => '73737374',
+        ]);
+
+        $tenant = $this->createSqliteTenant('error-log-tenant');
+        $admin->tenants()->sync([$tenant->id]);
+
+        // 1. Visit index page with tab=errors
+        $this->actingAs($admin)
+            ->withSession(['admin_selected_tenant_id' => $tenant->id])
+            ->get(route('admin.telegram-notifications.index', ['tab' => 'errors']))
+            ->assertOk()
+            ->assertSee('System Error Log Notifications')
+            ->assertSee('Send Real Sample Error Alert');
+
+        // 2. Update error log credentials
+        $this->actingAs($admin)
+            ->withSession(['admin_selected_tenant_id' => $tenant->id])
+            ->put(route('admin.telegram-notifications.update'), [
+                'active_tab' => 'errors',
+                'telegram_error_log_enabled' => '1',
+                'telegram_error_log_bot_token' => 'MY_ERR_TOKEN',
+                'telegram_error_log_chat_id' => '-1007777777777',
+            ])
+            ->assertRedirect(route('admin.telegram-notifications.index', ['tab' => 'errors']));
+
+        $tenant->refresh();
+        $this->assertTrue((bool) data_get($tenant->general_settings, 'telegram_error_log_enabled'));
+        $this->assertSame('MY_ERR_TOKEN', data_get($tenant->general_settings, 'telegram_error_log_bot_token'));
+        $this->assertSame('-1007777777777', data_get($tenant->general_settings, 'telegram_error_log_chat_id'));
+
+        // 3. Send test sample error log via dedicated test endpoint
+        $sampleResponse = $this->actingAs($admin)
+            ->withSession(['admin_selected_tenant_id' => $tenant->id])
+            ->postJson(route('admin.telegram-notifications.test'), [
+                'type' => 'error_sample',
+                'telegram_error_log_bot_token' => 'MY_ERR_TOKEN',
+                'telegram_error_log_chat_id' => '-1007777777777',
+            ]);
+
+        $sampleResponse->assertOk()->assertJson(['success' => true]);
+
+        // 4. Send ping error log via dedicated test endpoint
+        $pingResponse = $this->actingAs($admin)
+            ->withSession(['admin_selected_tenant_id' => $tenant->id])
+            ->postJson(route('admin.telegram-notifications.test'), [
+                'type' => 'error_ping',
+                'telegram_error_log_bot_token' => 'MY_ERR_TOKEN',
+                'telegram_error_log_chat_id' => '-1007777777777',
+            ]);
+
+        $pingResponse->assertOk()->assertJson(['success' => true]);
+    }
+
+    public function test_admin_can_send_sample_order_test_from_central_tenant_management(): void
+    {
+        \Illuminate\Support\Facades\Http::fake([
+            'https://api.telegram.org/botTENANT_BOT_TOKEN/sendMessage' => \Illuminate\Support\Facades\Http::response(['ok' => true], 200),
+        ]);
+
+        $admin = $this->createUser([
+            'username' => 'tenant-central-admin',
+            'email' => 'tenant-central-admin@example.com',
+            'phone' => '74747474',
+        ]);
+
+        $tenant = $this->createSqliteTenant('tenant-central-t');
+
+        $response = $this->actingAs($admin)
+            ->postJson(route('admin.tenants.test-telegram'), [
+                'tenant_id' => $tenant->id,
+                'telegram_bot_token' => 'TENANT_BOT_TOKEN',
+                'telegram_chat_id' => '-1008888888888',
+                'type' => 'sample_order',
+            ]);
+
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+            ]);
     }
 
     public function test_admin_can_crud_categories(): void
@@ -655,7 +840,7 @@ class AdminCrudManagementTest extends TestCase
             ->assertSee('datatable-categories', false)
             ->assertSee('Create Category')
             ->assertSee('Showing categories for tenant', false)
-            ->assertSee('<strong>' . $tenant->id . '</strong>', false);
+            ->assertSee('<strong>'.$tenant->id.'</strong>', false);
 
         $this->actingAs($admin)
             ->withSession(['admin_selected_tenant_id' => $tenant->id])
@@ -772,7 +957,7 @@ class AdminCrudManagementTest extends TestCase
             ->get(route('admin.categories.index'))
             ->assertOk()
             ->assertSee('Showing categories for tenant', false)
-            ->assertSee('<strong>' . $tenantA->id . '</strong>', false)
+            ->assertSee('<strong>'.$tenantA->id.'</strong>', false)
             ->assertSee('Tenant A Category')
             ->assertDontSee('Tenant B Category');
 
@@ -781,7 +966,7 @@ class AdminCrudManagementTest extends TestCase
             ->get(route('admin.categories.index'))
             ->assertOk()
             ->assertSee('Showing categories for tenant', false)
-            ->assertSee('<strong>' . $tenantB->id . '</strong>', false)
+            ->assertSee('<strong>'.$tenantB->id.'</strong>', false)
             ->assertSee('Tenant B Category')
             ->assertDontSee('Tenant A Category');
     }
@@ -829,7 +1014,7 @@ class AdminCrudManagementTest extends TestCase
             ->assertSee('datatable-items', false)
             ->assertSee('Create Item')
             ->assertSee('Showing items for tenant', false)
-            ->assertSee('<strong>' . $tenant->id . '</strong>', false);
+            ->assertSee('<strong>'.$tenant->id.'</strong>', false);
 
         $this->actingAs($admin)
             ->withSession(['admin_selected_tenant_id' => $tenant->id])
@@ -842,7 +1027,6 @@ class AdminCrudManagementTest extends TestCase
                 'foreign_name' => 'ឈុតអាពាហ៍ពិពាហ៍ខ្មែរ',
                 'description' => 'Premium Khmer wedding look.',
                 'price' => '280.00',
-                'discount_percent' => 15,
                 'stock' => 4,
                 'is_premium' => 1,
                 'is_featured' => 1,
@@ -868,7 +1052,6 @@ class AdminCrudManagementTest extends TestCase
             'price_list_id' => $priceList->id,
             'sku' => 'SKU-001',
             'branch_name' => 'Kampot Flagship',
-            'discount_percent' => 15,
             'stock' => 4,
             'review_count' => 0,
             'sort_order' => 0,
@@ -924,7 +1107,6 @@ class AdminCrudManagementTest extends TestCase
                 'foreign_name' => 'ឈុតអាពាហ៍ពិពាហ៍ខ្មែរប្រណិត',
                 'description' => 'Updated catalog copy.',
                 'price' => '300.00',
-                'discount_percent' => 10,
                 'stock' => 2,
                 'status' => 'Inactive',
                 'image' => UploadedFile::fake()->image('khmer-wedding-deluxe.png'),
@@ -946,7 +1128,6 @@ class AdminCrudManagementTest extends TestCase
             'price_list_id' => $priceList->id,
             'branch_name' => 'Phnom Penh Boutique',
             'price' => 300,
-            'discount_percent' => 10,
             'stock' => 2,
             'review_count' => 0,
             'sort_order' => 0,
@@ -1017,7 +1198,7 @@ class AdminCrudManagementTest extends TestCase
             ->assertSee('datatable-customers', false)
             ->assertSee('Create Customer')
             ->assertSee('Showing customers for tenant', false)
-            ->assertSee('<strong>' . $tenant->db_name . '</strong>', false);
+            ->assertSee('<strong>'.$tenant->db_name.'</strong>', false);
 
         $this->actingAs($admin)
             ->withSession(['admin_selected_tenant_id' => $tenant->id])
@@ -1026,7 +1207,7 @@ class AdminCrudManagementTest extends TestCase
                 'name' => 'Walk In VIP',
                 'email' => 'customer@example.com',
                 'phone' => '012345678',
-                'profile' => UploadedFile::fake()->image('customer-profile.jpg'),
+                'profile' => UploadedFile::fake()->image('customer-profile.png'),
                 'address' => 'Street 2004, Phnom Penh',
                 'notes' => 'Prefers weekend delivery.',
                 'status' => 'Active',
@@ -1126,7 +1307,7 @@ class AdminCrudManagementTest extends TestCase
             ->assertSee('datatable-sliders', false)
             ->assertSee('Create Slider')
             ->assertSee('Showing sliders for tenant', false)
-            ->assertSee('<strong>' . $tenant->id . '</strong>', false);
+            ->assertSee('<strong>'.$tenant->id.'</strong>', false);
 
         $this->actingAs($admin)
             ->withSession(['admin_selected_tenant_id' => $tenant->id])
@@ -1256,7 +1437,7 @@ class AdminCrudManagementTest extends TestCase
             ->get(route('admin.sliders.index'))
             ->assertOk()
             ->assertSee('Showing sliders for tenant', false)
-            ->assertSee('<strong>' . $tenantA->id . '</strong>', false)
+            ->assertSee('<strong>'.$tenantA->id.'</strong>', false)
             ->assertSee('Tenant A Slider')
             ->assertDontSee('Tenant B Slider');
 
@@ -1265,7 +1446,7 @@ class AdminCrudManagementTest extends TestCase
             ->get(route('admin.sliders.index'))
             ->assertOk()
             ->assertSee('Showing sliders for tenant', false)
-            ->assertSee('<strong>' . $tenantB->id . '</strong>', false)
+            ->assertSee('<strong>'.$tenantB->id.'</strong>', false)
             ->assertSee('Tenant B Slider')
             ->assertDontSee('Tenant A Slider');
     }
@@ -1288,7 +1469,7 @@ class AdminCrudManagementTest extends TestCase
             ->assertSee('datatable-branches', false)
             ->assertSee('Create Branch')
             ->assertSee('Showing branches for tenant', false)
-            ->assertSee('<strong>' . $tenant->id . '</strong>', false);
+            ->assertSee('<strong>'.$tenant->id.'</strong>', false);
 
         $this->actingAs($admin)
             ->withSession(['admin_selected_tenant_id' => $tenant->id])
@@ -1617,7 +1798,7 @@ class AdminCrudManagementTest extends TestCase
                 ],
             ])
             ->assertSessionHasErrors([
-                'cells.1.' . $khr->id,
+                'cells.1.'.$khr->id,
             ]);
     }
 
@@ -1631,11 +1812,11 @@ class AdminCrudManagementTest extends TestCase
 
         $tenant = $this->createSqliteTenant('price-book');
         $admin->tenants()->sync([$tenant->id]);
-        $retailCode = 'retail-2026-' . uniqid();
-        $retailName = 'Retail 2026 ' . uniqid();
-        $retailUpdatedName = $retailName . ' Main';
-        $vipCode = 'vip-2026-' . uniqid();
-        $vipName = 'VIP 2026 ' . uniqid();
+        $retailCode = 'retail-2026-'.uniqid();
+        $retailName = 'Retail 2026 '.uniqid();
+        $retailUpdatedName = $retailName.' Main';
+        $vipCode = 'vip-2026-'.uniqid();
+        $vipName = 'VIP 2026 '.uniqid();
 
         tenancy()->initialize($tenant);
         $itemOne = Item::query()->firstOrCreate(
@@ -1643,7 +1824,6 @@ class AdminCrudManagementTest extends TestCase
             [
                 'name' => 'Classic Khmer Dress',
                 'price' => 120,
-                'discount_percent' => 10,
                 'stock' => 5,
                 'status' => 'Active',
             ]
@@ -1653,7 +1833,6 @@ class AdminCrudManagementTest extends TestCase
             [
                 'name' => 'Modern Silk Suit',
                 'price' => 240,
-                'discount_percent' => 0,
                 'stock' => 3,
                 'status' => 'Active',
             ]
@@ -1668,7 +1847,7 @@ class AdminCrudManagementTest extends TestCase
             ->assertSee('datatable-price-lists', false)
             ->assertSee('Create Price List')
             ->assertSee('Showing price lists for tenant', false)
-            ->assertSee('<strong>' . $tenant->id . '</strong>', false);
+            ->assertSee('<strong>'.$tenant->id.'</strong>', false);
 
         $this->actingAs($admin)
             ->withSession(['admin_selected_tenant_id' => $tenant->id])
@@ -1902,21 +2081,19 @@ class AdminCrudManagementTest extends TestCase
 
         tenancy()->initialize($tenant);
         $itemOne = Item::query()->firstOrCreate(
-            ['sku' => 'PR-' . uniqid()],
+            ['sku' => 'PR-'.uniqid()],
             [
                 'name' => 'Gold Silk Dress',
                 'price' => 180,
-                'discount_percent' => 5,
                 'stock' => 8,
                 'status' => 'Active',
             ]
         );
         $itemTwo = Item::query()->firstOrCreate(
-            ['sku' => 'PR-' . uniqid()],
+            ['sku' => 'PR-'.uniqid()],
             [
                 'name' => 'Silver Wedding Suit',
                 'price' => 240,
-                'discount_percent' => 0,
                 'stock' => 4,
                 'status' => 'Active',
             ]
@@ -1935,7 +2112,7 @@ class AdminCrudManagementTest extends TestCase
             ->withSession(['admin_selected_tenant_id' => $tenant->id])
             ->from(route('admin.promotions.create'))
             ->post(route('admin.promotions.store'), [
-                'code' => 'invalid-subtotal-' . uniqid(),
+                'code' => 'invalid-subtotal-'.uniqid(),
                 'name' => 'Invalid Subtotal',
                 'type' => Promotion::TYPE_SUBTOTAL_DISCOUNT,
                 'description' => 'This should fail.',
@@ -1946,9 +2123,9 @@ class AdminCrudManagementTest extends TestCase
             ->assertRedirect(route('admin.promotions.create'))
             ->assertSessionHasErrors(['threshold_amount', 'reward_discount_percent']);
 
-        $itemPriceCode = 'item-price-' . uniqid();
-        $subtotalCode = 'subtotal-' . uniqid();
-        $bogoCode = 'bogo-' . uniqid();
+        $itemPriceCode = 'item-price-'.uniqid();
+        $subtotalCode = 'subtotal-'.uniqid();
+        $bogoCode = 'bogo-'.uniqid();
 
         $this->actingAs($admin)
             ->withSession(['admin_selected_tenant_id' => $tenant->id])
@@ -2207,56 +2384,50 @@ class AdminCrudManagementTest extends TestCase
 
         tenancy()->initialize($tenant);
         $fixedItem = Item::query()->create([
-            'sku' => 'FIXED-' . uniqid(),
+            'sku' => 'FIXED-'.uniqid(),
             'name' => 'Fixed Promo Item',
             'price' => 100,
-            'discount_percent' => 5,
             'stock' => 5,
             'status' => 'Active',
         ]);
         $discountItem = Item::query()->create([
-            'sku' => 'DISC-' . uniqid(),
+            'sku' => 'DISC-'.uniqid(),
             'name' => 'Discount Promo Item',
             'price' => 200,
-            'discount_percent' => 0,
             'stock' => 7,
             'status' => 'Active',
         ]);
         $subtotalItem = Item::query()->create([
-            'sku' => 'SUB-' . uniqid(),
+            'sku' => 'SUB-'.uniqid(),
             'name' => 'Subtotal Item',
             'price' => 30,
-            'discount_percent' => 0,
             'stock' => 20,
             'status' => 'Active',
         ]);
         $bogoItem = Item::query()->create([
-            'sku' => 'BOGO-' . uniqid(),
+            'sku' => 'BOGO-'.uniqid(),
             'name' => 'Bogo Buy Item',
             'price' => 15,
-            'discount_percent' => 0,
             'stock' => 20,
             'status' => 'Active',
         ]);
         $bogoRewardItem = Item::query()->create([
-            'sku' => 'BOGO-REWARD-' . uniqid(),
+            'sku' => 'BOGO-REWARD-'.uniqid(),
             'name' => 'Bogo Reward Item',
             'price' => 10,
-            'discount_percent' => 0,
             'stock' => 20,
             'status' => 'Active',
         ]);
         $fallbackItem = Item::query()->create([
-            'sku' => 'FALLBACK-' . uniqid(),
+            'sku' => 'FALLBACK-'.uniqid(),
             'name' => 'Fallback Item',
             'price' => 40,
-            'discount_percent' => 10,
             'stock' => 10,
             'status' => 'Active',
         ]);
 
         $fixedPromotion = Promotion::query()->create([
-            'code' => 'fixed-' . uniqid(),
+            'code' => 'fixed-'.uniqid(),
             'name' => 'Fixed Promotion',
             'type' => Promotion::TYPE_ITEM_PRICE,
             'description' => 'Fixed price campaign.',
@@ -2265,7 +2436,7 @@ class AdminCrudManagementTest extends TestCase
             'status' => 'Active',
         ]);
         $discountPromotion = Promotion::query()->create([
-            'code' => 'percent-' . uniqid(),
+            'code' => 'percent-'.uniqid(),
             'name' => 'Percent Promotion',
             'type' => Promotion::TYPE_ITEM_PRICE,
             'description' => 'Percent campaign.',
@@ -2274,7 +2445,7 @@ class AdminCrudManagementTest extends TestCase
             'status' => 'Active',
         ]);
         $subtotalPromotion = Promotion::query()->create([
-            'code' => 'subtotal-' . uniqid(),
+            'code' => 'subtotal-'.uniqid(),
             'name' => 'Subtotal Promotion',
             'type' => Promotion::TYPE_SUBTOTAL_DISCOUNT,
             'description' => 'Spend and save.',
@@ -2285,7 +2456,7 @@ class AdminCrudManagementTest extends TestCase
             'status' => 'Active',
         ]);
         $bogoPromotion = Promotion::query()->create([
-            'code' => 'bogo-' . uniqid(),
+            'code' => 'bogo-'.uniqid(),
             'name' => 'Bogo Promotion',
             'type' => Promotion::TYPE_BOGO,
             'description' => 'Buy one get one.',
@@ -2296,7 +2467,7 @@ class AdminCrudManagementTest extends TestCase
             'status' => 'Active',
         ]);
         $expiredPromotion = Promotion::query()->create([
-            'code' => 'expired-' . uniqid(),
+            'code' => 'expired-'.uniqid(),
             'name' => 'Expired Promotion',
             'type' => Promotion::TYPE_ITEM_PRICE,
             'description' => 'Expired.',
@@ -2305,7 +2476,7 @@ class AdminCrudManagementTest extends TestCase
             'status' => 'Active',
         ]);
         $inactivePromotion = Promotion::query()->create([
-            'code' => 'inactive-' . uniqid(),
+            'code' => 'inactive-'.uniqid(),
             'name' => 'Inactive Promotion',
             'type' => Promotion::TYPE_ITEM_PRICE,
             'description' => 'Inactive.',
@@ -2354,7 +2525,7 @@ class AdminCrudManagementTest extends TestCase
         $token = $admin->createToken('promotion-api')->plainTextToken;
 
         $fixedResponse = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->postJson('http://localhost/v1/api/cart/price', [
@@ -2368,7 +2539,7 @@ class AdminCrudManagementTest extends TestCase
         $this->assertSame(70.0, (float) $fixedResponse->json('final_total'));
 
         $discountResponse = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->postJson('http://localhost/v1/api/cart/price', [
@@ -2382,7 +2553,7 @@ class AdminCrudManagementTest extends TestCase
         $this->assertSame(150.0, (float) $discountResponse->json('final_total'));
 
         $subtotalResponse = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->postJson('http://localhost/v1/api/cart/price', [
@@ -2396,7 +2567,7 @@ class AdminCrudManagementTest extends TestCase
         $this->assertSame(54.0, (float) $subtotalResponse->json('final_total'));
 
         $bogoResponse = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->postJson('http://localhost/v1/api/cart/price', [
@@ -2411,7 +2582,7 @@ class AdminCrudManagementTest extends TestCase
         $this->assertSame(15.0, (float) $bogoResponse->json('final_total'));
 
         $winnerResponse = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->postJson('http://localhost/v1/api/cart/price', [
@@ -2426,7 +2597,7 @@ class AdminCrudManagementTest extends TestCase
         $this->assertSame(130.0, (float) $winnerResponse->json('final_total'));
 
         $fallbackResponse = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->postJson('http://localhost/v1/api/cart/price', [
@@ -2450,19 +2621,18 @@ class AdminCrudManagementTest extends TestCase
 
         $tenant = $this->createSqliteTenant('promotion-item-list');
         $admin->tenants()->sync([$tenant->id]);
-        $sku = 'ITEM-LIST-' . uniqid();
+        $sku = 'ITEM-LIST-'.uniqid();
 
         tenancy()->initialize($tenant);
         $item = Item::query()->create([
             'sku' => $sku,
             'name' => 'Listed Item',
             'price' => 100,
-            'discount_percent' => 10,
             'stock' => 5,
             'status' => 'Active',
         ]);
         $promotion = Promotion::query()->create([
-            'code' => 'item-list-' . uniqid(),
+            'code' => 'item-list-'.uniqid(),
             'name' => 'List Promo',
             'type' => Promotion::TYPE_ITEM_PRICE,
             'description' => 'Should not change item list response.',
@@ -2482,7 +2652,7 @@ class AdminCrudManagementTest extends TestCase
         $token = $admin->createToken('promotion-item-list')->plainTextToken;
 
         $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->getJson('http://localhost/v1/api/item/list?per_page=20');
@@ -2493,8 +2663,307 @@ class AdminCrudManagementTest extends TestCase
 
         $this->assertNotNull($payload);
         $this->assertSame(100.0, (float) $payload['price']);
-        $this->assertSame(10, (int) $payload['discount_percent']);
-        $this->assertSame(90.0, (float) $payload['final_price']);
+        $this->assertArrayNotHasKey('discount_percent', $payload);
+        $this->assertArrayNotHasKey('final_price', $payload);
+    }
+
+    public function test_item_uom_reduction_is_saved_and_used_for_cart_pricing(): void
+    {
+        $admin = $this->createUser([
+            'username' => 'uom-price-admin',
+            'email' => 'uom-price-admin@example.com',
+            'phone' => '59595959',
+        ]);
+        $tenant = $this->createSqliteTenant('item-uom-pricing');
+        $admin->tenants()->sync([$tenant->id]);
+
+        tenancy()->initialize($tenant);
+        $currency = Currency::query()->create([
+            'code' => 'AUD',
+            'name' => 'Australian Dollar',
+            'symbol' => '$',
+            'decimal_places' => 2,
+            'status' => 'Active',
+        ]);
+        $pack = UnitOfMeasure::query()->create([
+            'code' => 'PACK',
+            'name' => 'Pack',
+            'symbol' => 'Pack',
+            'status' => 'Active',
+        ]);
+        $sixPack = UnitOfMeasure::query()->create([
+            'code' => '6PACK',
+            'name' => '6 Packs',
+            'symbol' => '6Pack',
+            'status' => 'Active',
+        ]);
+        $group = UomGroup::query()->create([
+            'code' => 'PACKS',
+            'name' => 'Pack Sizes',
+            'base_unit_id' => $pack->id,
+            'status' => 'Active',
+        ]);
+        UomGroupUnit::query()->create([
+            'uom_group_id' => $group->id,
+            'unit_of_measure_id' => $pack->id,
+            'alternate_quantity' => 1,
+            'base_quantity' => 1,
+            'conversion_factor_to_base' => 1,
+            'is_base_unit' => true,
+            'status' => 'Active',
+        ]);
+        UomGroupUnit::query()->create([
+            'uom_group_id' => $group->id,
+            'unit_of_measure_id' => $sixPack->id,
+            'alternate_quantity' => 1,
+            'base_quantity' => 6,
+            'conversion_factor_to_base' => 6,
+            'is_base_unit' => false,
+            'status' => 'Active',
+        ]);
+        tenancy()->end();
+        DB::purge('tenant');
+
+        $this->actingAs($admin)
+            ->withSession(['admin_selected_tenant_id' => $tenant->id])
+            ->get(route('admin.items.create'))
+            ->assertOk()
+            ->assertSee('UoM Pricing')
+            ->assertSee('Reduce By %')
+            ->assertSee('id="item-uom-pricing-trigger"', false)
+            ->assertSee('data-bs-target="#item-uom-pricing-modal"', false)
+            ->assertSee('id="item-uom-pricing-modal"', false);
+
+        $this->actingAs($admin)
+            ->withSession(['admin_selected_tenant_id' => $tenant->id])
+            ->post(route('admin.items.store'), [
+                'item_type' => 'uom',
+                'uom_group_id' => $group->id,
+                'currency_id' => $currency->id,
+                'sku' => 'UOM-PRICE-001',
+                'name' => 'SAP UoM Pricing Item',
+                'price' => 22,
+                'stock' => 20,
+                'status' => 'Active',
+                'uom_prices' => [
+                    [
+                        'unit_of_measure_id' => $pack->id,
+                        'reduce_by_percent' => 0,
+                        'price' => 22,
+                        'is_auto' => 1,
+                    ],
+                    [
+                        'unit_of_measure_id' => $sixPack->id,
+                        'reduce_by_percent' => 5,
+                        'price' => 125.40,
+                        'is_auto' => 1,
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('admin.items.index'));
+
+        tenancy()->initialize($tenant);
+        $item = Item::query()->where('sku', 'UOM-PRICE-001')->firstOrFail();
+        $this->assertDatabaseHas('item_uom_prices', [
+            'item_id' => $item->id,
+            'unit_of_measure_id' => $sixPack->id,
+            'reduce_by_percent' => 5,
+            'price' => null,
+            'is_auto' => true,
+        ], 'tenant');
+        tenancy()->end();
+        DB::purge('tenant');
+
+        $token = $admin->createToken('item-uom-pricing')->plainTextToken;
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer '.$token,
+            'X-Tenant' => $tenant->id,
+            'Accept' => 'application/json',
+        ])->postJson('http://localhost/v1/api/cart/price', [
+            'items' => [[
+                'item_id' => $item->id,
+                'uom_id' => $sixPack->id,
+                'quantity' => 1,
+            ]],
+        ]);
+
+        $response->assertOk();
+        $this->assertSame(125.4, (float) $response->json('items.0.unit_price'));
+        $this->assertSame(125.4, (float) $response->json('subtotal'));
+    }
+
+    public function test_item_uom_active_status_controls_pos_visibility_and_ordering(): void
+    {
+        $admin = $this->createUser([
+            'username' => 'uom-active-admin',
+            'email' => 'uom-active-admin@example.com',
+            'phone' => '58585858',
+        ]);
+        $tenant = $this->createSqliteTenant('item-uom-active');
+        $admin->tenants()->sync([$tenant->id]);
+
+        tenancy()->initialize($tenant);
+        $currency = Currency::query()->create([
+            'code' => 'USD',
+            'name' => 'US Dollar',
+            'symbol' => '$',
+            'decimal_places' => 2,
+            'status' => 'Active',
+        ]);
+        $ea = UnitOfMeasure::query()->create([
+            'code' => 'EA',
+            'name' => 'Each',
+            'symbol' => 'ea',
+            'status' => 'Active',
+        ]);
+        $box = UnitOfMeasure::query()->create([
+            'code' => 'BOX',
+            'name' => 'Box',
+            'symbol' => 'bx',
+            'status' => 'Active',
+        ]);
+        $group = UomGroup::query()->create([
+            'code' => 'EA-BOX',
+            'name' => 'Each and Box',
+            'base_unit_id' => $ea->id,
+            'status' => 'Active',
+        ]);
+        UomGroupUnit::query()->create([
+            'uom_group_id' => $group->id,
+            'unit_of_measure_id' => $ea->id,
+            'alternate_quantity' => 1,
+            'base_quantity' => 1,
+            'conversion_factor_to_base' => 1,
+            'is_base_unit' => true,
+            'status' => 'Active',
+        ]);
+        UomGroupUnit::query()->create([
+            'uom_group_id' => $group->id,
+            'unit_of_measure_id' => $box->id,
+            'alternate_quantity' => 1,
+            'base_quantity' => 12,
+            'conversion_factor_to_base' => 12,
+            'is_base_unit' => false,
+            'status' => 'Active',
+        ]);
+        tenancy()->end();
+        DB::purge('tenant');
+
+        // 1. Validation prevents deactivating the base unit
+        $this->actingAs($admin)
+            ->withSession(['admin_selected_tenant_id' => $tenant->id])
+            ->from(route('admin.items.create'))
+            ->post(route('admin.items.store'), [
+                'item_type' => 'uom',
+                'uom_group_id' => $group->id,
+                'currency_id' => $currency->id,
+                'sku' => 'UOM-INACTIVE-BASE',
+                'name' => 'Base Inactive Test',
+                'price' => 10,
+                'stock' => 10,
+                'status' => 'Active',
+                'uom_prices' => [
+                    [
+                        'unit_of_measure_id' => $ea->id,
+                        'is_auto' => 1,
+                        'is_active' => 0,
+                    ],
+                ],
+            ])
+            ->assertSessionHasErrors('uom_prices.0.is_active');
+
+        // 2. Successfully save item with alternate unit inactive
+        $this->actingAs($admin)
+            ->withSession(['admin_selected_tenant_id' => $tenant->id])
+            ->post(route('admin.items.store'), [
+                'item_type' => 'uom',
+                'uom_group_id' => $group->id,
+                'currency_id' => $currency->id,
+                'sku' => 'UOM-ACTIVE-TEST-001',
+                'name' => 'Active Status UoM Item',
+                'price' => 20,
+                'stock' => 50,
+                'status' => 'Active',
+                'uom_prices' => [
+                    [
+                        'unit_of_measure_id' => $ea->id,
+                        'reduce_by_percent' => 0,
+                        'price' => 20,
+                        'is_auto' => 1,
+                        'is_active' => 1,
+                    ],
+                    [
+                        'unit_of_measure_id' => $box->id,
+                        'reduce_by_percent' => 10,
+                        'price' => 216,
+                        'is_auto' => 1,
+                        'is_active' => 0,
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('admin.items.index'));
+
+        // 3. Database assertion: BOX is inactive
+        tenancy()->initialize($tenant);
+        $item = Item::query()
+            ->with([
+                'currency',
+                'uomGroup.units.unit',
+                'uomPrices',
+            ])
+            ->where('sku', 'UOM-ACTIVE-TEST-001')
+            ->firstOrFail();
+        $this->assertDatabaseHas('item_uom_prices', [
+            'item_id' => $item->id,
+            'unit_of_measure_id' => $box->id,
+            'is_active' => false,
+        ], 'tenant');
+
+        // 4. Mobile payload excludes inactive unit
+        $controller = app(\App\Http\Controllers\API\V1\Mobile\CatalogController::class);
+        $reflection = new \ReflectionClass($controller);
+        $method = $reflection->getMethod('mobileItemPayload');
+        $method->setAccessible(true);
+        $payload = $method->invoke($controller, $item);
+
+        $unitIds = collect($payload['uom_group']['units'])->pluck('id')->all();
+        $this->assertContains($ea->id, $unitIds);
+        $this->assertNotContains($box->id, $unitIds);
+        $this->assertCount(1, $payload['uom_group']['units']);
+        tenancy()->end();
+        DB::purge('tenant');
+
+        // 5. Ordering inactive unit is blocked
+        $token = $admin->createToken('inactive-uom-test')->plainTextToken;
+        $blockedResponse = $this->withHeaders([
+            'Authorization' => 'Bearer '.$token,
+            'X-Tenant' => $tenant->id,
+            'Accept' => 'application/json',
+        ])->postJson('http://localhost/v1/api/cart/price', [
+            'items' => [[
+                'item_id' => $item->id,
+                'uom_id' => $box->id,
+                'quantity' => 1,
+            ]],
+        ]);
+        $blockedResponse->assertStatus(422)
+            ->assertJsonValidationErrors('uom_id');
+
+        // 6. Ordering active unit succeeds
+        $allowedResponse = $this->withHeaders([
+            'Authorization' => 'Bearer '.$token,
+            'X-Tenant' => $tenant->id,
+            'Accept' => 'application/json',
+        ])->postJson('http://localhost/v1/api/cart/price', [
+            'items' => [[
+                'item_id' => $item->id,
+                'uom_id' => $ea->id,
+                'quantity' => 2,
+            ]],
+        ]);
+        $allowedResponse->assertOk();
+        $this->assertSame(20.0, (float) $allowedResponse->json('items.0.unit_price'));
+        $this->assertSame(40.0, (float) $allowedResponse->json('subtotal'));
     }
 
     public function test_branch_and_category_api_support_crud_without_localhost_domain(): void
@@ -2510,7 +2979,7 @@ class AdminCrudManagementTest extends TestCase
         $token = $admin->createToken('tenant-api-crud')->plainTextToken;
 
         $branchResponse = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->postJson('/v1/api/branch/store', [
@@ -2526,18 +2995,18 @@ class AdminCrudManagementTest extends TestCase
         $branchId = $branchResponse->json('data.id');
 
         $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
-        ])->getJson('/v1/api/branch/edit/' . $branchId)
+        ])->getJson('/v1/api/branch/edit/'.$branchId)
             ->assertOk()
             ->assertJsonPath('data.name', 'API Branch');
 
         $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
-        ])->patchJson('/v1/api/branch/update/' . $branchId, [
+        ])->patchJson('/v1/api/branch/update/'.$branchId, [
             'name' => 'API Branch Updated',
             'status' => 'Inactive',
         ])->assertOk()
@@ -2545,7 +3014,7 @@ class AdminCrudManagementTest extends TestCase
             ->assertJsonPath('data.status', 'Inactive');
 
         $categoryResponse = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->postJson('/v1/api/category/store', [
@@ -2561,10 +3030,10 @@ class AdminCrudManagementTest extends TestCase
         $categoryId = $categoryResponse->json('data.id');
 
         $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
-        ])->patchJson('/v1/api/category/update/' . $categoryId, [
+        ])->patchJson('/v1/api/category/update/'.$categoryId, [
             'name' => 'API Category Updated',
             'status' => 'Inactive',
         ])->assertOk()
@@ -2572,18 +3041,18 @@ class AdminCrudManagementTest extends TestCase
             ->assertJsonPath('data.status', 'Inactive');
 
         $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
-        ])->deleteJson('/v1/api/category/delete/' . $categoryId)
+        ])->deleteJson('/v1/api/category/delete/'.$categoryId)
             ->assertOk()
             ->assertJson(['success' => true]);
 
         $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
-        ])->deleteJson('/v1/api/branch/delete/' . $branchId)
+        ])->deleteJson('/v1/api/branch/delete/'.$branchId)
             ->assertOk()
             ->assertJson(['success' => true]);
     }
@@ -2603,10 +3072,12 @@ class AdminCrudManagementTest extends TestCase
         $branch = Branch::query()->create([
             'code' => 'api-item-branch',
             'name' => 'API Item Branch',
+            'foreign_name' => 'សាខាទំនិញ API',
             'status' => 'Active',
         ]);
         $category = Category::query()->create([
             'name' => 'API Item Category',
+            'foreign_name' => 'ប្រភេទទំនិញ API',
             'status' => 'Active',
         ]);
         tenancy()->end();
@@ -2615,7 +3086,7 @@ class AdminCrudManagementTest extends TestCase
         $token = $admin->createToken('tenant-item-api')->plainTextToken;
 
         $createResponse = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
         ])->postJson('/v1/api/item/store', [
@@ -2623,8 +3094,8 @@ class AdminCrudManagementTest extends TestCase
             'branch_id' => $branch->id,
             'sku' => 'API-ITEM-001',
             'name' => 'API Item',
+            'foreign_name' => 'ទំនិញ API',
             'price' => 25,
-            'discount_percent' => 5,
             'stock' => 3,
             'status' => 'Active',
             'attachment' => $this->base64Png(),
@@ -2633,7 +3104,10 @@ class AdminCrudManagementTest extends TestCase
 
         $createResponse->assertOk()
             ->assertJsonPath('data.sku', 'API-ITEM-001')
-            ->assertJsonPath('data.branch_name', 'API Item Branch');
+            ->assertJsonPath('data.foreign_name', 'ទំនិញ API')
+            ->assertJsonPath('data.branch_name', 'API Item Branch')
+            ->assertJsonPath('data.branch_foreign_name', 'សាខាទំនិញ API')
+            ->assertJsonPath('data.category_foreign_name', 'ប្រភេទទំនិញ API');
 
         $itemId = $createResponse->json('data.id');
 
@@ -2645,10 +3119,10 @@ class AdminCrudManagementTest extends TestCase
         DB::purge('tenant');
 
         $updateResponse = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
-        ])->patchJson('/v1/api/item/update/' . $itemId, [
+        ])->patchJson('/v1/api/item/update/'.$itemId, [
             'name' => 'API Item Updated',
             'is_featured' => true,
             'status' => 'Inactive',
@@ -2660,24 +3134,242 @@ class AdminCrudManagementTest extends TestCase
             ->assertJsonPath('data.status', 'Inactive');
 
         $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
-        ])->getJson('/v1/api/item/edit/' . $itemId)
+        ])->getJson('/v1/api/item/edit/'.$itemId)
             ->assertOk()
             ->assertJsonPath('data.name', 'API Item Updated');
 
         $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
-        ])->deleteJson('/v1/api/item/delete/' . $itemId)
+        ])->deleteJson('/v1/api/item/delete/'.$itemId)
             ->assertOk()
             ->assertJson(['success' => true]);
 
         tenancy()->initialize($tenant);
         $this->assertDatabaseMissing('items', [
             'id' => $itemId,
+        ], 'tenant');
+        tenancy()->end();
+        DB::purge('tenant');
+    }
+
+    public function test_admin_can_download_item_excel_template_and_import_uom_options_and_variants(): void
+    {
+        $admin = $this->createUser([
+            'username' => 'item-import-admin',
+            'email' => 'item-import-admin@example.com',
+            'phone' => '31313131',
+        ]);
+        $tenant = $this->createSqliteTenant('item-excel-import');
+        $admin->tenants()->sync([$tenant->id]);
+
+        tenancy()->initialize($tenant);
+        Currency::query()->create([
+            'code' => 'USD',
+            'name' => 'US Dollar',
+            'symbol' => '$',
+            'decimal_places' => 2,
+            'status' => 'Active',
+        ]);
+        $category = Category::query()->create([
+            'name' => 'Drinks',
+            'status' => 'Active',
+        ]);
+        $branch = Branch::query()->create([
+            'code' => 'MAIN',
+            'name' => 'Main Branch',
+            'status' => 'Active',
+        ]);
+        $unit = UnitOfMeasure::query()->create([
+            'code' => 'EA',
+            'name' => 'Each',
+            'symbol' => 'ea',
+            'status' => 'Active',
+        ]);
+        $boxUnit = UnitOfMeasure::query()->create([
+            'code' => 'BOX',
+            'name' => 'Box',
+            'symbol' => 'box',
+            'status' => 'Active',
+        ]);
+        $group = UomGroup::query()->create([
+            'code' => 'EACH',
+            'name' => 'Each',
+            'base_unit_id' => $unit->id,
+            'status' => 'Active',
+        ]);
+        UomGroupUnit::query()->create([
+            'uom_group_id' => $group->id,
+            'unit_of_measure_id' => $unit->id,
+            'alternate_quantity' => 1,
+            'base_quantity' => 1,
+            'conversion_factor_to_base' => 1,
+            'is_base_unit' => true,
+            'status' => 'Active',
+        ]);
+        UomGroupUnit::query()->create([
+            'uom_group_id' => $group->id,
+            'unit_of_measure_id' => $boxUnit->id,
+            'alternate_quantity' => 1,
+            'base_quantity' => 12,
+            'conversion_factor_to_base' => 12,
+            'is_base_unit' => false,
+            'status' => 'Active',
+        ]);
+        tenancy()->end();
+        DB::purge('tenant');
+
+        $this->actingAs($admin)
+            ->withSession(['admin_selected_tenant_id' => $tenant->id])
+            ->get(route('admin.items.index'))
+            ->assertOk()
+            ->assertSee('Excel Template')
+            ->assertSee('Import Excel');
+
+        $this->actingAs($admin)
+            ->withSession(['admin_selected_tenant_id' => $tenant->id])
+            ->get(route('admin.items.import-template'))
+            ->assertOk()
+            ->assertDownload('items-import-template.xlsx');
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Items');
+        $sheet->fromArray([
+            [
+                'sku', 'name', 'foreign_name', 'item_type', 'category', 'branch',
+                'uom_group', 'price_list', 'currency', 'price', 'stock', 'status',
+                'premium', 'featured', 'new_arrival', 'try_on', 'sort_order', 'description',
+            ],
+            [
+                'IMP-001', 'Imported Coffee', 'កាហ្វេ', 'uom', 'Drinks', 'MAIN',
+                'EACH', '', 'USD', 2.50, 12, 'Active',
+                'No', 'Yes', 'No', 'No', 10, 'Created from Excel',
+            ],
+            [
+                'IMP-VAR', 'Imported Shirt', '', 'variation', 'Drinks', 'MAIN',
+                '', '', 'USD', 25, 0, 'Active',
+                'No', 'No', 'Yes', 'No', 11, 'Variation created from Excel',
+            ],
+        ], null, 'A1', true);
+
+        $uomPriceSheet = $spreadsheet->createSheet();
+        $uomPriceSheet->setTitle('UOM Prices');
+        $uomPriceSheet->fromArray([
+            ['item_sku', 'unit_code', 'reduce_by_percent', 'price', 'auto', 'active'],
+            ['IMP-001', 'EA', 0, '', 'Yes', 'Yes'],
+            ['IMP-001', 'BOX', 5, 28.50, 'No', 'Yes'],
+        ], null, 'A1', true);
+
+        $optionSheet = $spreadsheet->createSheet();
+        $optionSheet->setTitle('Options');
+        $optionSheet->fromArray([
+            [
+                'item_sku', 'group_key', 'variation', 'group_name', 'group_foreign_name',
+                'type', 'selection_type', 'required', 'min_selections', 'max_selections',
+                'group_sort_order', 'group_status', 'value_key', 'value_name', 'value_foreign_name',
+                'sku_suffix', 'color_hex', 'price_adjustment', 'default', 'value_sort_order', 'value_status',
+            ],
+            [
+                'IMP-VAR', 'size', '', 'Size', '', 'variant', 'single', 'Yes', 1, 1,
+                0, 'Active', 'size_s', 'Small', '', 'S', '', 0, 'No', 0, 'Active',
+            ],
+            [
+                'IMP-VAR', 'size', '', '', '', '', '', '', '', '',
+                '', '', 'size_m', 'Medium', '', 'M', '', 2.50, 'No', 1, 'Active',
+            ],
+        ], null, 'A1', true);
+
+        $variantSheet = $spreadsheet->createSheet();
+        $variantSheet->setTitle('Variants');
+        $variantSheet->fromArray([
+            ['item_sku', 'sku', 'barcode', 'name', 'price', 'stock', 'default', 'sort_order', 'status', 'option_value_keys'],
+            ['IMP-VAR', 'IMP-VAR-S', '1000001', 'Small', 25, 5, 'Yes', 0, 'Active', 'size_s'],
+            ['IMP-VAR', 'IMP-VAR-M', '1000002', 'Medium', 27.50, 7, 'No', 1, 'Active', 'size_m'],
+        ], null, 'A1', true);
+
+        $temporaryPath = tempnam(sys_get_temp_dir(), 'items-import-').'.xlsx';
+        (new Xlsx($spreadsheet))->save($temporaryPath);
+        $spreadsheet->disconnectWorksheets();
+
+        try {
+            $this->actingAs($admin)
+                ->withSession(['admin_selected_tenant_id' => $tenant->id])
+                ->post(route('admin.items.import'), [
+                    'import_file' => new UploadedFile(
+                        $temporaryPath,
+                        'items-import.xlsx',
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        null,
+                        true
+                    ),
+                ])
+                ->assertRedirect(route('admin.items.index'))
+                ->assertSessionHas('status', '2 items imported successfully.');
+        } finally {
+            @unlink($temporaryPath);
+        }
+
+        tenancy()->initialize($tenant);
+        $this->assertDatabaseHas('items', [
+            'sku' => 'IMP-001',
+            'name' => 'Imported Coffee',
+            'item_type' => 'uom',
+            'category_id' => $category->id,
+            'branch_id' => $branch->id,
+            'uom_group_id' => $group->id,
+            'price' => 2.5,
+            'stock' => 12,
+            'is_featured' => true,
+            'status' => 'Active',
+        ], 'tenant');
+        $uomItem = Item::query()->where('sku', 'IMP-001')->firstOrFail();
+        $variationItem = Item::query()->where('sku', 'IMP-VAR')->firstOrFail();
+        $this->assertDatabaseHas('item_uom_prices', [
+            'item_id' => $uomItem->id,
+            'unit_of_measure_id' => $boxUnit->id,
+            'reduce_by_percent' => 5,
+            'price' => 28.5,
+            'is_auto' => false,
+            'is_active' => true,
+        ], 'tenant');
+        $this->assertDatabaseHas('item_option_groups', [
+            'item_id' => $variationItem->id,
+            'name' => 'Size',
+            'type' => 'variant',
+            'selection_type' => 'single',
+            'is_required' => true,
+        ], 'tenant');
+        $groupId = DB::connection('tenant')->table('item_option_groups')
+            ->where('item_id', $variationItem->id)
+            ->value('id');
+        $this->assertDatabaseHas('item_option_values', [
+            'item_option_group_id' => $groupId,
+            'name' => 'Medium',
+            'sku_suffix' => 'M',
+            'price_adjustment' => 2.5,
+        ], 'tenant');
+        $this->assertDatabaseHas('item_variants', [
+            'item_id' => $variationItem->id,
+            'sku' => 'IMP-VAR-M',
+            'barcode' => '1000002',
+            'price' => 27.5,
+            'stock' => 7,
+        ], 'tenant');
+        $mediumValueId = DB::connection('tenant')->table('item_option_values')
+            ->where('item_option_group_id', $groupId)
+            ->where('name', 'Medium')
+            ->value('id');
+        $mediumVariantId = DB::connection('tenant')->table('item_variants')
+            ->where('sku', 'IMP-VAR-M')
+            ->value('id');
+        $this->assertDatabaseHas('item_variant_option_values', [
+            'item_variant_id' => $mediumVariantId,
+            'item_option_value_id' => $mediumValueId,
         ], 'tenant');
         tenancy()->end();
         DB::purge('tenant');
@@ -2697,7 +3389,7 @@ class AdminCrudManagementTest extends TestCase
 
     private function createSqliteTenant(string $id): Tenant
     {
-        $databaseName = 'tenant-' . $id . '.sqlite';
+        $databaseName = 'tenant-'.$id.'.sqlite';
         $databasePath = database_path($databaseName);
         $alternateDatabasePath = database_path($id);
 
@@ -2742,7 +3434,7 @@ class AdminCrudManagementTest extends TestCase
 
     private function base64Png(): string
     {
-        return 'data:image/png;base64,' . base64_encode(
+        return 'data:image/png;base64,'.base64_encode(
             base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jk9sAAAAASUVORK5CYII=', true)
         );
     }
@@ -2754,7 +3446,7 @@ class AdminCrudManagementTest extends TestCase
         tenancy()->end();
         DB::purge('tenant');
 
-        $this->assertNotNull($roleId, 'Expected tenant role [' . $roleName . '] to exist.');
+        $this->assertNotNull($roleId, 'Expected tenant role ['.$roleName.'] to exist.');
 
         return (int) $roleId;
     }

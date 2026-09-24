@@ -125,7 +125,7 @@
                     </div>
                     <div class="col-md-4 d-none" data-promotion-type-group="{{ \App\Models\Promotion::TYPE_SUBTOTAL_DISCOUNT }}">
                         <label class="form-label required">Threshold Amount</label>
-                        <input type="number" min="0.01" step="0.01" name="threshold_amount" value="{{ old('threshold_amount', $promotion->threshold_amount) }}" class="form-control @error('threshold_amount') is-invalid @enderror" placeholder="50.00" />
+                        <input type="number" min="0.01" step="{{ currency_input_step($baseCurrency, 2) }}" name="threshold_amount" value="{{ format_currency_input(old('threshold_amount', $promotion->threshold_amount), $baseCurrency, 2) }}" class="form-control @error('threshold_amount') is-invalid @enderror" placeholder="{{ $baseCurrency?->format_example ?: '50.00' }}" />
                         @error('threshold_amount')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
                     <div class="col-md-4 d-none" data-promotion-type-group="{{ \App\Models\Promotion::TYPE_SUBTOTAL_DISCOUNT }}">

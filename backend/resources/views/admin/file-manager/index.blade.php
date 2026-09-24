@@ -317,9 +317,10 @@
 @endpush
 
 @section('content')
-@php($canManageFiles = admin_has_permission('file_manager.manage'))
-@php($canUploadCurrentSource = $canManageFiles && $listing['current_source_uploadable'])
-@php($canCreateFolders = $canManageFiles && $listing['current_source_supports_folders'])
+@php($canCreateFiles = admin_has_permission('file_manager.create'))
+@php($canDeleteFiles = admin_has_permission('file_manager.delete'))
+@php($canUploadCurrentSource = $canCreateFiles && $listing['current_source_uploadable'])
+@php($canCreateFolders = $canCreateFiles && $listing['current_source_supports_folders'])
 <div class="file-manager-shell">
     <aside class="file-manager-panel file-manager-sidebar">
         @if ($canUploadCurrentSource || $canCreateFolders)
@@ -474,7 +475,7 @@
                                         <div class="text-muted font-size-13">{{ $directory['file_count'] }} files</div>
                                     </div>
                                 </div>
-                                @if ($canManageFiles && ($directory['writable'] ?? false))
+                                @if ($canDeleteFiles && ($directory['writable'] ?? false))
                                     <form method="POST" action="{{ route('admin.file-manager.destroy') }}" onsubmit="return confirm('Delete this folder and all files inside it?');">
                                         @csrf
                                         @method('DELETE')
@@ -555,7 +556,7 @@
                                 <td class="text-nowrap">
                                     <a href="{{ $file['url'] }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary me-2">Open</a>
                                     <button type="button" class="btn btn-sm btn-outline-secondary me-2" data-copy-url="{{ $file['url'] }}">Copy Link</button>
-                                    @if ($canManageFiles && $file['deletable'])
+                                    @if ($canDeleteFiles && $file['deletable'])
                                         <form method="POST" action="{{ route('admin.file-manager.destroy') }}" class="d-inline" onsubmit="return confirm('Delete this file?');">
                                             @csrf
                                             @method('DELETE')

@@ -22,8 +22,10 @@ class UomGroupController extends Controller
     {
         $this->groups = $groups;
         $this->units = $units;
-        $this->middleware('admin.permission:units_of_measure.view')->only(['index']);
-        $this->middleware('admin.permission:units_of_measure.manage')->except(['index']);
+        $this->middleware('admin.permission:uom_groups.view')->only(['index']);
+        $this->middleware('admin.permission:uom_groups.create')->only(['create', 'store']);
+        $this->middleware('admin.permission:uom_groups.edit')->only(['edit', 'update']);
+        $this->middleware('admin.permission:uom_groups.delete')->only(['destroy']);
     }
 
     public function index(Request $request): View

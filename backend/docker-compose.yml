@@ -73,7 +73,7 @@ services:
     container_name: laravel_nextjs
     working_dir: /var/www/html
     restart: always
-    command: sh -lc "npm install && npm run next:dev"
+    command: sh -lc "npm install && npm run next:${NEXT_MODE:-dev}"
     environment:
       LARAVEL_API_URL: http://nginx/v1/api
       NEXT_PUBLIC_API_URL: /v1/api
@@ -87,6 +87,20 @@ services:
       timeout: 5s
       retries: 12
       start_period: 60s
+    networks:
+      - app-network
+
+  soketi:
+    image: quay.io/soketi/soketi:1.4-16-alpine
+    container_name: laravel_soketi
+    restart: always
+    environment:
+      SOKETI_DEBUG: "0"
+      SOKETI_DEFAULT_APP_ID: "pos_app"
+      SOKETI_DEFAULT_APP_KEY: "pos_key"
+      SOKETI_DEFAULT_APP_SECRET: "pos_secret"
+    ports:
+      - "6001:6001"
     networks:
       - app-network
 

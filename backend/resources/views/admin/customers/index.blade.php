@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
-@section('title', 'Customers')
-@section('page_title', 'Customers')
+@section('title', 'Customers & Vendors')
+@section('page_title', 'Customers & Vendors')
 
 @push('styles')
 <link href="{{ global_asset('minible/assets/libs/datatables.net-bs4/css/dataTables.bootstrap4.min.css') }}" rel="stylesheet" type="text/css" />
@@ -10,23 +10,38 @@
 @endpush
 
 @section('content')
-@php($canManageCustomers = admin_has_permission('customers.manage'))
+@php($canCreateCustomers = admin_has_permission('customers.create'))
+@php($canEditCustomers = admin_has_permission('customers.edit'))
+@php($canDeleteCustomers = admin_has_permission('customers.delete'))
 <div class="row">
     <div class="col-12">
         <div class="card">
             <div class="card-body">
                 <div class="d-sm-flex align-items-center justify-content-between mb-4">
                     <div>
-                        <h4 class="card-title mb-1">Customer Directory</h4>
+                        <h4 class="card-title mb-1">Customer & Vendor Directory</h4>
                         <p class="card-title-desc mb-0">
-                            Maintain the customers available to the currently selected tenant.
+                            Maintain customers and vendors available to the currently selected tenant.
                         </p>
                     </div>
-                    @if ($canManageCustomers)
-                        <div class="mt-3 mt-sm-0">
-                            <a href="{{ route('admin.customers.create') }}" class="btn btn-primary waves-effect waves-light">
-                                <i class="uil uil-plus me-1"></i>Create Customer
-                            </a>
+                    @if ($canCreateCustomers)
+                        <div class="mt-3 mt-sm-0 d-flex gap-2">
+                            <div class="btn-group">
+                                <a href="{{ route('admin.customers.create', $selectedType === 'vendor' ? ['type' => 'vendor'] : ['type' => 'customer']) }}" class="btn btn-primary waves-effect waves-light">
+                                    <i class="uil uil-plus me-1"></i>Create {{ $selectedType === 'vendor' ? 'Vendor' : 'Customer' }}
+                                </a>
+                                <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="mdi mdi-chevron-down"></i>
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-end">
+                                    <a class="dropdown-item" href="{{ route('admin.customers.create', ['type' => 'customer']) }}">
+                                        <i class="uil uil-user me-2 text-primary"></i>Create Customer
+                                    </a>
+                                    <a class="dropdown-item" href="{{ route('admin.customers.create', ['type' => 'vendor']) }}">
+                                        <i class="uil uil-store me-2 text-warning"></i>Create Vendor
+                                    </a>
+                                </div>
+                            </div>
                         </div>
                     @endif
                 </div>
@@ -38,6 +53,27 @@
                     </div>
                 @endif
 
+                <ul class="nav nav-tabs nav-tabs-custom mb-4" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link {{ empty($selectedType) ? 'active' : '' }}" href="{{ route('admin.customers.index', array_filter(['search' => $search])) }}">
+                            <i class="uil uil-users-alt me-1"></i>All Contacts
+                            <span class="badge bg-soft-secondary text-secondary rounded-pill ms-1">{{ $typeCounts['all'] ?? 0 }}</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ $selectedType === 'customer' ? 'active' : '' }}" href="{{ route('admin.customers.index', array_filter(['type' => 'customer', 'search' => $search])) }}">
+                            <i class="uil uil-user me-1"></i>Customers
+                            <span class="badge bg-soft-primary text-primary rounded-pill ms-1">{{ $typeCounts['customer'] ?? 0 }}</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ $selectedType === 'vendor' ? 'active' : '' }}" href="{{ route('admin.customers.index', array_filter(['type' => 'vendor', 'search' => $search])) }}">
+                            <i class="uil uil-store me-1"></i>Vendors
+                            <span class="badge bg-soft-warning text-warning rounded-pill ms-1">{{ $typeCounts['vendor'] ?? 0 }}</span>
+                        </a>
+                    </li>
+                </ul>
+
                 <div class="alert alert-border-left alert-light mb-4" role="alert">
                     <i class="mdi mdi-database me-2"></i>Showing customers for tenant <strong>{{ admin_tenant_display_name($selectedTenant) }}</strong>.
                 </div>
@@ -47,6 +83,7 @@
                         <thead>
                             <tr>
                                 <th>Code</th>
+                                <th>Type</th>
                                 <th>Name</th>
                                 <th>Price List</th>
                                 <th>Contact</th>
@@ -60,6 +97,17 @@
                             @foreach ($customers as $customer)
                                 <tr>
                                     <td>{{ $customer->code }}</td>
+                                    <td>
+                                        @if ($customer->isVendor())
+                                            <span class="badge bg-soft-warning text-warning font-size-12 px-2 py-1">
+                                                <i class="uil uil-store me-1"></i>Vendor
+                                            </span>
+                                        @else
+                                            <span class="badge bg-soft-primary text-primary font-size-12 px-2 py-1">
+                                                <i class="uil uil-user me-1"></i>Customer
+                                            </span>
+                                        @endif
+                                    </td>
                                     <td>
                                         <div class="d-flex align-items-center gap-3">
                                             @if ($customer->profile_image_url)
@@ -95,14 +143,17 @@
                                     </td>
                                     <td>{{ optional($customer->updated_at)->format('d M Y, h:i A') ?: '-' }}</td>
                                     <td class="text-nowrap">
-                                        @if ($canManageCustomers)
+                                        @if ($canEditCustomers)
                                             <a href="{{ route('admin.customers.edit', ['customer' => $customer->id]) }}" class="btn btn-sm btn-outline-primary me-2">Edit</a>
+                                        @endif
+                                        @if ($canDeleteCustomers)
                                             <form action="{{ route('admin.customers.destroy', ['customer' => $customer->id]) }}" method="POST" class="d-inline">
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this customer?')">Delete</button>
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this {{ $customer->isVendor() ? 'vendor' : 'customer' }}?')">Delete</button>
                                             </form>
-                                        @else
+                                        @endif
+                                        @if (! $canEditCustomers && ! $canDeleteCustomers)
                                             <span class="text-muted">View only</span>
                                         @endif
                                     </td>
@@ -126,9 +177,9 @@
     $(function () {
         $('#datatable-customers').DataTable({
             responsive: true,
-            order: [[1, 'asc']],
+            order: [[2, 'asc']],
             language: {
-                emptyTable: 'No customers found for this tenant.'
+                emptyTable: 'No {{ $selectedType === 'vendor' ? 'vendors' : ($selectedType === 'customer' ? 'customers' : 'records') }} found for this tenant.'
             }
         });
         $('.dataTables_length select').addClass('form-select form-select-sm');
