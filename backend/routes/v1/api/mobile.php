@@ -26,6 +26,8 @@ Route::prefix('mobile')
 
         Route::get('bootstrap', [HomeController::class, 'bootstrap']);
         Route::get('legal', [HomeController::class, 'legal']);
+        Route::get('currencies', [CatalogController::class, 'currencies']);
+        Route::get('currency', [CatalogController::class, 'currency']);
         Route::get('branches', [CatalogController::class, 'branches']);
         Route::get('banners', [CatalogController::class, 'banners']);
         Route::get('categories', [CatalogController::class, 'categories']);

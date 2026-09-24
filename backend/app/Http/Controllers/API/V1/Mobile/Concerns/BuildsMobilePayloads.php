@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API\V1\Mobile\Concerns;
 use App\Models\Address;
 use App\Models\Branch;
 use App\Models\Category;
+use App\Models\Currency;
 use App\Models\Item;
 use App\Models\Notification;
 use App\Models\PosSale;
@@ -110,11 +111,11 @@ trait BuildsMobilePayloads
                 'name' => (string) $item->category->name,
                 'foreign_name' => (string) ($item->category->foreign_name ?? ''),
             ] : null,
-            'currency' => $item->currency ? [
-                'id' => (int) $item->currency->id,
-                'code' => (string) $item->currency->code,
-                'symbol' => (string) ($item->currency->symbol ?? $item->currency->code),
-                'decimal_places' => (int) ($item->currency->decimal_places ?? 2),
+'currency' => ($currency = $item->currency ?: tenant_base_currency()) ? [
+                'id' => (int) $currency->id,
+                'code' => (string) $currency->code,
+                'symbol' => (string) ($currency->symbol ?? $currency->code),
+                'decimal_places' => (int) ($currency->decimal_places ?? 2),
             ] : null,
             'uom_group' => $item->relationLoaded('uomGroup') && $item->uomGroup ? [
                 'id' => (int) $item->uomGroup->id,
@@ -278,6 +279,21 @@ trait BuildsMobilePayloads
             'data' => $notification->data ?? [],
             'read_at' => optional($notification->read_at)->toIso8601String(),
             'created_at' => optional($notification->created_at)->toIso8601String(),
+        ];
+    }
+
+    protected function mobileCurrencyPayload(Currency $currency, bool $isDefault = false): array
+    {
+        return [
+            'id' => (int) $currency->id,
+            'code' => (string) $currency->code,
+            'name' => (string) $currency->name,
+            'symbol' => (string) ($currency->symbol ?: $currency->code),
+            'decimal_places' => (int) ($currency->decimal_places ?? 2),
+            'sort_order' => (int) ($currency->sort_order ?? 0),
+            'status' => (string) ($currency->status ?? 'Active'),
+            'exchange_rate' => $currency->code === 'KHR' ? 4100.0 : 1.0,
+            'is_default' => (bool) $isDefault,
         ];
     }
 }

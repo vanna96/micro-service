@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API\V1\Mobile;
 use App\Http\Controllers\API\V1\Mobile\Concerns\BuildsMobilePayloads;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Models\Currency;
 use App\Models\Category;
 use App\Models\Item;
 use App\Models\Slider;
@@ -110,10 +111,26 @@ class HomeController extends Controller
         $allItems = $featured->concat($newArrivals)->concat($bestSellers)->concat($recommended)->unique('id');
         $promotionPreviews = $this->promotionPricing->catalogPromotionPreviews($allItems);
 
+        $baseCurrency = tenant_base_currency();
+        $currencies = Currency::query()
+            ->where('status', 'Active')
+            ->orderBy('sort_order')
+            ->orderBy('code')
+            ->get();
+
+        $currencyPayload = $baseCurrency ? $this->mobileCurrencyPayload($baseCurrency, true) : null;
+        $currenciesPayload = $currencies->map(function (Currency $c) use ($baseCurrency) {
+            $isDefault = $baseCurrency ? ($c->id === $baseCurrency->id) : ($c->code === 'USD');
+            return $this->mobileCurrencyPayload($c, $isDefault);
+        })->values();
+
         return response()->json([
             'success' => true,
             'data' => [
-                                'mobile_version' => [
+                'currency' => $currencyPayload,
+                'currencies' => $currenciesPayload,
+                'khr_exchange_rate' => 4100.0,
+                'mobile_version' => [
                     'minimum_version' => $generalSettings['minimum_mobile_version'] ?? '1.0.0',
                     'latest_version' => $generalSettings['latest_mobile_version'] ?? '1.0.0',
                     'store_url_ios' => $generalSettings['store_url_ios'] ?? '',

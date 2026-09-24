@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API\V1\Mobile;
 use App\Http\Controllers\API\V1\Mobile\Concerns\BuildsMobilePayloads;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Models\Currency;
 use App\Models\Category;
 use App\Models\Item;
 use App\Models\Slider;
@@ -18,6 +19,34 @@ class CatalogController extends Controller
 
     public function __construct(protected PromotionPricingService $promotionPricing)
     {
+    }
+
+    public function currency()
+    {
+        $baseCurrency = tenant_base_currency() ?? Currency::query()->where('status', 'Active')->orderBy('sort_order')->first();
+
+        return response()->json([
+            'success' => true,
+            'data' => $baseCurrency ? $this->mobileCurrencyPayload($baseCurrency, true) : null,
+        ]);
+    }
+
+    public function currencies()
+    {
+        $baseCurrency = tenant_base_currency();
+        $currencies = Currency::query()
+            ->where('status', 'Active')
+            ->orderBy('sort_order')
+            ->orderBy('code')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $currencies->map(function (Currency $c) use ($baseCurrency) {
+                $isDefault = $baseCurrency ? ($c->id === $baseCurrency->id) : ($c->code === 'USD');
+                return $this->mobileCurrencyPayload($c, $isDefault);
+            })->values(),
+        ]);
     }
 
     public function branches()
