@@ -5,11 +5,19 @@ declare(strict_types=1);
 use Stancl\Tenancy\Database\Models\Domain;
 use Stancl\Tenancy\Database\Models\Tenant;
 
+$centralPortalHost = strtolower(trim((string) env('CENTRAL_PORTAL_HOST', 'localhost')));
+
+if ($centralPortalHost === '') {
+    $centralPortalHost = 'localhost';
+}
+
 return [
     'tenant_model' => \App\Models\Tenant::class,/*Tenant::class,*/
     'id_generator' => Stancl\Tenancy\UUIDGenerator::class,
 
     'domain_model' => Domain::class,
+
+    'central_portal_host' => $centralPortalHost,
 
     /**
      * The list of domains hosting your central app.
@@ -19,7 +27,7 @@ return [
     'central_domains' => array_values(array_unique(array_filter([
         '127.0.0.1',
         'localhost',
-        env('CENTRAL_PORTAL_HOST'),
+        $centralPortalHost,
     ]))),
 
     /**

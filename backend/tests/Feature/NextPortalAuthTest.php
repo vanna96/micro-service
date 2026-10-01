@@ -37,6 +37,7 @@ class NextPortalAuthTest extends TestCase
         config()->set('cache.default', 'array');
         config()->set('cache.portal_session_store', 'array');
         config()->set('session.driver', 'array');
+        config()->set('tenancy.central_portal_host', 'localhost');
         config()->set('database.default', 'central');
         config()->set('database.connections.central', $sqliteConnection);
         config()->set('database.connections.mysql', $sqliteConnection);
@@ -118,6 +119,15 @@ class NextPortalAuthTest extends TestCase
         $this->getJson('http://rechna.localhost/next/auth/session')
             ->assertUnauthorized()
             ->assertJsonPath('authenticated', false);
+    }
+
+    public function test_invalid_handoff_redirects_to_the_configured_central_host(): void
+    {
+        $this->createTenant('rechna', 'rechna.localhost');
+        config()->set('tenancy.central_portal_host', 'vanna-pos.duckdns.org');
+
+        $this->get('https://rechna.localhost/next/auth/tenant-handoff?ticket=invalid')
+            ->assertRedirect('https://vanna-pos.duckdns.org/');
     }
 
     public function test_query_cache_invalidation_does_not_end_the_portal_session(): void

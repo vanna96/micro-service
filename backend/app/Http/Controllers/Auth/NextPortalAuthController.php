@@ -405,11 +405,10 @@ class NextPortalAuthController extends Controller
 
     private function centralPortalUrl(Request $request): string
     {
-        $centralHost = (string) collect(config('tenancy.central_domains', ['localhost']))
-            ->first(fn ($host) => $host === 'localhost', 'localhost');
+        $centralHost = trim((string) config('tenancy.central_portal_host', 'localhost'));
         $port = $request->getPort();
 
-        return $request->getScheme() . '://' . $centralHost
+        return $request->getScheme() . '://' . ($centralHost !== '' ? $centralHost : 'localhost')
             . (! in_array($port, [80, 443], true) ? ':' . $port : '') . '/';
     }
 }

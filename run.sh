@@ -27,6 +27,10 @@ else
     exit 1
 fi
 
+# run.sh verifies the bundled Caddy container, so enable its opt-in profile by
+# default. Callers can still override COMPOSE_PROFILES when needed.
+export COMPOSE_PROFILES="${COMPOSE_PROFILES:-container-ingress}"
+
 if ! command -v python3 >/dev/null 2>&1; then
     echo "Error: Python 3 is required to create local .env files." >&2
     exit 1
@@ -84,6 +88,12 @@ for service_dir in "${SERVICE_DIRS[@]}"; do
             docker exec laravel_app1 chmod 640 /var/www/html/.env
             docker exec laravel_app1 composer install \
                 --no-interaction --prefer-dist --no-progress
+            # Docker exec defaults to root. Return generated dependencies to
+            # the invoking user so the checkout remains editable on Linux.
+            if [[ "${OSTYPE:-}" == linux* ]]; then
+                docker exec laravel_app1 chown -R "$(id -u):$(id -g)" \
+                    /var/www/html/vendor
+            fi
             docker exec laravel_app1 php artisan migrate --force --no-interaction
             docker exec laravel_app1 php artisan optimize:clear
         fi
