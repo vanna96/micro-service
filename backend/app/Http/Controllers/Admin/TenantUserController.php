@@ -68,7 +68,7 @@ class TenantUserController extends Controller
 
         return redirect()
             ->route('admin.tenant-users.index')
-            ->with('status', 'Tenant user created successfully.');
+            ->with('status', __('Tenant user created successfully.'));
     }
 
     public function edit(Request $request, string $tenantUser): View
@@ -103,7 +103,7 @@ class TenantUserController extends Controller
 
         return redirect()
             ->route('admin.tenant-users.index')
-            ->with('status', 'Tenant user updated successfully.');
+            ->with('status', __('Tenant user updated successfully.'));
     }
 
     public function destroy(Request $request, string $tenantUser): RedirectResponse
@@ -114,7 +114,7 @@ class TenantUserController extends Controller
 
         return redirect()
             ->route('admin.tenant-users.index')
-            ->with('status', 'Tenant user deleted successfully.');
+            ->with('status', __('Tenant user deleted successfully.'));
     }
 
     private function validateUser(Request $request, ?User $user = null): array
@@ -145,7 +145,7 @@ class TenantUserController extends Controller
         $table = (new User())->getTable();
 
         if (tenant()) {
-            return tenant()->database_connection_name . '.' . $table;
+            return (tenant()->database_connection_name ?: 'tenant') . '.' . $table;
         }
 
         return 'central.' . $table;

@@ -197,18 +197,28 @@ export function ModalConfigProduct({
             {/* 2. Variant Options Selectors (RAM, Storage, Color, Size) */}
             {product.variantOptions?.map((optionGroup, groupIndex) => (
               <div key={optionGroup.name} className="mb-3">
-                <label className="form-label fs-12 fw-bold text-body mb-1.5">
-                  {t("selectOption")} {optionGroup.name}:
-                </label>
+                <div className="d-flex align-items-center justify-content-between gap-2 mb-1.5">
+                  <label className="form-label fs-12 fw-bold text-body mb-0">
+                    {t("selectOption")} {optionGroup.name}:
+                  </label>
+                  <span className={`badge rounded-pill fs-10 ${optionGroup.isRequired || optionGroup.minSelections > 0 ? "bg-danger-subtle text-danger" : "bg-light text-muted border"}`}>
+                    {optionGroup.isRequired || optionGroup.minSelections > 0 ? "Required" : "Optional"}
+                    {optionGroup.selectionType === "multiple" && (
+                      <> · {optionGroup.minSelections}–{optionGroup.maxSelections ?? optionGroup.values.length}</>
+                    )}
+                  </span>
+                </div>
                 <div className="d-flex flex-wrap gap-1.5">
                   {optionGroup.values.map((val) => {
                     const isDisabled = isVariantValueDisabled(groupIndex, val);
-                    const isSelected =
-                      selectedVariants[optionGroup.name]?.label === val.label;
+                    const isSelected = Object.values(selectedVariants).some(
+                      (selected) => selected.id === val.id
+                    );
                     return (
                       <button
-                        key={val.label}
+                        key={val.id}
                         type="button"
+                        aria-pressed={isSelected}
                         className={`btn btn-sm rounded-2 px-3 py-1.5 fs-12 fw-medium ${isSelected
                             ? "btn-primary text-white shadow-xs"
                             : isDisabled
@@ -275,7 +285,7 @@ export function ModalConfigProduct({
                 type="button"
                 className="btn btn-primary w-60 rounded-2 fw-bold d-flex align-items-center justify-content-center gap-1.5"
                 disabled={
-                  (product.hasVariants && !hasValidVariant) ||
+                  !hasValidVariant ||
                   (product.hasUOM && selectedUOM && product.stockControl !== false && typeof product.stock === "number" && (
                     Math.floor(product.stock / (Number(selectedUOM.conversionFactorToBase ?? 1) || 1)) <= 0 ||
                     quantity > Math.floor(product.stock / (Number(selectedUOM.conversionFactorToBase ?? 1) || 1))

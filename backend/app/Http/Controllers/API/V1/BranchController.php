@@ -54,7 +54,7 @@ class BranchController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => translate('Branch created successfully.', request('lng')),
+            'message' => translate('Branch created successfully.'),
             'data' => new BranchResource($branch),
         ], 200);
     }
@@ -74,7 +74,7 @@ class BranchController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => translate('Branch updated successfully.', request('lng')),
+            'message' => translate('Branch updated successfully.'),
             'data' => new BranchResource($branchModel),
         ], 200);
     }
@@ -86,7 +86,7 @@ class BranchController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => translate('Branch deleted successfully.', request('lng')),
+            'message' => translate('Branch deleted successfully.'),
         ], 200);
     }
 

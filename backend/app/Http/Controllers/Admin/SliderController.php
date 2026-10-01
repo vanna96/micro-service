@@ -64,7 +64,7 @@ class SliderController extends Controller
 
         return redirect()
             ->route('admin.sliders.index')
-            ->with('status', 'Slider created successfully.');
+            ->with('status', __('Slider created successfully.'));
     }
 
     public function edit(Request $request, string $slider): View
@@ -86,7 +86,7 @@ class SliderController extends Controller
 
         return redirect()
             ->route('admin.sliders.index')
-            ->with('status', 'Slider updated successfully.');
+            ->with('status', __('Slider updated successfully.'));
     }
 
     public function destroy(Request $request, string $slider): RedirectResponse
@@ -97,7 +97,7 @@ class SliderController extends Controller
 
         return redirect()
             ->route('admin.sliders.index')
-            ->with('status', 'Slider deleted successfully.');
+            ->with('status', __('Slider deleted successfully.'));
     }
 
     private function validateSlider(Request $request, ?Slider $slider = null): array

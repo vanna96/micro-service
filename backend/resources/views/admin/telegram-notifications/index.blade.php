@@ -22,7 +22,7 @@
 
 @if (session('status'))
     <div class="alert alert-success alert-dismissible fade show" role="alert">
-        <i class="uil uil-check-circle me-1"></i>{{ session('status') }}
+        <i class="uil uil-check-circle me-1"></i>{{ __(session('status')) }}
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
 @endif

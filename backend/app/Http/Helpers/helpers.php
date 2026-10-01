@@ -285,9 +285,17 @@ if (! function_exists('admin_tenant_display_name')) {
             return '';
         }
 
-        $dbName = trim((string) ($tenant->db_name ?? ''));
+        $name = trim((string) ($tenant->name ?? ''));
+        if ($name !== '') {
+            return $name;
+        }
 
-        return $dbName !== '' ? $dbName : (string) $tenant->id;
+        $id = trim((string) ($tenant->id ?? ''));
+        if ($id !== '') {
+            return $id;
+        }
+
+        return trim((string) ($tenant->db_name ?? ''));
     }
 }
 

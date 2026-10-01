@@ -41,7 +41,7 @@ class TenantContextController extends Controller
         $redirectTo = $this->resolveRedirectTarget($request, (string) ($validated['redirect_to'] ?? ''));
 
         return redirect()->to($redirectTo ?: $intendedUrl ?: route('admin.dashboard'))
-            ->with('status', 'Tenant selected successfully.');
+            ->with('status', __('Tenant selected successfully.'));
     }
 
     public function destroy(Request $request): RedirectResponse
@@ -50,7 +50,7 @@ class TenantContextController extends Controller
 
         return redirect()
             ->route('admin.dashboard')
-            ->with('status', 'Tenant selection cleared.');
+            ->with('status', __('Tenant selection cleared.'));
     }
 
     private function resolveRedirectTarget(Request $request, string $redirectTo): ?string

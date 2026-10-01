@@ -171,12 +171,11 @@ class TenantUserRepository extends RepositoryBase
 
     protected function tenantUserModel(): User
     {
+        abort_unless(tenant(), 404, 'Tenant context is required.');
+
         /** @var \App\Models\User $model */
         $model = $this->createModel();
-
-        if (tenant()) {
-            $model->setConnection(tenant()->database_connection_name);
-        }
+        $model->setConnection(tenant()->database_connection_name ?: 'tenant');
 
         return $model;
     }

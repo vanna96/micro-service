@@ -54,7 +54,7 @@ class GeneralSettingController extends Controller
 
         return redirect()
             ->route('admin.general-settings.index')
-            ->with('status', 'General setting updated successfully.');
+            ->with('status', __('General setting updated successfully.'));
     }
 
     public function testTelegram(Request $request, TelegramNotificationService $telegram): JsonResponse|RedirectResponse

@@ -58,7 +58,7 @@ class CurrencyController extends Controller
 
         return redirect()
             ->route('admin.currencies.index')
-            ->with('status', 'Currency created successfully.');
+            ->with('status', __('Currency created successfully.'));
     }
 
     public function edit(Request $request, string $currency): View
@@ -80,7 +80,7 @@ class CurrencyController extends Controller
 
         return redirect()
             ->route('admin.currencies.index')
-            ->with('status', 'Currency updated successfully.');
+            ->with('status', __('Currency updated successfully.'));
     }
 
     public function destroy(Request $request, string $currency): RedirectResponse
@@ -91,7 +91,7 @@ class CurrencyController extends Controller
 
         return redirect()
             ->route('admin.currencies.index')
-            ->with('status', 'Currency deleted successfully.');
+            ->with('status', __('Currency deleted successfully.'));
     }
 
     private function validateCurrency(Request $request, ?Currency $currency = null): array

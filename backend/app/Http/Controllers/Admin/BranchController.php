@@ -56,7 +56,7 @@ class BranchController extends Controller
 
         return redirect()
             ->route('admin.branches.index')
-            ->with('status', 'Branch created successfully.');
+            ->with('status', __('Branch created successfully.'));
     }
 
     public function edit(Request $request, string $branch): View
@@ -78,7 +78,7 @@ class BranchController extends Controller
 
         return redirect()
             ->route('admin.branches.index')
-            ->with('status', 'Branch updated successfully.');
+            ->with('status', __('Branch updated successfully.'));
     }
 
     public function destroy(Request $request, string $branch): RedirectResponse
@@ -89,7 +89,7 @@ class BranchController extends Controller
 
         return redirect()
             ->route('admin.branches.index')
-            ->with('status', 'Branch deleted successfully.');
+            ->with('status', __('Branch deleted successfully.'));
     }
 
     private function validateBranch(Request $request, ?Branch $branch = null): array

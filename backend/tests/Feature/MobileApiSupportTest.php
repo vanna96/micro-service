@@ -11,12 +11,14 @@ use App\Models\Item;
 use App\Models\ItemOptionGroup;
 use App\Models\Notification;
 use App\Models\PosSale;
+use App\Models\RateIndexValue;
 use App\Models\Role;
 use App\Models\Slider;
 use App\Models\Tenant;
 use App\Models\UnitOfMeasure;
 use App\Models\UomGroup;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -77,6 +79,73 @@ class MobileApiSupportTest extends TestCase
         }
 
         parent::tearDown();
+    }
+
+    public function test_mobile_currency_rates_follow_todays_admin_rate(): void
+    {
+        $tenant = $this->createTenant('mobile-currency-rate');
+        tenancy()->initialize($tenant);
+
+        $khr = Currency::query()->create([
+            'code' => 'KHR',
+            'name' => 'Cambodian Riel',
+            'symbol' => '៛',
+            'decimal_places' => 0,
+            'sort_order' => 2,
+            'status' => 'Active',
+        ]);
+
+        $today = Carbon::now(config('app.timezone', 'UTC'));
+        RateIndexValue::query()->create([
+            'dataset_type' => 'exchange_rate',
+            'year' => $today->year,
+            'month' => $today->month,
+            'day' => $today->day,
+            'currency_id' => $khr->id,
+            'value' => 4050,
+        ]);
+
+        tenancy()->end();
+        DB::purge('tenant');
+
+        $headers = [
+            'X-Tenant' => $tenant->id,
+            'Accept' => 'application/json',
+        ];
+
+        $this->withHeaders($headers)
+            ->getJson('/v1/api/mobile/currencies')
+            ->assertOk()
+            ->assertJsonPath('data.0.code', 'USD')
+            ->assertJsonPath('data.0.exchange_rate', 1)
+            ->assertJsonPath('data.1.code', 'KHR')
+            ->assertJsonPath('data.1.exchange_rate', 4050);
+
+        $this->withHeaders($headers)
+            ->getJson('/v1/api/mobile/bootstrap')
+            ->assertOk()
+            ->assertJsonPath('data.khr_exchange_rate', 4050)
+            ->assertJsonPath('data.currencies.1.exchange_rate', 4050);
+
+        tenancy()->initialize($tenant);
+        RateIndexValue::query()->where('currency_id', $khr->id)->delete();
+        $yesterday = $today->copy()->subDay();
+        RateIndexValue::query()->create([
+            'dataset_type' => 'exchange_rate',
+            'year' => $yesterday->year,
+            'month' => $yesterday->month,
+            'day' => $yesterday->day,
+            'currency_id' => $khr->id,
+            'value' => 4100,
+        ]);
+        tenancy()->end();
+        DB::purge('tenant');
+
+        $this->withHeaders($headers)
+            ->getJson('/v1/api/mobile/bootstrap')
+            ->assertOk()
+            ->assertJsonPath('data.khr_exchange_rate', null)
+            ->assertJsonPath('data.currencies.1.exchange_rate', null);
     }
 
     public function test_mobile_bootstrap_returns_tenant_catalog_sections(): void
@@ -679,6 +748,52 @@ class MobileApiSupportTest extends TestCase
         $this->assertTrue(
             $centralUser->tenants()->where('tenants.id', $tenant->id)->exists()
         );
+    }
+
+    public function test_tenant_user_login_does_not_overwrite_central_user_with_same_id(): void
+    {
+        $tenant = $this->createTenant('mobile-user-id-collision');
+
+        $administrator = User::on('central')->create([
+            'name' => 'Central Administrator',
+            'username' => 'central-admin',
+            'email' => 'central-admin@example.com',
+            'password' => Hash::make('admin-secret'),
+            'phone' => '10000001',
+            'status' => 'Active',
+        ]);
+
+        tenancy()->initialize($tenant);
+        $tenantUser = User::query()->create([
+            'name' => 'Tenant Staff',
+            'username' => 'tenant-staff-collision',
+            'email' => 'tenant-staff-collision@example.com',
+            'password' => Hash::make('tenant-secret'),
+            'phone' => '10000002',
+            'status' => 'Active',
+        ]);
+        tenancy()->end();
+        DB::purge('tenant');
+
+        $this->assertSame($administrator->id, $tenantUser->id);
+
+        $this->withHeaders([
+            'X-Tenant' => $tenant->id,
+            'Accept' => 'application/json',
+        ])->postJson('/v1/api/mobile/auth/login', [
+            'username' => 'tenant-staff-collision',
+            'password' => 'tenant-secret',
+        ])->assertOk()
+            ->assertJsonPath('data.user.username', 'tenant-staff-collision');
+
+        $administrator->refresh();
+
+        $this->assertSame('Central Administrator', $administrator->name);
+        $this->assertSame('central-admin', $administrator->username);
+        $this->assertDatabaseHas('users', [
+            'username' => 'tenant-staff-collision',
+            'name' => 'Tenant Staff',
+        ], 'central');
     }
 
     public function test_mobile_profile_upload_is_mirrored_to_tenant_gallery_for_file_manager_and_edit_preview(): void

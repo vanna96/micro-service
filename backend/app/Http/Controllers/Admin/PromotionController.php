@@ -63,7 +63,7 @@ class PromotionController extends Controller
 
         return redirect()
             ->route('admin.promotions.edit', ['promotion' => $promotion->id])
-            ->with('status', 'Promotion created successfully. Continue below to set up the promotion items.');
+            ->with('status', __('Promotion created successfully. Continue below to set up the promotion items.'));
     }
 
     public function edit(Request $request, string $promotion): View
@@ -88,7 +88,7 @@ class PromotionController extends Controller
 
         return redirect()
             ->route('admin.promotions.edit', ['promotion' => $promotionModel->id])
-            ->with('status', 'Promotion updated successfully.');
+            ->with('status', __('Promotion updated successfully.'));
     }
 
     public function destroy(Request $request, string $promotion): RedirectResponse
@@ -99,7 +99,7 @@ class PromotionController extends Controller
 
         return redirect()
             ->route('admin.promotions.index')
-            ->with('status', 'Promotion deleted successfully.');
+            ->with('status', __('Promotion deleted successfully.'));
     }
 
     public function storeLine(Request $request, string $promotion): RedirectResponse
@@ -111,7 +111,7 @@ class PromotionController extends Controller
 
         return redirect()
             ->route('admin.promotions.edit', ['promotion' => $promotionModel->id])
-            ->with('status', 'Promotion item added successfully.');
+            ->with('status', __('Promotion item added successfully.'));
     }
 
     public function updateLine(Request $request, string $promotion, string $line): RedirectResponse
@@ -124,7 +124,7 @@ class PromotionController extends Controller
 
         return redirect()
             ->route('admin.promotions.edit', ['promotion' => $promotionModel->id])
-            ->with('status', 'Promotion item updated successfully.');
+            ->with('status', __('Promotion item updated successfully.'));
     }
 
     public function destroyLine(Request $request, string $promotion, string $line): RedirectResponse
@@ -136,7 +136,7 @@ class PromotionController extends Controller
 
         return redirect()
             ->route('admin.promotions.edit', ['promotion' => $promotionModel->id])
-            ->with('status', 'Promotion item removed successfully.');
+            ->with('status', __('Promotion item removed successfully.'));
     }
 
     private function validatePromotion(Request $request, ?Promotion $promotion = null): array

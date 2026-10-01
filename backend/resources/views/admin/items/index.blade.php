@@ -46,31 +46,34 @@
                             Manage item catalog data for the currently selected tenant, including branch assignment, stock, rating, and promotional pricing.
                         </p>
                     </div>
-                    @if ($canCreateItems)
-                        <div class="d-flex align-items-center flex-nowrap gap-2 flex-shrink-0">
+                    <div class="d-flex align-items-center flex-nowrap gap-2 flex-shrink-0">
+                        <a href="{{ route('admin.items.export') }}" class="btn btn-outline-success waves-effect text-nowrap">
+                            <i class="uil uil-export me-1"></i>{{ __('Export Items') }}
+                        </a>
+                        @if ($canCreateItems)
                             <a href="{{ route('admin.items.import-template') }}" class="btn btn-outline-secondary waves-effect text-nowrap">
-                                <i class="uil uil-file-download me-1"></i>Excel Template
+                                <i class="uil uil-file-download me-1"></i>{{ __('Excel Template') }}
                             </a>
                             <button type="button" class="btn btn-outline-primary waves-effect text-nowrap" data-bs-toggle="modal" data-bs-target="#item-import-modal">
-                                <i class="uil uil-import me-1"></i>Import Excel
+                                <i class="uil uil-import me-1"></i>{{ __('Import Excel') }}
                             </button>
                             <a href="{{ route('admin.items.create') }}" class="btn btn-primary waves-effect waves-light text-nowrap">
-                                <i class="uil uil-plus me-1"></i>Create Item
+                                <i class="uil uil-plus me-1"></i>{{ __('Create Item') }}
                             </a>
-                        </div>
-                    @endif
+                        @endif
+                    </div>
                 </div>
 
                 @if (session('status'))
                     <div class="alert alert-success alert-border-left alert-dismissible fade show" role="alert">
-                        <i class="mdi mdi-check-all me-2"></i>{{ session('status') }}
+                        <i class="mdi mdi-check-all me-2"></i>{{ __(session('status')) }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 @endif
 
                 @if ($errors->has('import_file'))
                     <div class="alert alert-danger alert-border-left" role="alert">
-                        <div class="fw-semibold mb-1">The Excel file was not imported.</div>
+                        <div class="fw-semibold mb-1">{{ __('The file was not imported.') }}</div>
                         <ul class="mb-0 ps-3">
                             @foreach ($errors->get('import_file') as $message)
                                 <li>{{ $message }}</li>
@@ -193,24 +196,36 @@
                 <form action="{{ route('admin.items.import') }}" method="POST" enctype="multipart/form-data">
                     @csrf
                     <div class="modal-header">
-                        <h5 class="modal-title" id="item-import-modal-label">Import Items from Excel</h5>
+                        <h5 class="modal-title" id="item-import-modal-label">{{ __('Import Items from Excel') }}</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <p class="text-muted mb-3">
-                            Download the template, complete the Items sheet, then upload it here. Existing SKUs are never overwritten.
+                        <p class="text-muted mb-3 font-size-13">
+                            {{ __('Download the Excel template, complete the sheets, then upload the file here. Items matching existing SKUs will be updated, while new SKUs, categories, UOMs, and variations are created automatically.') }}
                         </p>
-                        <div class="alert alert-info py-2 font-size-13">
-                            Variation items must be imported as Inactive, configured from Edit Item, and then activated.
+
+                        <!-- Quick Excel Template Download in Modal -->
+                        <div class="d-flex align-items-center justify-content-between p-2.5 bg-light rounded mb-3">
+                            <span class="text-muted font-size-12 fw-medium"><i class="uil uil-file-download me-1"></i>{{ __('Need the template?') }}</span>
+                            <a href="{{ route('admin.items.import-template') }}" class="btn btn-xs btn-outline-success font-size-11 px-2.5 py-1">
+                                <i class="uil uil-file me-1"></i>{{ __('Excel Template') }} (.xlsx)
+                            </a>
                         </div>
-                        <label for="item-import-file" class="form-label">Excel file</label>
-                        <input id="item-import-file" name="import_file" type="file" class="form-control" accept=".xlsx,.xls" required>
-                        <div class="form-text">Excel .xlsx or .xls, up to 5 MB and 500 item rows.</div>
+
+                        <div class="alert alert-info py-2 font-size-13 mb-3">
+                            {{ __('You can edit downloaded templates or exported items, then re-import them here. Items are created or updated automatically by SKU.') }}
+                        </div>
+
+                        <div class="mb-2">
+                            <label for="item-import-file" class="form-label font-size-13 fw-medium">{{ __('Excel file') }}</label>
+                            <input id="item-import-file" name="import_file" type="file" class="form-control" accept=".xlsx,.xls,.csv" required>
+                            <div class="form-text font-size-12">{{ __('Supports Excel (.xlsx, .xls), up to 5 MB and 500 item rows.') }}</div>
+                        </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">{{ __('Cancel') }}</button>
                         <button type="submit" class="btn btn-primary">
-                            <i class="uil uil-import me-1"></i>Import Items
+                            <i class="uil uil-import me-1"></i>{{ __('Import Items') }}
                         </button>
                     </div>
                 </form>

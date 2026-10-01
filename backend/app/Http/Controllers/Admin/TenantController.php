@@ -62,7 +62,7 @@ class TenantController extends Controller
 
         return redirect()
             ->route('admin.tenants.index')
-            ->with('status', 'Tenant created successfully.');
+            ->with('status', __('Tenant created successfully.'));
     }
 
     public function edit(Tenant $tenant): View
@@ -90,7 +90,7 @@ class TenantController extends Controller
 
         return redirect()
             ->route('admin.tenants.index')
-            ->with('status', 'Tenant updated successfully.');
+            ->with('status', __('Tenant updated successfully.'));
     }
 
     public function destroy(Tenant $tenant): RedirectResponse
@@ -99,7 +99,7 @@ class TenantController extends Controller
 
         return redirect()
             ->route('admin.tenants.index')
-            ->with('status', 'Tenant deleted successfully.');
+            ->with('status', __('Tenant deleted successfully.'));
     }
 
     public function testTelegram(Request $request, TelegramNotificationService $telegram): JsonResponse|RedirectResponse
@@ -142,9 +142,17 @@ class TenantController extends Controller
     private function validateTenant(Request $request, bool $includeId = true, ?Tenant $tenant = null): array
     {
         $tenantTable = 'central.'.(new Tenant())->getTable();
+        $domainId = $tenant?->domains?->first()?->id;
 
         $rules = [
             'alias' => ['required', 'string', 'max:63', 'regex:/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/'],
+            'domain' => [
+                'nullable',
+                'string',
+                'max:255',
+                'regex:/^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$/',
+                Rule::unique('central.domains', 'domain')->ignore($domainId),
+            ],
             'db_connection' => ['required', 'string', 'max:255'],
             'db_port' => ['required', 'string', 'max:20'],
             'db_name' => ['required', 'string', 'max:255'],

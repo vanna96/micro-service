@@ -38,6 +38,21 @@ class BlockedIp extends Model
         $this->setConnection(config('tenancy.database.central_connection') ?: config('database.default', 'central'));
     }
 
+    public static function isWhitelisted(string $ip): bool
+    {
+        if ($ip === '127.0.0.1' || $ip === '::1') {
+            return true;
+        }
+
+        try {
+            $whitelistedJson = SecuritySetting::get('admin_whitelisted_ips', '[]');
+            $whitelisted = json_decode($whitelistedJson, true) ?: [];
+            return in_array($ip, $whitelisted, true);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
     public static function cacheKey(string $ip): string
     {
         return 'security_blocked_ip_' . md5($ip);
@@ -45,7 +60,7 @@ class BlockedIp extends Model
 
     public static function isBlocked(string $ip): bool
     {
-        if ($ip === '127.0.0.1' || $ip === '::1') {
+        if (static::isWhitelisted($ip)) {
             return false;
         }
 
@@ -92,7 +107,11 @@ class BlockedIp extends Model
         string $threatType = 'manual',
         ?int $durationHours = null,
         ?string $blockedBy = 'system'
-    ): self {
+    ): ?self {
+        if (static::isWhitelisted($ip)) {
+            return null;
+        }
+
         $record = static::query()->where('ip_address', $ip)->first();
 
         $expiresAt = $durationHours && $durationHours > 0

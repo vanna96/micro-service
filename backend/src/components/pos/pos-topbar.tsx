@@ -160,12 +160,12 @@ export function PosTopbar({
         <button
           type="button"
           className="btn btn-sm btn-light border d-flex align-items-center gap-1.5 rounded-pill px-2.5 py-1 flex-shrink-0 fw-semibold fs-12"
-          onClick={() => setLocale(locale === "en" ? "km" : "en")}
+          onClick={() => setLocale(locale === "en" ? "kh" : "en")}
           title={t("language")}
           style={{ minWidth: "54px" }}
         >
           <i className="ri-translate-2 fs-14 text-primary"></i>
-          <span>{locale === "en" ? "KM" : "EN"}</span>
+          <span>{locale === "en" ? "KH" : "EN"}</span>
         </button>
 
         {/* Switch Store Button */}

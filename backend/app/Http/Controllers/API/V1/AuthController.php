@@ -72,7 +72,7 @@ class AuthController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => translate('Administrator created successfully.', request('lng')),
+                'message' => translate('Administrator created successfully.'),
                 'data'    => $user
             ], 201);
         } catch (\Throwable $th) {
@@ -111,7 +111,7 @@ class AuthController extends Controller
         if (!Auth::attempt($credentials)) {
             return response()->json([
                 'success' => false,
-                'message' => translate('Invalid username or password', request('lng'))
+                'message' => translate('Invalid username or password')
             ], 401);
         }
 
@@ -120,7 +120,7 @@ class AuthController extends Controller
             Auth::logout();
             return response()->json([
                 'success' => false,
-                'message' => translate('Invalid username or password', request('lng'))
+                'message' => translate('Invalid username or password')
             ], 401);
         }
 
@@ -149,7 +149,7 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => translate('Login successful', request('lng')),
+            'message' => translate('Login successful'),
             'data' => [
                 'user'            => $user->load('tenants'),
                 'token'           => $plainTextToken,
@@ -170,7 +170,7 @@ class AuthController extends Controller
         if (! $refreshTokenString) {
             return response()->json([
                 'success' => false,
-                'message' => translate('Refresh token is required.', request('lng'))
+                'message' => translate('Refresh token is required.')
             ], 422);
         }
 
@@ -179,14 +179,14 @@ class AuthController extends Controller
         if (! $token || ($token->expires_at && $token->expires_at->isPast())) {
             return response()->json([
                 'success' => false,
-                'message' => translate('Invalid or expired refresh token. Please sign in again.', request('lng'))
+                'message' => translate('Invalid or expired refresh token. Please sign in again.')
             ], 401);
         }
 
         if ($token->name !== 'refreshToken' || ! $token->can('issue-token')) {
             return response()->json([
                 'success' => false,
-                'message' => translate('Provided token is not a valid refresh token.', request('lng'))
+                'message' => translate('Provided token is not a valid refresh token.')
             ], 401);
         }
 
@@ -195,7 +195,7 @@ class AuthController extends Controller
         if (! $user || $user->status !== 'Active') {
             return response()->json([
                 'success' => false,
-                'message' => translate('User account is inactive or not found.', request('lng'))
+                'message' => translate('User account is inactive or not found.')
             ], 401);
         }
 
@@ -225,7 +225,7 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => translate('Token refreshed successfully.', request('lng')),
+            'message' => translate('Token refreshed successfully.'),
             'data' => [
                 'user'            => $user->load('tenants'),
                 'token'           => $newTokenResult->plainTextToken,

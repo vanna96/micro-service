@@ -77,7 +77,10 @@ export async function portalSession(headers: IncomingHttpHeaders): Promise<Porta
 }
 
 export function isCentralHost(host: string): boolean {
+  const configuredHost = process.env.CENTRAL_PORTAL_HOST?.trim().toLowerCase();
+
   return (
+    (configuredHost ? host === configuredHost : false) ||
     host === "localhost" ||
     host === "127.0.0.1" ||
     /^192\.168\./.test(host) ||

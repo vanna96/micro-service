@@ -7,7 +7,8 @@
     <link rel="shortcut icon" href="{{ global_asset('branding/v-pos-mark.svg') }}" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:ital,wght@0,100..700;1,100..700&family=Noto+Sans+Khmer:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ global_asset('fonts/khmer/khmer-fonts.css') }}">
     <link href="{{ global_asset('minible/assets/css/bootstrap.min.css') }}" rel="stylesheet" type="text/css" />
     <link href="{{ global_asset('minible/assets/css/icons.min.css') }}" rel="stylesheet" type="text/css" />
 
@@ -105,7 +106,7 @@
         }
         body {
             background-color: #f1f5f9;
-            font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
+            font-family: 'Plus Jakarta Sans', 'Kantumruy Pro', 'Noto Sans Khmer', 'Inter', -apple-system, sans-serif; line-height: 1.55; -webkit-font-smoothing: antialiased;
             color: var(--pos-text);
             margin: 0;
             padding: 24px;

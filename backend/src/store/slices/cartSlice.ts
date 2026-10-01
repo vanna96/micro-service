@@ -138,7 +138,7 @@ export const cartSlice = createSlice({
       if (selectedUOM) keyParts.push(`UOM:${selectedUOM.shortCode}`);
       if (selectedVariant) keyParts.push(`VARIANT:${selectedVariant.id}`);
       if (Object.keys(selectedVariants).length > 0) {
-        Object.entries(selectedVariants).forEach(([key, val]) => {
+        Object.entries(selectedVariants).sort(([left], [right]) => left.localeCompare(right)).forEach(([key, val]) => {
           keyParts.push(`${key}:${val.label}`);
         });
       }
@@ -177,7 +177,9 @@ export const cartSlice = createSlice({
       }
       if (Object.keys(selectedVariants).length > 0) {
         Object.entries(selectedVariants).forEach(([key, val]) => {
-          if (!selectedVariant && val.priceDelta) basePrice += val.priceDelta;
+          if (val.priceDelta && (!selectedVariant || !selectedVariant.optionValueIds.includes(val.id))) {
+            basePrice += val.priceDelta;
+          }
         });
       }
 

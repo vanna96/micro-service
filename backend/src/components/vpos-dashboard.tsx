@@ -21,7 +21,7 @@ import {
   syncPosDisplay,
 } from "@/lib/pos-api";
 import { getEcho } from "@/lib/echo";
-import { AppliedPromotion, CartItem, CashTenderInput, Category, CurrencyInfo, Customer, CustomerPriceList, DiscountType, Product, ProductUOM, ProductVariant, VariantValue, HeldOrder, Invoice, PosBranch, PosCartPricing, PosCompanyInfo, PosSaleSnapshot } from "@/types/pos-types";
+import { AppliedPromotion, CartItem, CashTenderInput, Category, CurrencyInfo, Customer, CustomerPriceList, DiscountType, Product, ProductUOM, ProductVariant, ProductVariantOption, VariantValue, HeldOrder, Invoice, PosBranch, PosCartPricing, PosCompanyInfo, PosSaleSnapshot } from "@/types/pos-types";
 
 // Custom Hooks & Redux
 import { useLiveClock } from "@/hooks/use-live-clock";
@@ -1106,10 +1106,18 @@ export function VPosDashboard({ centralUrl }: { centralUrl?: string } = {}) {
           product.variants?.find((variant) => !isStockControlled || variant.stock > 0);
 
         product.variantOptions.forEach((opt) => {
-          const selectedValue = opt.values.find((value) =>
-            initialVariant?.optionValueIds.includes(value.id)
-          );
-          if (selectedValue) initialVariants[opt.name] = selectedValue;
+          const variantValue = opt.values.find((value) => initialVariant?.optionValueIds.includes(value.id));
+          const defaults = opt.values.filter((value) => value.isDefault);
+          const initialValues = variantValue ? [variantValue] : defaults;
+
+          if (opt.selectionType === "multiple") {
+            const maximum = opt.maxSelections ?? initialValues.length;
+            initialValues.slice(0, maximum).forEach((value) => {
+              initialVariants[`${opt.name}::${value.id}`] = value;
+            });
+          } else if (initialValues[0]) {
+            initialVariants[opt.name] = initialValues[0];
+          }
         });
         setSelectedVariants(initialVariants);
       } else {
@@ -1129,18 +1137,33 @@ export function VPosDashboard({ centralUrl }: { centralUrl?: string } = {}) {
   const selectedVariant = useMemo<ProductVariant | null>(() => {
     if (!configProduct?.hasVariants || !configProduct.variantOptions) return null;
 
-    const selectedValueIds = configProduct.variantOptions
-      .map((group) => selectedVariants[group.name]?.id)
+    const selectedValueIds = Object.values(selectedVariants)
+      .map((val) => val?.id)
       .filter((id): id is number => typeof id === "number");
 
-    if (selectedValueIds.length !== configProduct.variantOptions.length) return null;
+    if (!configProduct.variants || configProduct.variants.length === 0) return null;
 
-    return configProduct.variants?.find(
+    return configProduct.variants.find(
       (variant) =>
-        variant.optionValueIds.length === selectedValueIds.length &&
-        selectedValueIds.every((id) => variant.optionValueIds.includes(id))
+        variant.optionValueIds.length > 0 &&
+        variant.optionValueIds.every((id) => selectedValueIds.includes(id))
     ) || null;
   }, [configProduct, selectedVariants]);
+
+  const selectedValuesForGroup = useCallback((group: ProductVariantOption): VariantValue[] => {
+    const valueIds = new Set(group.values.map((value) => value.id));
+    return Object.values(selectedVariants).filter((value) => valueIds.has(value.id));
+  }, [selectedVariants]);
+
+  const optionSelectionsValid = useMemo(() => {
+    if (!configProduct?.variantOptions) return true;
+
+    return configProduct.variantOptions.every((group) => {
+      const count = selectedValuesForGroup(group).length;
+      const minimum = Math.max(group.minSelections, group.isRequired ? 1 : 0);
+      return count >= minimum && (group.maxSelections === null || count <= group.maxSelections);
+    });
+  }, [configProduct, selectedValuesForGroup]);
 
   const modalMaxQuantity = useMemo<number | null>(() => {
     if (!configProduct) return null;
@@ -1154,7 +1177,7 @@ export function VPosDashboard({ centralUrl }: { centralUrl?: string } = {}) {
       ? Math.max(0, configProduct.stock - baseInCart)
       : null;
 
-    if (configProduct.hasVariants) {
+    if (configProduct.variants?.length) {
       if (!selectedVariant) return 0;
       const variantInCart = cart
         .filter((i) => i.selectedVariant?.id === selectedVariant.id)
@@ -1188,10 +1211,27 @@ export function VPosDashboard({ centralUrl }: { centralUrl?: string } = {}) {
   const isVariantValueDisabled = (groupIndex: number, value: VariantValue) => {
     if (!configProduct?.variants || !configProduct.variantOptions) return true;
 
+    const group = configProduct.variantOptions[groupIndex];
+    if (!group) return true;
+
+    const isVariantGroup = group.type === "variant";
+    if (!isVariantGroup) {
+      const selectedValues = selectedValuesForGroup(group);
+      const isSelected = selectedValues.some((selected) => selected.id === value.id);
+      if (
+        group.selectionType === "multiple" &&
+        !isSelected &&
+        group.maxSelections !== null &&
+        selectedValues.length >= group.maxSelections
+      ) {
+        return true;
+      }
+      return false;
+    }
+
     const requiredValueIds = configProduct.variantOptions
-      .slice(0, groupIndex)
-      .map((group) => selectedVariants[group.name]?.id)
-      .filter((id): id is number => typeof id === "number");
+      .filter((optionGroup) => optionGroup.type === "variant" && optionGroup.id !== group.id)
+      .flatMap((optionGroup) => selectedValuesForGroup(optionGroup).map((selected) => selected.id));
     requiredValueIds.push(value.id);
 
     const isStockControlled = configProduct.stockControl !== false;
@@ -1210,10 +1250,36 @@ export function VPosDashboard({ centralUrl }: { centralUrl?: string } = {}) {
     );
     if (groupIndex < 0 || isVariantValueDisabled(groupIndex, value)) return;
 
+    const group = configProduct.variantOptions[groupIndex];
+    const isVariantGroup = group.type === "variant";
+
+    if (!isVariantGroup) {
+      setSelectedVariants((prev) => {
+        const next = { ...prev };
+        const groupValueIds = new Set(group.values.map((option) => option.id));
+        const selectedGroupEntries = Object.entries(next).filter(([, selected]) => groupValueIds.has(selected.id));
+
+        if (group.selectionType === "multiple") {
+          const selectionKey = `${groupName}::${value.id}`;
+          if (next[selectionKey]) {
+            delete next[selectionKey];
+          } else if (group.maxSelections === null || selectedGroupEntries.length < group.maxSelections) {
+            next[selectionKey] = value;
+          }
+        } else {
+          selectedGroupEntries.forEach(([key]) => delete next[key]);
+          const alreadySelected = selectedGroupEntries.some(([, selected]) => selected.id === value.id);
+          const minimum = Math.max(group.minSelections, group.isRequired ? 1 : 0);
+          if (!alreadySelected || minimum > 0) next[groupName] = value;
+        }
+        return next;
+      });
+      return;
+    }
+
     const requiredValueIds = configProduct.variantOptions
-      .slice(0, groupIndex)
-      .map((group) => selectedVariants[group.name]?.id)
-      .filter((id): id is number => typeof id === "number");
+      .filter((optionGroup) => optionGroup.type === "variant" && optionGroup.id !== group.id)
+      .flatMap((optionGroup) => selectedValuesForGroup(optionGroup).map((selected) => selected.id));
     requiredValueIds.push(value.id);
 
     const isStockControlled = configProduct.stockControl !== false;
@@ -1224,23 +1290,34 @@ export function VPosDashboard({ centralUrl }: { centralUrl?: string } = {}) {
     );
     if (!matchingVariant) return;
 
-    const nextSelections: Record<string, VariantValue> = {};
-    configProduct.variantOptions.forEach((group) => {
-      const matchingValue = group.values.find((optionValue) =>
-        matchingVariant.optionValueIds.includes(optionValue.id)
+    setSelectedVariants((prev) => {
+      const variantValueIds = new Set(
+        configProduct.variantOptions
+          ?.filter((optionGroup) => optionGroup.type === "variant")
+          .flatMap((optionGroup) => optionGroup.values.map((option) => option.id)) || []
       );
-      if (matchingValue) nextSelections[group.name] = matchingValue;
+      const next = Object.fromEntries(
+        Object.entries(prev).filter(([, selected]) => !variantValueIds.has(selected.id))
+      );
+
+      configProduct.variantOptions?.filter((optionGroup) => optionGroup.type === "variant").forEach((optionGroup) => {
+        const matchingValue = optionGroup.values.find((option) => matchingVariant.optionValueIds.includes(option.id));
+        if (matchingValue) next[optionGroup.name] = matchingValue;
+      });
+      return next;
     });
-    setSelectedVariants(nextSelections);
     setConfigQty((quantity) => Math.min(quantity, matchingVariant.stock));
   };
 
   const modalUnitPrice = useMemo(() => {
     if (!configProduct) return 0;
-    if (selectedVariant) return selectedVariant.price;
-    let price = selectedUOM ? selectedUOM.price : configProduct.price;
+    let price = selectedVariant
+      ? selectedVariant.price
+      : (selectedUOM ? selectedUOM.price : configProduct.price);
     Object.values(selectedVariants).forEach((v) => {
-      if (v.priceDelta) price += v.priceDelta;
+      if (v?.priceDelta && (!selectedVariant || !selectedVariant.optionValueIds.includes(v.id))) {
+        price += v.priceDelta;
+      }
     });
     return price;
   }, [configProduct, selectedUOM, selectedVariant, selectedVariants]);
@@ -1796,8 +1873,10 @@ export function VPosDashboard({ centralUrl }: { centralUrl?: string } = {}) {
             onSelectVariant={handleVariantSelection}
             isVariantValueDisabled={isVariantValueDisabled}
             hasValidVariant={
-              !configProduct.hasVariants ||
-              (selectedVariant !== null && selectedVariant.stock > 0)
+              optionSelectionsValid && (
+                !configProduct.variants?.length ||
+                (selectedVariant !== null && (configProduct.stockControl === false || selectedVariant.stock > 0))
+              )
             }
             quantity={configQty}
             onUpdateQuantity={(delta) =>
@@ -1810,9 +1889,10 @@ export function VPosDashboard({ centralUrl }: { centralUrl?: string } = {}) {
             onAddToCart={() => {
               const isStockControlled = configProduct.stockControl !== false;
               if (
-                configProduct.hasVariants &&
+                configProduct.variants?.length &&
                 (!selectedVariant || (isStockControlled && (selectedVariant.stock <= 0 || configQty > selectedVariant.stock)))
               ) return;
+              if (!optionSelectionsValid) return;
               if (isStockControlled && modalMaxQuantity !== null && (modalMaxQuantity <= 0 || configQty > modalMaxQuantity)) {
                 return;
               }

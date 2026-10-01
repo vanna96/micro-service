@@ -21,6 +21,7 @@ use App\Models\UnitOfMeasure;
 use App\Models\UomGroup;
 use App\Models\UomGroupUnit;
 use App\Models\User;
+use App\Services\ItemExcelImportService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -3227,6 +3228,7 @@ class AdminCrudManagementTest extends TestCase
             ->withSession(['admin_selected_tenant_id' => $tenant->id])
             ->get(route('admin.items.index'))
             ->assertOk()
+            ->assertSee('Export Items')
             ->assertSee('Excel Template')
             ->assertSee('Import Excel');
 
@@ -3236,23 +3238,20 @@ class AdminCrudManagementTest extends TestCase
             ->assertOk()
             ->assertDownload('items-import-template.xlsx');
 
+
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Items');
         $sheet->fromArray([
-            [
-                'sku', 'name', 'foreign_name', 'item_type', 'category', 'branch',
-                'uom_group', 'price_list', 'currency', 'price', 'stock', 'status',
-                'premium', 'featured', 'new_arrival', 'try_on', 'sort_order', 'description',
-            ],
+            ItemExcelImportService::ITEM_HEADERS,
             [
                 'IMP-001', 'Imported Coffee', 'កាហ្វេ', 'uom', 'Drinks', 'MAIN',
-                'EACH', '', 'USD', 2.50, 12, 'Active',
+                'EACH', '', 'USD', 2.50, 12, 'Yes', 'Yes', 'Yes', 'Active',
                 'No', 'Yes', 'No', 'No', 10, 'Created from Excel',
             ],
             [
                 'IMP-VAR', 'Imported Shirt', '', 'variation', 'Drinks', 'MAIN',
-                '', '', 'USD', 25, 0, 'Active',
+                '', '', 'USD', 25, 0, 'Yes', 'Yes', 'Yes', 'Active',
                 'No', 'No', 'Yes', 'No', 11, 'Variation created from Excel',
             ],
         ], null, 'A1', true);
@@ -3314,6 +3313,78 @@ class AdminCrudManagementTest extends TestCase
             @unlink($temporaryPath);
         }
 
+        $csvPath = tempnam(sys_get_temp_dir(), 'csv-test-');
+        $csvFp = fopen($csvPath, 'w');
+        fputcsv($csvFp, ItemExcelImportService::ITEM_HEADERS);
+        fputcsv($csvFp, [
+            'IMP-CSV-01', 'Imported Juice', 'ទឹកផ្លែឈើ', 'uom', 'Drinks', 'MAIN',
+            'EACH', '', 'USD', 3.50, 15, 'Yes', 'Yes', 'Yes', 'Active',
+            'No', 'No', 'Yes', 'No', 5, 'Created from CSV',
+        ]);
+        fclose($csvFp);
+
+        try {
+            $this->actingAs($admin)
+                ->withSession(['admin_selected_tenant_id' => $tenant->id])
+                ->post(route('admin.items.import'), [
+                    'import_file' => new UploadedFile(
+                        $csvPath,
+                        'items-import.csv',
+                        'text/csv',
+                        null,
+                        true
+                    ),
+                ])
+                ->assertRedirect(route('admin.items.index'))
+                ->assertSessionHas('status', '1 item imported successfully.');
+        } finally {
+            @unlink($csvPath);
+        }
+
+        $csvUpdatePath = tempnam(sys_get_temp_dir(), 'csv-update-');
+        $csvUpdateFp = fopen($csvUpdatePath, 'w');
+        fputcsv($csvUpdateFp, ItemExcelImportService::ITEM_HEADERS);
+        fputcsv($csvUpdateFp, [
+            'IMP-CSV-01', 'Imported Juice (Updated Price)', 'ទឹកផ្លែឈើ', 'uom', 'Brand New Auto Category', 'MAIN',
+            'EACH', '', 'USD', 4.99, 30, 'Yes', 'Yes', 'Yes', 'Active',
+            'No', 'No', 'Yes', 'No', 5, 'Updated price via CSV',
+        ]);
+        fclose($csvUpdateFp);
+
+        try {
+            $this->actingAs($admin)
+                ->withSession(['admin_selected_tenant_id' => $tenant->id])
+                ->post(route('admin.items.import'), [
+                    'import_file' => new UploadedFile(
+                        $csvUpdatePath,
+                        'items-update.csv',
+                        'text/csv',
+                        null,
+                        true
+                    ),
+                ])
+                ->assertRedirect(route('admin.items.index'))
+                ->assertSessionHas('status', '1 item updated successfully.');
+        } finally {
+            @unlink($csvUpdatePath);
+        }
+
+        tenancy()->initialize($tenant);
+        $this->assertDatabaseHas('categories', [
+            'name' => 'Brand New Auto Category',
+            'status' => 'Active',
+        ], 'tenant');
+
+        $this->assertDatabaseHas('items', [
+            'sku' => 'IMP-CSV-01',
+            'name' => 'Imported Juice (Updated Price)',
+            'price' => 4.99,
+            'stock' => 30,
+            'stock_control' => true,
+            'purchase' => true,
+            'sale' => true,
+        ], 'tenant');
+
         tenancy()->initialize($tenant);
         $this->assertDatabaseHas('items', [
             'sku' => 'IMP-001',
@@ -3324,7 +3395,19 @@ class AdminCrudManagementTest extends TestCase
             'uom_group_id' => $group->id,
             'price' => 2.5,
             'stock' => 12,
+            'stock_control' => true,
+            'purchase' => true,
+            'sale' => true,
             'is_featured' => true,
+            'status' => 'Active',
+        ], 'tenant');
+        $this->assertDatabaseHas('items', [
+            'sku' => 'IMP-VAR',
+            'name' => 'Imported Shirt',
+            'item_type' => 'variation',
+            'stock_control' => true,
+            'purchase' => true,
+            'sale' => true,
             'status' => 'Active',
         ], 'tenant');
         $uomItem = Item::query()->where('sku', 'IMP-001')->firstOrFail();
@@ -3373,6 +3456,81 @@ class AdminCrudManagementTest extends TestCase
         ], 'tenant');
         tenancy()->end();
         DB::purge('tenant');
+
+        $exportResponse = $this->actingAs($admin)
+            ->withSession(['admin_selected_tenant_id' => $tenant->id])
+            ->get(route('admin.items.export'));
+
+        $exportResponse->assertOk();
+        $this->assertStringContainsString('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', (string) $exportResponse->headers->get('content-type'));
+        $this->assertStringContainsString('items-export-', (string) $exportResponse->headers->get('content-disposition'));
+
+        $exportFilePath = tempnam(sys_get_temp_dir(), 'export-test-').'.xlsx';
+        file_put_contents($exportFilePath, $exportResponse->streamedContent());
+
+        try {
+            $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($exportFilePath);
+            $exportedSpreadsheet = $reader->load($exportFilePath);
+            $this->assertNotNull($exportedSpreadsheet->getSheetByName('Items'));
+            $this->assertNotNull($exportedSpreadsheet->getSheetByName('UOM Prices'));
+            $this->assertNotNull($exportedSpreadsheet->getSheetByName('Options'));
+            $this->assertNotNull($exportedSpreadsheet->getSheetByName('Variants'));
+            
+            $exportedItemRows = $exportedSpreadsheet->getSheetByName('Items')->toArray();
+            $this->assertSame(ItemExcelImportService::ITEM_HEADERS, $exportedItemRows[0]);
+            $exportedSpreadsheet->disconnectWorksheets();
+
+            $reimportResponse = $this->actingAs($admin)
+                ->withSession(['admin_selected_tenant_id' => $tenant->id])
+                ->post(route('admin.items.import'), [
+                    'import_file' => new UploadedFile(
+                        $exportFilePath,
+                        'reimported-items.xlsx',
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        null,
+                        true
+                    ),
+                ]);
+
+            $reimportResponse->assertRedirect(route('admin.items.index'))
+                ->assertSessionHas('status', fn ($status) => str_contains($status, 'updated'));
+        } finally {
+            @unlink($exportFilePath);
+        }
+
+        $templateResponse = $this->actingAs($admin)
+            ->withSession(['admin_selected_tenant_id' => $tenant->id])
+            ->get(route('admin.items.import-template'));
+
+        $templateResponse->assertOk();
+        $templateFilePath = tempnam(sys_get_temp_dir(), 'template-test-').'.xlsx';
+        file_put_contents($templateFilePath, $templateResponse->streamedContent());
+
+        try {
+            $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($templateFilePath);
+            $templateSpreadsheet = $reader->load($templateFilePath);
+            $itemsData = $templateSpreadsheet->getSheetByName('Items')->toArray();
+            $this->assertSame('SAMPLE-COFFEE', $itemsData[1][0] ?? null);
+            $this->assertSame('SAMPLE-TSHIRT', $itemsData[2][0] ?? null);
+            $templateSpreadsheet->disconnectWorksheets();
+
+            $sampleImportResponse = $this->actingAs($admin)
+                ->withSession(['admin_selected_tenant_id' => $tenant->id])
+                ->post(route('admin.items.import'), [
+                    'import_file' => new UploadedFile(
+                        $templateFilePath,
+                        'sample-template.xlsx',
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        null,
+                        true
+                    ),
+                ]);
+
+            $sampleImportResponse->assertRedirect(route('admin.items.index'))
+                ->assertSessionHas('status', fn ($status) => str_contains($status, 'successfully'));
+        } finally {
+            @unlink($templateFilePath);
+        }
     }
 
     private function createUser(array $attributes): User

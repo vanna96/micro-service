@@ -100,7 +100,7 @@ class TelegramNotificationSettingController extends Controller
 
         return redirect()
             ->route('admin.telegram-notifications.index', ['tab' => $tab])
-            ->with('status', 'Telegram notification settings saved successfully.');
+            ->with('status', __('Telegram notification settings saved successfully.'));
     }
 
     public function test(Request $request, TelegramNotificationService $telegram): JsonResponse|RedirectResponse

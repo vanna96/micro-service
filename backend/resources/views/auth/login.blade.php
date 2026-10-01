@@ -30,7 +30,18 @@
                             <p class="text-muted">{{ __('Choose how you want to sign in.') }}</p>
                         </div>
 
-                        <div class="p-2 mt-4">
+                        <div class="d-flex justify-content-end mb-2">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{{ route('locale.switch', 'kh') }}" class="btn {{ in_array(app()->getLocale(), ['kh', 'km']) ? 'btn-primary' : 'btn-outline-secondary' }} px-2 py-1">
+                                    🇰🇭 ខ្មែរ (KH)
+                                </a>
+                                <a href="{{ route('locale.switch', 'en') }}" class="btn {{ app()->getLocale() === 'en' ? 'btn-primary' : 'btn-outline-secondary' }} px-2 py-1">
+                                    🇬🇧 EN
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="p-2 mt-2">
                             <ul class="nav nav-tabs nav-tabs-custom nav-justified mb-4" id="loginTabs" role="tablist">
                                 <li class="nav-item" role="presentation">
                                     <button

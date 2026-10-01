@@ -13,6 +13,30 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+
+Route::get('/caddy-check', function (\Illuminate\Http\Request $request) {
+    $domain = strtolower(trim((string) $request->query('domain', '')));
+    if ($domain === '') {
+        return response('Missing domain', 400);
+    }
+
+    $centralDomains = array_map('strtolower', (array) config('tenancy.central_domains', []));
+    if (in_array($domain, $centralDomains, true)) {
+        return response('OK', 200);
+    }
+
+    $tenantHost = strtolower((string) env('TENANT_HOST', 'vanna-pos.duckdns.org'));
+    if (str_ends_with($domain, '.duckdns.org') || str_ends_with($domain, '.' . $tenantHost)) {
+        return response('OK', 200);
+    }
+
+    if (\Illuminate\Support\Facades\DB::connection('central')->table('domains')->where('domain', $domain)->exists()) {
+        return response('OK', 200);
+    }
+
+    return response('Domain not allowed', 403);
+});
+
 Route::get('/', function () {
     return view('welcome');
 });
@@ -26,7 +50,10 @@ Route::any('/config.json', [\App\Http\Controllers\Admin\SecurityController::clas
 Route::any('/setup.php', [\App\Http\Controllers\Admin\SecurityController::class, 'triggerHoneypot']);
 
 // Error Page Previews (Dev & Visual Verification)
-Route::prefix('errors/preview')->group(function () {
+// Never register these helpers in production. Requiring authentication in
+// local development also prevents preview code from creating an admin session.
+if (app()->environment('local')) {
+Route::prefix('errors/preview')->middleware('auth')->group(function () {
     Route::get('/429', function () {
         return response()->view('errors.429', [
             'ip' => request()->ip(),
@@ -57,10 +84,6 @@ Route::prefix('errors/preview')->group(function () {
         if (class_exists(\Barryvdh\Debugbar\Facades\Debugbar::class)) {
             \Barryvdh\Debugbar\Facades\Debugbar::disable();
         }
-        $admin = \App\Models\User::first();
-        if ($admin) {
-            auth()->login($admin);
-        }
         request()->merge(['tab' => request()->input('tab', 'monitor')]);
         return app(\App\Http\Controllers\Admin\SecurityController::class)->index(request());
     });
@@ -69,10 +92,7 @@ Route::prefix('errors/preview')->group(function () {
         if (class_exists(\Barryvdh\Debugbar\Facades\Debugbar::class)) {
             \Barryvdh\Debugbar\Facades\Debugbar::disable();
         }
-        $admin = \App\Models\User::first();
-        if ($admin) {
-            auth()->login($admin);
-        }
+        $admin = auth()->user();
         $tenant = $admin ? $admin->tenants()->first() : \App\Models\Tenant::first();
         if ($tenant) {
             session(['admin_selected_tenant_id' => $tenant->id]);
@@ -86,5 +106,14 @@ Route::prefix('errors/preview')->group(function () {
         );
     });
 });
+}
 
 
+
+Route::get('/locale/{locale}', function ($locale) {
+    $normalized = in_array(strtolower($locale), ['kh', 'km', 'km-kh', 'kh-kh'], true) ? 'kh' : 'en';
+    session(['locale' => $normalized]);
+    cookie()->queue(cookie()->forever('locale', $normalized));
+    app()->setLocale($normalized);
+    return redirect()->back();
+})->name('locale.switch');

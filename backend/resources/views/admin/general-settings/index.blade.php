@@ -125,7 +125,7 @@
                 <i class="uil uil-check fs-5"></i>
             </div>
             <div>
-                <strong>Success!</strong> {{ session('status') }}
+                <strong>Success!</strong> {{ __(session('status')) }}
             </div>
         </div>
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>

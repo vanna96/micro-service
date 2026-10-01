@@ -62,7 +62,7 @@ class UnitOfMeasureController extends Controller
 
         return redirect()
             ->route('admin.units-of-measure.index')
-            ->with('status', 'Unit of measure created successfully.');
+            ->with('status', __('Unit of measure created successfully.'));
     }
 
     public function edit(string $units_of_measure): View
@@ -85,7 +85,7 @@ class UnitOfMeasureController extends Controller
 
         return redirect()
             ->route('admin.units-of-measure.index')
-            ->with('status', 'Unit of measure updated successfully.');
+            ->with('status', __('Unit of measure updated successfully.'));
     }
 
     public function destroy(string $units_of_measure): RedirectResponse
@@ -96,7 +96,7 @@ class UnitOfMeasureController extends Controller
 
         return redirect()
             ->route('admin.units-of-measure.index')
-            ->with('status', 'Unit of measure deleted successfully.');
+            ->with('status', __('Unit of measure deleted successfully.'));
     }
 
     private function validateUnit(Request $request, ?UnitOfMeasure $unit = null): array

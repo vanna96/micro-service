@@ -57,7 +57,7 @@ class CategoryController extends Controller
 
         return redirect()
             ->route('admin.categories.index')
-            ->with('status', 'Category created successfully.');
+            ->with('status', __('Category created successfully.'));
     }
 
     public function edit(Request $request, string $category): View
@@ -82,7 +82,7 @@ class CategoryController extends Controller
 
         return redirect()
             ->route('admin.categories.index')
-            ->with('status', 'Category updated successfully.');
+            ->with('status', __('Category updated successfully.'));
     }
 
     public function destroy(Request $request, string $category): RedirectResponse
@@ -93,7 +93,7 @@ class CategoryController extends Controller
 
         return redirect()
             ->route('admin.categories.index')
-            ->with('status', 'Category deleted successfully.');
+            ->with('status', __('Category deleted successfully.'));
     }
 
     private function validateCategory(Request $request, ?Category $category = null): array

@@ -94,6 +94,15 @@ class EnforceSecurityFirewall
 
         $ip = $request->ip();
 
+        // 0.1 IP Whitelist Exemption: Whitelisted IPs bypass all firewall blocks
+        $whitelistedJson = SecuritySetting::get('admin_whitelisted_ips', '[]');
+        $whitelisted = json_decode($whitelistedJson, true) ?: [];
+        $isWhitelisted = in_array($ip, $whitelisted, true) || $ip === '127.0.0.1' || $ip === '::1';
+
+        if ($isWhitelisted) {
+            return $next($request);
+        }
+
         // 1. IP Blacklist Check (Protects Web, API, and Frontend)
         if (BlockedIp::isBlocked($ip)) {
             return $this->blockedResponse(

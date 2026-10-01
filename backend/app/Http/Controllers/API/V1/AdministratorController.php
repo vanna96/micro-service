@@ -140,7 +140,7 @@ class AdministratorController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => translate('Administrator updated successfully.', request('lng')),
+            'message' => translate('Administrator updated successfully.'),
             'data'    => $admin
         ], 200);
     }

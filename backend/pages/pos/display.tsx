@@ -227,11 +227,11 @@ export default function CustomerDisplayPage() {
             <button
               type="button"
               className="btn btn-sm btn-light border rounded-pill px-2.5 py-1 d-flex align-items-center gap-1 fs-12 fw-semibold"
-              onClick={() => setLanguage(language === "en" ? "km" : "en")}
+              onClick={() => setLanguage(language === "en" ? "kh" : "en")}
               title={language === "en" ? "ប្តូរទៅជាភាសាខ្មែរ" : "Switch to English"}
             >
               <i className="ri-global-line text-primary"></i>
-              <span>{language === "en" ? "ខ្មែរ" : "EN"}</span>
+              <span>{language === "en" ? "KH" : "EN"}</span>
             </button>
 
             {/* Fullscreen Button */}

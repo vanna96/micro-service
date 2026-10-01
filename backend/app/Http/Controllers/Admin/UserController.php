@@ -50,7 +50,7 @@ class UserController extends Controller
 
         return redirect()
             ->route('admin.users.index')
-            ->with('status', 'User created successfully.');
+            ->with('status', __('User created successfully.'));
     }
 
     public function edit(User $user): View
@@ -79,7 +79,7 @@ class UserController extends Controller
 
         return redirect()
             ->route('admin.users.index')
-            ->with('status', 'User updated successfully.');
+            ->with('status', __('User updated successfully.'));
     }
 
     public function destroy(User $user): RedirectResponse
@@ -88,7 +88,7 @@ class UserController extends Controller
 
         return redirect()
             ->route('admin.users.index')
-            ->with('status', 'User deleted successfully.');
+            ->with('status', __('User deleted successfully.'));
     }
 
     private function validateUser(Request $request, ?User $user = null): array

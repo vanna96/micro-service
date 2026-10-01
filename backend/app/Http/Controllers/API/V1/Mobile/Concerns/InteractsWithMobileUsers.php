@@ -123,7 +123,7 @@ trait InteractsWithMobileUsers
 
     protected function ensureTenantUserMirror(User $centralUser): User
     {
-        $tenantUser = $this->tenantUserQuery()->find($centralUser->id);
+        $tenantUser = $this->findTenantMirrorForCentralUser($centralUser);
 
         if ($tenantUser && $this->tenantProfileShouldRepairCentral($centralUser, $tenantUser)) {
             $centralUser = $this->synchronizeTenantUserToCentral($tenantUser);
@@ -140,9 +140,12 @@ trait InteractsWithMobileUsers
         }
 
         $tenantUser = new User();
-        $tenantUser->forceFill(array_merge([
-            'id' => $centralUser->id,
-        ], $attributes));
+
+        if (! $this->tenantUserQuery()->whereKey($centralUser->getKey())->exists()) {
+            $tenantUser->forceFill(['id' => $centralUser->getKey()]);
+        }
+
+        $tenantUser->forceFill($attributes);
         $tenantUser->save();
 
         $this->syncMirroredProfileGallery($centralUser, $tenantUser);
@@ -267,12 +270,6 @@ trait InteractsWithMobileUsers
 
     protected function findCentralMirrorForTenantUser(User $tenantUser): ?User
     {
-        $centralById = $this->centralUserQuery()->with('tenants')->find($tenantUser->getKey());
-
-        if ($centralById instanceof User) {
-            return $centralById;
-        }
-
         foreach ([
             ['username', $tenantUser->username],
             ['email', $tenantUser->email],
@@ -289,6 +286,29 @@ trait InteractsWithMobileUsers
 
             if ($centralUser instanceof User) {
                 return $centralUser;
+            }
+        }
+
+        return null;
+    }
+
+    protected function findTenantMirrorForCentralUser(User $centralUser): ?User
+    {
+        foreach ([
+            ['username', $centralUser->username],
+            ['email', $centralUser->email],
+            ['phone', $centralUser->phone],
+        ] as [$field, $value]) {
+            if (! filled($value)) {
+                continue;
+            }
+
+            $tenantUser = $this->tenantUserQuery()
+                ->where($field, $value)
+                ->first();
+
+            if ($tenantUser instanceof User) {
+                return $tenantUser;
             }
         }
 

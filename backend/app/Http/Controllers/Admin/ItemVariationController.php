@@ -54,7 +54,7 @@ class ItemVariationController extends Controller
         ItemVariation::query()->create($this->validated($request));
         ItemVariation::flushQueryCache();
 
-        return redirect()->route('admin.item-variations.index')->with('status', 'Variation created successfully.');
+        return redirect()->route('admin.item-variations.index')->with('status', __('Variation created successfully.'));
     }
 
     public function edit(string $item_variation): View
@@ -72,7 +72,7 @@ class ItemVariationController extends Controller
         $variation->update($this->validated($request, $variation));
         ItemVariation::flushQueryCache();
 
-        return redirect()->route('admin.item-variations.index')->with('status', 'Variation updated successfully.');
+        return redirect()->route('admin.item-variations.index')->with('status', __('Variation updated successfully.'));
     }
 
     public function destroy(string $item_variation): RedirectResponse
@@ -81,7 +81,7 @@ class ItemVariationController extends Controller
         $this->find($item_variation)->delete();
         ItemVariation::flushQueryCache();
 
-        return redirect()->route('admin.item-variations.index')->with('status', 'Variation deleted successfully.');
+        return redirect()->route('admin.item-variations.index')->with('status', __('Variation deleted successfully.'));
     }
 
     private function validated(Request $request, ?ItemVariation $variation = null): array

@@ -83,11 +83,12 @@ class TenantController extends Controller
             'db_connection' => $data['db_connection'],
             'db_port' => $data['db_port']
         ]);
-        $tenant->domains()->create(['domain' => $tenant->alias.'.'.env('TENANT_HOST', 'localhost')]);
+        $domainName = $request->filled('domain') ? strtolower(trim((string) $request->input('domain'))) : ($tenant->alias . '.' . env('TENANT_HOST', 'vanna-pos.duckdns.org'));
+        $tenant->domains()->create(['domain' => $domainName]);
 
         return response()->json([
             'success' => true,
-            'message' => translate('Tenant created successfully.', request('lng')),
+            'message' => translate('Tenant created successfully.'),
             'data'    => $tenant
         ], 201);
     }
@@ -130,7 +131,8 @@ class TenantController extends Controller
         if ($domain) {
             $domain->update(['domain' => $tenant->alias.'.'.env('TENANT_HOST', 'localhost')]);
         } else {
-            $tenant->domains()->create(['domain' => $tenant->alias.'.'.env('TENANT_HOST', 'localhost')]);
+            $domainName = $request->filled('domain') ? strtolower(trim((string) $request->input('domain'))) : ($tenant->alias . '.' . env('TENANT_HOST', 'vanna-pos.duckdns.org'));
+        $tenant->domains()->create(['domain' => $domainName]);
         }
 
         // If deactivating the tenant, revoke all user tokens
@@ -150,7 +152,7 @@ class TenantController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => translate('Tenant updated successfully.', request('lng')),
+            'message' => translate('Tenant updated successfully.'),
             'data'    => $tenant
         ], 200);
     }
@@ -160,7 +162,7 @@ class TenantController extends Controller
         $tenant->delete();
         return response()->json([
             'success' => true,
-            'message' => translate('Tenant deleted successfully.', request('lng')),
+            'message' => translate('Tenant deleted successfully.'),
             'data'    => null
         ], 200);
     }

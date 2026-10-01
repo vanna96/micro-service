@@ -96,7 +96,7 @@ class AddressController extends Controller
 
         return redirect()
             ->route('admin.addresses.index')
-            ->with('status', 'Address created successfully.');
+            ->with('status', __('Address created successfully.'));
     }
 
     public function edit(Request $request, string $address): View
@@ -134,7 +134,7 @@ class AddressController extends Controller
 
         return redirect()
             ->route('admin.addresses.index')
-            ->with('status', 'Address updated successfully.');
+            ->with('status', __('Address updated successfully.'));
     }
 
     public function destroy(Request $request, string $address): RedirectResponse
@@ -146,7 +146,7 @@ class AddressController extends Controller
 
         return redirect()
             ->route('admin.addresses.index')
-            ->with('status', 'Address deleted successfully.');
+            ->with('status', __('Address deleted successfully.'));
     }
 
     private function validateAddress(Request $request, ?Address $address = null): array

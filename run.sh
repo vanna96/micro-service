@@ -115,7 +115,7 @@ fi
 required_containers=(
     mysql_db phpmyadmin laravel_app1 laravel_app2 laravel_queue laravel_nginx
     laravel_soketi
-    laravel_nextjs fastapi-app minio frontend-ui5
+    laravel_nextjs fastapi-app minio frontend-ui5 vpos_caddy
 )
 for container_name in "${required_containers[@]}"; do
     if ! docker container inspect -f '{{.State.Running}}' "$container_name" 2>/dev/null | grep -q '^true$'; then
@@ -171,6 +171,20 @@ done
 if [[ "$ui5_ready" != true ]]; then
     echo "Error: UI5 did not become ready." >&2
     docker logs --tail 50 frontend-ui5 >&2 || true
+    exit 1
+fi
+
+caddy_ready=false
+for _ in {1..30}; do
+    if docker exec vpos_caddy wget -q --spider http://127.0.0.1:2019/config/ >/dev/null 2>&1; then
+        caddy_ready=true
+        break
+    fi
+    sleep 1
+done
+if [[ "$caddy_ready" != true ]]; then
+    echo "Error: Caddy did not become ready." >&2
+    docker logs --tail 50 vpos_caddy >&2 || true
     exit 1
 fi
 

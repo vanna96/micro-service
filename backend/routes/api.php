@@ -246,3 +246,29 @@ Route::post('/orders', function (Request $request) {
         'items' => $items,
     ], 201);
 });
+
+
+// Translation API Endpoints
+Route::get('/translations/{locale?}', function ($locale = null) {
+    $loc = normalize_locale_code($locale ?? request('locale') ?? request('lng') ?? app()->getLocale());
+    $path = base_path("lang/{$loc}.json");
+    $translations = file_exists($path) ? json_decode(file_get_contents($path), true) : [];
+
+    return response()->json([
+        'success' => true,
+        'locale' => $loc,
+        'data' => $translations,
+    ]);
+});
+
+Route::post('/translate', function (Request $request) {
+    $data = $request->input('data');
+    $lng = $request->input('lng') ?? $request->input('locale') ?? 'kh';
+    $translated = translate($data, $lng);
+
+    return response()->json([
+        'success' => true,
+        'locale' => normalize_locale_code($lng),
+        'data' => $translated,
+    ]);
+});

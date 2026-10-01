@@ -77,7 +77,7 @@ class RateIndexController extends Controller
                     'year' => $validated['year'],
                     'month' => $validated['month'],
                 ])
-                ->with('status', 'Set an active base currency in General settings before editing exchange rates.');
+                ->with('status', __('Set an active base currency in General settings before editing exchange rates.'));
         }
 
         $currencies = $this->rateIndexes->getSelectableCurrencies($baseCurrency->code);
@@ -96,7 +96,7 @@ class RateIndexController extends Controller
                 'year' => $validated['year'],
                 'month' => $validated['month'],
             ])
-            ->with('status', 'Exchange rates updated successfully.');
+            ->with('status', __('Exchange rates updated successfully.'));
     }
 
     private function validatePayload(Request $request): array

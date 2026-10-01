@@ -63,7 +63,7 @@ class PriceListController extends Controller
 
         return redirect()
             ->route('admin.price-lists.index')
-            ->with('status', 'Price list created successfully.');
+            ->with('status', __('Price list created successfully.'));
     }
 
     public function edit(Request $request, string $priceList): View
@@ -88,7 +88,7 @@ class PriceListController extends Controller
 
         return redirect()
             ->route('admin.price-lists.edit', ['price_list' => $priceListModel->id])
-            ->with('status', 'Price list updated successfully.');
+            ->with('status', __('Price list updated successfully.'));
     }
 
     public function destroy(Request $request, string $priceList): RedirectResponse
@@ -99,7 +99,7 @@ class PriceListController extends Controller
 
         return redirect()
             ->route('admin.price-lists.index')
-            ->with('status', 'Price list deleted successfully.');
+            ->with('status', __('Price list deleted successfully.'));
     }
 
     public function storeLine(Request $request, string $priceList): RedirectResponse
@@ -111,7 +111,7 @@ class PriceListController extends Controller
 
         return redirect()
             ->route('admin.price-lists.edit', ['price_list' => $priceListModel->id])
-            ->with('status', 'Price list line added successfully.');
+            ->with('status', __('Price list line added successfully.'));
     }
 
     public function updateLine(Request $request, string $priceList, string $line): RedirectResponse
@@ -124,7 +124,7 @@ class PriceListController extends Controller
 
         return redirect()
             ->route('admin.price-lists.edit', ['price_list' => $priceListModel->id])
-            ->with('status', 'Price list line updated successfully.');
+            ->with('status', __('Price list line updated successfully.'));
     }
 
     public function destroyLine(Request $request, string $priceList, string $line): RedirectResponse
@@ -136,7 +136,7 @@ class PriceListController extends Controller
 
         return redirect()
             ->route('admin.price-lists.edit', ['price_list' => $priceListModel->id])
-            ->with('status', 'Price list line removed successfully.');
+            ->with('status', __('Price list line removed successfully.'));
     }
 
     private function validatePriceList(Request $request, ?PriceList $priceList = null): array

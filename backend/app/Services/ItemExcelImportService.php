@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Branch;
+use App\Models\Tenant;
+use Illuminate\Support\Str;
 use App\Models\Category;
 use App\Models\Currency;
 use App\Models\Item;
@@ -11,6 +13,7 @@ use App\Models\ItemVariation;
 use App\Models\PriceList;
 use App\Models\UnitOfMeasure;
 use App\Models\UomGroup;
+use App\Models\UomGroupUnit;
 use App\Repositories\ItemRepository;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -30,10 +33,10 @@ class ItemExcelImportService
 
     private const MAX_DETAIL_ROWS = 1000;
 
-    private const ITEM_HEADERS = [
+    public const ITEM_HEADERS = [
         'sku', 'name', 'foreign_name', 'item_type', 'category', 'branch', 'uom_group',
-        'price_list', 'currency', 'price', 'stock', 'status', 'premium', 'featured',
-        'new_arrival', 'try_on', 'sort_order', 'description',
+        'price_list', 'currency', 'price', 'stock', 'stock_control', 'purchase', 'sale',
+        'status', 'premium', 'featured', 'new_arrival', 'try_on', 'sort_order', 'description',
     ];
 
     private const UOM_PRICE_HEADERS = [
@@ -56,7 +59,14 @@ class ItemExcelImportService
     {
     }
 
-    public function makeTemplate(): Spreadsheet
+    public function writeCsvTemplate($outputStream): void
+    {
+        // Emit UTF-8 BOM so Excel on Windows recognizes Khmer and international UTF-8 characters
+        fputs($outputStream, "\xEF\xBB\xBF");
+        fputcsv($outputStream, self::ITEM_HEADERS);
+    }
+
+    public function makeTemplate(bool $includeSampleData = true): Spreadsheet
     {
         $spreadsheet = new Spreadsheet;
         $spreadsheet->getProperties()
@@ -69,7 +79,7 @@ class ItemExcelImportService
             'Items',
             self::ITEM_HEADERS,
             ['A', 'B', 'D', 'G', 'I', 'J', 'K'],
-            [18, 28, 24, 14, 22, 18, 18, 18, 12, 13, 11, 13, 12, 12, 14, 12, 12, 38],
+            [18, 28, 24, 14, 22, 18, 18, 18, 12, 13, 11, 14, 12, 12, 13, 12, 12, 14, 12, 12, 38],
             self::MAX_ROWS
         );
         $items->getStyle('A2:A'.(self::MAX_ROWS + 1))->getNumberFormat()->setFormatCode('@');
@@ -115,7 +125,10 @@ class ItemExcelImportService
         $instructions->setShowGridlines(false);
         $instructions->fromArray([
             ['Items import guide'],
-            ['1. Items', 'Add every new item here first. Existing item and variant SKUs are rejected and never overwritten.'],
+            ['1. Items', 'Add new items or update existing items. Items matching existing SKUs will be updated, while new SKUs, categories, UOM groups, and variations are created automatically.'],
+            ['Item Scope', 'Use purchase and sale columns (Yes/No) to control whether the item can be purchased (e.g. purchase orders) and/or sold (POS/orders). Default is Yes.'],
+            ['Stock Control', 'Use stock_control (Yes/No) to enable inventory tracking. Items for purchase orders require stock control to be Yes. Default is Yes.'],
+            ['Status', 'Set status to Active or Inactive. Default is Active.'],
             ['2. UOM Prices', 'For UOM items, add one row per unit. unit_code must belong to the item UOM group. Leave price blank when auto is Yes.'],
             ['3. Options', 'For variation items, use one row per option value. Repeat item_sku and group_key. Fill group columns on the first row; later rows for that group may leave them blank.'],
             ['4. Variants', 'Add each sellable combination. Join one value_key from every variant group with |, for example size_m|color_red. Do not include modifier values.'],
@@ -123,20 +136,21 @@ class ItemExcelImportService
             ['Modifier groups', 'Type modifier may be single or multiple. Minimum cannot exceed maximum, and maximum cannot exceed the number of values.'],
             ['Amber cells', 'Amber columns are required. In Options, group setup columns are required only on the first row of each group. UOM price is required only when auto is No.'],
             ['Reference fields', 'Use dropdowns. Item links use SKU; category and variation use name; branch, UOM group, price list, currency and unit use code.'],
-            ['Yes / No', 'Use Yes or No for flags. In Items, blank flag cells mean No.'],
+            ['Yes / No', 'Use Yes or No for flags. Blank scope and stock control flags default to Yes. Blank display flags (premium, featured, etc.) default to No.'],
+            ['Sample data', 'The template includes working examples (SAMPLE-COFFEE and SAMPLE-TSHIRT). You can test-import them directly, edit them, or replace them with your own products.'],
             ['Limits', 'Up to '.self::MAX_ROWS.' items and '.self::MAX_DETAIL_ROWS.' rows per extra sheet. Any error rejects the whole file.'],
-            ['Import', 'Keep all sheet names and headers unchanged. Complete only the sheets you need, save as .xlsx, then upload from Items.'],
+            ['Import / Export', 'Keep all sheet names and headers unchanged. Complete only the sheets you need, save as .xlsx, then upload from Items. You can also export your catalog anytime.'],
         ], null, 'A1');
         $instructions->getStyle('A1:B1')->applyFromArray([
             'font' => ['bold' => true, 'size' => 14, 'color' => ['rgb' => '0F172A']],
             'borders' => ['bottom' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '64748B']]],
         ]);
-        $instructions->getStyle('A2:A12')->getFont()->setBold(true)->getColor()->setRGB('334155');
-        $instructions->getStyle('A1:B12')->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
-        $instructions->getStyle('B2:B12')->getAlignment()->setWrapText(true);
+        $instructions->getStyle('A2:A16')->getFont()->setBold(true)->getColor()->setRGB('334155');
+        $instructions->getStyle('A1:B16')->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
+        $instructions->getStyle('B2:B16')->getAlignment()->setWrapText(true);
         $instructions->getColumnDimension('A')->setWidth(22);
         $instructions->getColumnDimension('B')->setWidth(105);
-        for ($row = 2; $row <= 12; $row++) {
+        for ($row = 2; $row <= 16; $row++) {
             $instructions->getRowDimension($row)->setRowHeight(40);
         }
 
@@ -177,8 +191,11 @@ class ItemExcelImportService
         $this->addReferenceValidation($items, 'G', 'D', count($referenceColumns['D'][1]), false, self::MAX_ROWS);
         $this->addReferenceValidation($items, 'H', 'E', count($referenceColumns['E'][1]), true, self::MAX_ROWS);
         $this->addReferenceValidation($items, 'I', 'F', count($referenceColumns['F'][1]), true, self::MAX_ROWS);
-        $this->addReferenceValidation($items, 'L', 'G', 2, false, self::MAX_ROWS);
-        foreach (['M', 'N', 'O', 'P'] as $column) {
+        foreach (['L', 'M', 'N'] as $column) {
+            $this->addReferenceValidation($items, $column, 'H', 2, true, self::MAX_ROWS);
+        }
+        $this->addReferenceValidation($items, 'O', 'G', 2, false, self::MAX_ROWS);
+        foreach (['P', 'Q', 'R', 'S'] as $column) {
             $this->addReferenceValidation($items, $column, 'H', 2, true, self::MAX_ROWS);
         }
 
@@ -202,12 +219,272 @@ class ItemExcelImportService
         $this->addReferenceValidation($variants, 'G', 'H', 2, false);
         $this->addReferenceValidation($variants, 'I', 'G', 2, false);
 
+        if ($includeSampleData) {
+            $sampleCategory = $referenceColumns['B'][1][0] ?? 'Beverages';
+            $sampleBranch = $referenceColumns['C'][1][0] ?? 'MAIN';
+            $sampleUomGroup = $referenceColumns['D'][1][0] ?? 'BAG';
+            $samplePriceList = $referenceColumns['E'][1][0] ?? '';
+            $currencies = Currency::query()->where('status', 'Active')->get();
+            $baseCurrencyCode = (string) data_get(admin_current_tenant()?->general_settings, 'currency', '');
+            $baseCurrency = $currencies->first(fn (Currency $currency) => strcasecmp($currency->code, $baseCurrencyCode) === 0)
+                ?: $currencies->first();
+            $sampleCurrency = $baseCurrency?->code ?? ($referenceColumns['F'][1][0] ?? 'USD');
+            $sampleBaseUnit = $referenceColumns['I'][1][0] ?? 'BAG';
+            $sampleSecondUnit = isset($referenceColumns['I'][1][1]) && $referenceColumns['I'][1][1] !== $sampleBaseUnit
+                ? $referenceColumns['I'][1][1]
+                : ($sampleBaseUnit === 'PACK' ? 'BOX' : 'PACK');
+            $sampleVariation1 = $referenceColumns['J'][1][0] ?? 'Size';
+            $sampleVariation2 = isset($referenceColumns['J'][1][1]) && $referenceColumns['J'][1][1] !== $sampleVariation1
+                ? $referenceColumns['J'][1][1]
+                : ($sampleVariation1 === 'Color' ? 'Material' : 'Color');
+
+            $items->fromArray([
+
+                [
+                    'SAMPLE-COFFEE',
+                    'Sample Premium Coffee',
+                    'កាហ្វេគំរូ',
+                    'uom',
+                    $sampleCategory,
+                    $sampleBranch,
+                    $sampleUomGroup,
+                    $samplePriceList,
+                    $sampleCurrency,
+                    15.00,
+                    100,
+                    'Yes',
+                    'Yes',
+                    'Yes',
+                    'Active',
+                    'Yes',
+                    'Yes',
+                    'Yes',
+                    'No',
+                    1,
+                    'Freshly roasted whole bean coffee with rich aroma.',
+                ],
+                [
+                    'SAMPLE-TSHIRT',
+                    'Sample Cotton T-Shirt',
+                    'អាវយឺតគំរូ',
+                    'variation',
+                    $sampleCategory,
+                    $sampleBranch,
+                    '',
+                    $samplePriceList,
+                    $sampleCurrency,
+                    20.00,
+                    50,
+                    'Yes',
+                    'Yes',
+                    'Yes',
+                    'Active',
+                    'No',
+                    'Yes',
+                    'Yes',
+                    'Yes',
+                    2,
+                    'Comfortable 100% breathable cotton crewneck t-shirt.',
+                ],
+            ], null, 'A2', true);
+
+            $uomPrices->fromArray([
+                ['SAMPLE-COFFEE', $sampleBaseUnit, 0, 15.00, 'No', 'Yes'],
+                ['SAMPLE-COFFEE', $sampleSecondUnit, 10, 13.50, 'No', 'Yes'],
+            ], null, 'A2', true);
+
+            $options->fromArray([
+                ['SAMPLE-TSHIRT', 'size', $sampleVariation1, 'Size', 'ទំហំ', 'variant', 'single', 'Yes', 1, 1, 1, 'Active', 'size_s', 'Small', 'តូច (S)', '-S', '', 0.00, 'No', 1, 'Active'],
+                ['SAMPLE-TSHIRT', 'size', $sampleVariation1, 'Size', 'ទំហំ', 'variant', 'single', 'Yes', 1, 1, 1, 'Active', 'size_m', 'Medium', 'មធ្យម (M)', '-M', '', 0.00, 'No', 2, 'Active'],
+                ['SAMPLE-TSHIRT', 'size', $sampleVariation1, 'Size', 'ទំហំ', 'variant', 'single', 'Yes', 1, 1, 1, 'Active', 'size_l', 'Large', 'ធំ (L)', '-L', '', 2.00, 'No', 3, 'Active'],
+                ['SAMPLE-TSHIRT', 'color', $sampleVariation2, 'Color', 'ពណ៌', 'variant', 'single', 'Yes', 1, 1, 1, 'Active', 'color_black', 'Black', 'ខ្មៅ', '-BLK', '#000000', 0.00, 'No', 1, 'Active'],
+                ['SAMPLE-TSHIRT', 'color', $sampleVariation2, 'Color', 'ពណ៌', 'variant', 'single', 'Yes', 1, 1, 1, 'Active', 'color_white', 'White', 'ស', '-WHT', '#FFFFFF', 0.00, 'No', 2, 'Active'],
+            ], null, 'A2', true);
+
+            $variants->fromArray([
+                ['SAMPLE-TSHIRT', 'SAMPLE-TSHIRT-S-BLK', '', 'Small / Black', 20.00, 15, 'Yes', 1, 'Active', 'size_s|color_black'],
+                ['SAMPLE-TSHIRT', 'SAMPLE-TSHIRT-S-WHT', '', 'Small / White', 20.00, 15, 'No', 2, 'Active', 'size_s|color_white'],
+                ['SAMPLE-TSHIRT', 'SAMPLE-TSHIRT-M-BLK', '', 'Medium / Black', 20.00, 20, 'No', 3, 'Active', 'size_m|color_black'],
+                ['SAMPLE-TSHIRT', 'SAMPLE-TSHIRT-M-WHT', '', 'Medium / White', 20.00, 20, 'No', 4, 'Active', 'size_m|color_white'],
+                ['SAMPLE-TSHIRT', 'SAMPLE-TSHIRT-L-BLK', '', 'Large / Black', 22.00, 10, 'No', 5, 'Active', 'size_l|color_black'],
+                ['SAMPLE-TSHIRT', 'SAMPLE-TSHIRT-L-WHT', '', 'Large / White', 22.00, 10, 'No', 6, 'Active', 'size_l|color_white'],
+            ], null, 'A2', true);
+        }
+
         $spreadsheet->setActiveSheetIndex(0);
 
         return $spreadsheet;
     }
 
-    public function import(UploadedFile $file): int
+    public function exportItems(?Tenant $tenant = null): Spreadsheet
+    {
+        if ($tenant) {
+            tenancy()->initialize($tenant);
+        }
+
+        $spreadsheet = $this->makeTemplate(includeSampleData: false);
+
+        $items = Item::query()
+            ->with([
+                'category',
+                'branch',
+                'uomGroup',
+                'currency',
+                'priceList',
+                'uomPrices.unit',
+                'optionGroups.values',
+                'optionGroups.variation',
+                'variants.optionValues.group',
+            ])
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        $itemRows = [];
+        $uomPriceRows = [];
+        $optionRows = [];
+        $variantRows = [];
+
+        foreach ($items as $item) {
+            $itemRows[] = [
+                $item->sku,
+                $item->name,
+                $item->foreign_name ?? '',
+                $item->item_type,
+                $item->category?->name ?? '',
+                $item->branch?->code ?? '',
+                $item->uomGroup?->code ?? '',
+                $item->priceList?->code ?? '',
+                $item->currency?->code ?? '',
+                (float) $item->price,
+                (int) $item->stock,
+                ($item->stock_control ?? true) ? 'Yes' : 'No',
+                ($item->purchase ?? true) ? 'Yes' : 'No',
+                ($item->sale ?? true) ? 'Yes' : 'No',
+                $item->status ?: 'Active',
+                $item->is_premium ? 'Yes' : 'No',
+                $item->is_featured ? 'Yes' : 'No',
+                $item->is_new_arrival ? 'Yes' : 'No',
+                $item->is_try_on_enabled ? 'Yes' : 'No',
+                (int) $item->sort_order,
+                $item->description ?? '',
+            ];
+
+            if ($item->item_type === 'uom') {
+                foreach ($item->uomPrices as $uomPrice) {
+                    $uomPriceRows[] = [
+                        $item->sku,
+                        $uomPrice->unit?->code ?? '',
+                        (float) $uomPrice->reduce_by_percent,
+                        $uomPrice->is_auto ? '' : ($uomPrice->price !== null ? (float) $uomPrice->price : ''),
+                        $uomPrice->is_auto ? 'Yes' : 'No',
+                        $uomPrice->is_active ? 'Yes' : 'No',
+                    ];
+                }
+            }
+
+            if ($item->item_type === 'variation') {
+                $usedGroupKeys = [];
+                $usedValueKeys = [];
+                $valueKeyByValueId = [];
+
+                foreach ($item->optionGroups as $group) {
+                    $baseGroupKey = Str::slug($group->name, '_') ?: ('group_'.$group->id);
+                    $groupKey = $baseGroupKey;
+                    $gkIndex = 1;
+                    while (isset($usedGroupKeys[$groupKey])) {
+                        $groupKey = $baseGroupKey.'_'.$gkIndex++;
+                    }
+                    $usedGroupKeys[$groupKey] = true;
+
+                    $isFirstValInGroup = true;
+                    foreach ($group->values as $val) {
+                        $baseValKey = Str::slug($groupKey.'_'.$val->name, '_') ?: ('val_'.$val->id);
+                        $valKey = $baseValKey;
+                        $vkIndex = 1;
+                        while (isset($usedValueKeys[$valKey])) {
+                            $valKey = $baseValKey.'_'.$vkIndex++;
+                        }
+                        $usedValueKeys[$valKey] = true;
+                        $valueKeyByValueId[$val->id] = $valKey;
+
+                        $optionRows[] = [
+                            $item->sku,
+                            $groupKey,
+                            $group->variation?->name ?? '',
+                            $group->name,
+                            $group->foreign_name ?? '',
+                            $group->type,
+                            $group->selection_type,
+                            $group->is_required ? 'Yes' : 'No',
+                            (int) $group->min_selections,
+                            $group->max_selections !== null ? (int) $group->max_selections : '',
+                            (int) $group->sort_order,
+                            $group->status,
+                            $valKey,
+                            $val->name,
+                            $val->foreign_name ?? '',
+                            $val->sku_suffix ?? '',
+                            $val->color_hex ?? '',
+                            (float) ($val->price_adjustment ?? 0),
+                            $val->is_default ? 'Yes' : 'No',
+                            (int) $val->sort_order,
+                            $val->status,
+                        ];
+                        $isFirstValInGroup = false;
+                    }
+                }
+
+                foreach ($item->variants as $variant) {
+                    $keys = [];
+                    foreach ($variant->optionValues as $optVal) {
+                        if (isset($valueKeyByValueId[$optVal->id])) {
+                            $keys[] = $valueKeyByValueId[$optVal->id];
+                        }
+                    }
+
+                    $variantRows[] = [
+                        $item->sku,
+                        $variant->sku,
+                        $variant->barcode ?? '',
+                        $variant->name ?? '',
+                        $variant->price !== null ? (float) $variant->price : '',
+                        (int) $variant->stock,
+                        $variant->is_default ? 'Yes' : 'No',
+                        (int) $variant->sort_order,
+                        $variant->status,
+                        implode('|', $keys),
+                    ];
+                }
+            }
+        }
+
+        $itemsSheet = $spreadsheet->getSheetByName('Items');
+        if ($itemRows !== []) {
+            $itemsSheet->fromArray($itemRows, null, 'A2', true);
+        }
+
+        $uomPricesSheet = $spreadsheet->getSheetByName('UOM Prices');
+        if ($uomPriceRows !== []) {
+            $uomPricesSheet->fromArray($uomPriceRows, null, 'A2', true);
+        }
+
+        $optionsSheet = $spreadsheet->getSheetByName('Options');
+        if ($optionRows !== []) {
+            $optionsSheet->fromArray($optionRows, null, 'A2', true);
+        }
+
+        $variantsSheet = $spreadsheet->getSheetByName('Variants');
+        if ($variantRows !== []) {
+            $variantsSheet->fromArray($variantRows, null, 'A2', true);
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        return $spreadsheet;
+    }
+
+    public function import(UploadedFile $file): array
     {
         try {
             $reader = IOFactory::createReaderForFile($file->getRealPath());
@@ -249,10 +526,42 @@ class ItemExcelImportService
             $sku = trim((string) ($row['sku'] ?? ''));
             $skuKey = $this->key($sku);
             $itemType = strtolower(trim((string) ($row['item_type'] ?? 'uom')));
-            $status = $this->normalizeStatus($row['status'] ?? ($itemType === 'variation' ? 'Inactive' : 'Active'));
-            $stock = $this->normalizeWholeNumber($row['stock'] ?? null);
+            $rawStock = $row['stock'] ?? null;
+            $stock = ($rawStock === null || trim((string) $rawStock) === '')
+                ? 0
+                : $this->normalizeWholeNumber($rawStock);
             $currencyValue = trim((string) ($row['currency'] ?? ''));
             $currency = $currencyValue === '' ? $baseCurrency : ($currencyMap[$this->key($currencyValue)] ?? null);
+
+            $statusVal = trim((string) ($row['status'] ?? ''));
+            $status = $statusVal !== '' ? $this->normalizeStatus($statusVal) : 'Active';
+
+            $stockControlVal = $row['stock_control'] ?? null;
+            $stockControl = ($stockControlVal === null || trim((string) $stockControlVal) === '')
+                ? true
+                : $this->parseBoolean($stockControlVal);
+            if ($stockControl === null) {
+                $errors[] = "Items row {$excelRow}: stock_control must be Yes or No.";
+                $stockControl = true;
+            }
+
+            $purchaseVal = $row['purchase'] ?? ($row['is_purchase'] ?? null);
+            $purchase = ($purchaseVal === null || trim((string) $purchaseVal) === '')
+                ? true
+                : $this->parseBoolean($purchaseVal);
+            if ($purchase === null) {
+                $errors[] = "Items row {$excelRow}: purchase must be Yes or No.";
+                $purchase = true;
+            }
+
+            $saleVal = $row['sale'] ?? ($row['is_sale'] ?? null);
+            $sale = ($saleVal === null || trim((string) $saleVal) === '')
+                ? true
+                : $this->parseBoolean($saleVal);
+            if ($sale === null) {
+                $errors[] = "Items row {$excelRow}: sale must be Yes or No.";
+                $sale = true;
+            }
 
             $validator = Validator::make([
                 'sku' => $sku,
@@ -284,19 +593,101 @@ class ItemExcelImportService
                 $seenItemSkus[$skuKey] = true;
             }
 
+            // Resolve or Auto-Create Category if not exists
+            $categoryValue = trim((string) ($row['category'] ?? ''));
+            $category = null;
+            if ($categoryValue !== '') {
+                $category = $categoryMap[$this->key($categoryValue)] ?? null;
+                if (! $category) {
+                    $category = Category::create([
+                        'name' => $categoryValue,
+                        'status' => 'Active',
+                    ]);
+                    $categoryMap[$this->key($categoryValue)] = $category;
+                }
+            }
+
+            // Resolve or Auto-Create Branch if not exists
+            $branchValue = trim((string) ($row['branch'] ?? ''));
+            $branch = null;
+            if ($branchValue !== '') {
+                $branch = $branchMap[$this->key($branchValue)] ?? null;
+                if (! $branch) {
+                    $branchCode = strtoupper(substr(preg_replace('/[^A-Za-z0-9_-]/', '', $branchValue), 0, 32)) ?: 'BR';
+                    $existingBranchWithCode = Branch::where('code', $branchCode)->first();
+                    if ($existingBranchWithCode) {
+                        $branchCode = $branchCode . '_' . substr(uniqid(), -4);
+                    }
+                    $branch = Branch::create([
+                        'code' => $branchCode,
+                        'name' => $branchValue,
+                        'status' => 'Active',
+                    ]);
+                    $branchMap[$this->key($branchValue)] = $branch;
+                    $branchMap[$this->key($branchCode)] = $branch;
+                }
+            }
+
+            // Resolve or Auto-Create UOM Group & Base Unit if not exists
             $uomGroupValue = trim((string) ($row['uom_group'] ?? ''));
-            $uomGroup = $uomGroupValue === '' ? null : ($uomGroupMap[$this->key($uomGroupValue)] ?? null);
+            $uomGroup = null;
+            if ($uomGroupValue !== '') {
+                $uomGroup = $uomGroupMap[$this->key($uomGroupValue)] ?? null;
+                if (! $uomGroup && $itemType === 'uom') {
+                    $uomCode = strtoupper(substr(preg_replace('/[^A-Za-z0-9_-]/', '', $uomGroupValue), 0, 32)) ?: 'UOM';
+                    $existingUomGroup = UomGroup::where('code', $uomCode)->first();
+                    if ($existingUomGroup) {
+                        $uomGroup = $existingUomGroup;
+                    } else {
+                        $baseUnit = $unitMap[$this->key($uomCode)] ?? $unitMap[$this->key($uomGroupValue)] ?? null;
+                        if (! $baseUnit) {
+                            $baseUnit = UnitOfMeasure::create([
+                                'code' => $uomCode,
+                                'name' => $uomGroupValue,
+                                'status' => 'Active',
+                                'is_base_unit' => true,
+                                'decimal_places' => 0,
+                                'conversion_factor_to_base' => 1,
+                                'base_quantity' => 1,
+                                'alternate_quantity' => 1,
+                            ]);
+                            $unitMap[$this->key($uomCode)] = $baseUnit;
+                            $unitMap[$this->key($uomGroupValue)] = $baseUnit;
+                        }
+
+                        $uomGroup = UomGroup::create([
+                            'code' => $uomCode,
+                            'name' => $uomGroupValue,
+                            'status' => 'Active',
+                            'base_unit_id' => $baseUnit->id,
+                        ]);
+
+                        UomGroupUnit::create([
+                            'uom_group_id' => $uomGroup->id,
+                            'unit_of_measure_id' => $baseUnit->id,
+                            'is_base_unit' => true,
+                            'conversion_factor_to_base' => 1,
+                            'base_quantity' => 1,
+                            'alternate_quantity' => 1,
+                            'status' => 'Active',
+                        ]);
+                    }
+
+                    $uomGroup->load('units.unit');
+                    $uomGroupMap[$this->key($uomCode)] = $uomGroup;
+                    $uomGroupMap[$this->key($uomGroupValue)] = $uomGroup;
+                }
+            }
             if ($itemType === 'uom' && ! $uomGroup) {
                 $errors[] = "Items row {$excelRow}: choose a valid active UOM group.";
             }
+
             if (! $currency) {
                 $errors[] = "Items row {$excelRow}: choose a valid active currency.";
             } elseif (($row['price'] ?? '') !== '' && currency_decimal_count($row['price']) > (int) $currency->decimal_places) {
                 $errors[] = "Items row {$excelRow}: {$currency->code} allows up to {$currency->decimal_places} decimal place(s).";
             }
 
-            $category = $this->optionalReference($row, 'category', $categoryMap, $excelRow, $errors, 'category');
-            $branch = $this->optionalReference($row, 'branch', $branchMap, $excelRow, $errors, 'branch');
             $priceList = $this->optionalReference($row, 'price_list', $priceListMap, $excelRow, $errors, 'price list');
             $flags = [];
             foreach (['premium', 'featured', 'new_arrival', 'try_on'] as $flag) {
@@ -326,6 +717,11 @@ class ItemExcelImportService
                 'rating' => null,
                 'review_count' => 0,
                 'stock' => $stock ?? 0,
+                'stock_control' => (bool) $stockControl,
+                'purchase' => (bool) $purchase,
+                'sale' => (bool) $sale,
+                'is_purchase' => (bool) $purchase,
+                'is_sale' => (bool) $sale,
                 'is_premium' => $flags['premium'],
                 'is_featured' => $flags['featured'],
                 'is_new_arrival' => $flags['new_arrival'],
@@ -344,6 +740,9 @@ class ItemExcelImportService
                 'variant_groups' => [],
                 'combinations' => [],
                 'default_variants' => 0,
+                'has_uom_prices' => false,
+                'has_options' => false,
+                'has_variants' => false,
             ];
         }
 
@@ -355,6 +754,8 @@ class ItemExcelImportService
         $this->prepareOptions($optionRows, $items, $contexts, $itemIndexBySku, $variationMap, $errors);
         $seenVariantSkus = [];
         $seenBarcodes = [];
+        $seenVariantItemMap = [];
+        $seenBarcodeItemMap = [];
         $this->prepareVariants(
             $variantRows,
             $items,
@@ -363,6 +764,8 @@ class ItemExcelImportService
             $seenItemSkus,
             $seenVariantSkus,
             $seenBarcodes,
+            $seenVariantItemMap,
+            $seenBarcodeItemMap,
             $errors
         );
 
@@ -390,19 +793,36 @@ class ItemExcelImportService
             }
         }
 
-        if ($seenItemSkus !== []) {
-            foreach (Item::query()->whereIn(DB::raw('LOWER(sku)'), array_keys($seenItemSkus))->pluck('sku') as $sku) {
-                $errors[] = "SKU {$sku} already exists. Existing items are not overwritten.";
-            }
-        }
+        $existingItemsBySku = Item::query()
+            ->whereIn(DB::raw('LOWER(sku)'), array_keys($seenItemSkus))
+            ->get()
+            ->keyBy(fn (Item $item) => $this->key($item->sku));
+
         if ($seenVariantSkus !== []) {
-            foreach (ItemVariant::query()->whereIn(DB::raw('LOWER(sku)'), array_keys($seenVariantSkus))->pluck('sku') as $sku) {
-                $errors[] = "Variant SKU {$sku} already exists.";
+            $existingVariants = ItemVariant::query()
+                ->whereIn(DB::raw('LOWER(sku)'), array_keys($seenVariantSkus))
+                ->get(['id', 'item_id', 'sku']);
+
+            foreach ($existingVariants as $variant) {
+                $itemSkuForVariant = $seenVariantItemMap[$this->key($variant->sku)] ?? null;
+                $parentItem = $itemSkuForVariant !== null ? ($existingItemsBySku[$this->key($itemSkuForVariant)] ?? null) : null;
+                if (! $parentItem || (int) $variant->item_id !== (int) $parentItem->id) {
+                    $errors[] = "Variant SKU {$variant->sku} already exists on another item.";
+                }
             }
         }
+
         if ($seenBarcodes !== []) {
-            foreach (ItemVariant::query()->whereIn(DB::raw('LOWER(barcode)'), array_keys($seenBarcodes))->pluck('barcode') as $barcode) {
-                $errors[] = "Variant barcode {$barcode} already exists.";
+            $existingBarcodes = ItemVariant::query()
+                ->whereIn(DB::raw('LOWER(barcode)'), array_keys($seenBarcodes))
+                ->get(['id', 'item_id', 'barcode']);
+
+            foreach ($existingBarcodes as $variant) {
+                $itemSkuForBarcode = $seenBarcodeItemMap[$this->key($variant->barcode)] ?? null;
+                $parentItem = $itemSkuForBarcode !== null ? ($existingItemsBySku[$this->key($itemSkuForBarcode)] ?? null) : null;
+                if (! $parentItem || (int) $variant->item_id !== (int) $parentItem->id) {
+                    $errors[] = "Variant barcode {$variant->barcode} already exists on another item.";
+                }
             }
         }
 
@@ -412,13 +832,45 @@ class ItemExcelImportService
             ]);
         }
 
-        DB::connection((new Item)->getConnectionName())->transaction(function () use ($items) {
-            foreach ($items as $attributes) {
-                $this->items->createForAdmin($attributes);
+        $createdCount = 0;
+        $updatedCount = 0;
+
+        DB::connection((new Item)->getConnectionName())->transaction(function () use ($items, $contexts, $existingItemsBySku, &$createdCount, &$updatedCount) {
+            foreach ($items as $itemIndex => $attributes) {
+                $skuKey = $this->key($attributes['sku']);
+                /** @var Item|null $existingItem */
+                $existingItem = $existingItemsBySku->get($skuKey);
+
+                if ($existingItem) {
+                    if (empty($attributes['uom_prices'])) {
+                        unset($attributes['uom_prices']);
+                    }
+                    if (empty($attributes['option_groups']) && empty($attributes['variants'])) {
+                        unset($attributes['option_groups'], $attributes['variants']);
+                    }
+
+                    $this->items->updateForAdmin($existingItem, $attributes);
+                    $updatedCount++;
+                } else {
+                    $this->items->createForAdmin($attributes);
+                    $createdCount++;
+                }
             }
         });
 
-        return count($items);
+        Item::flushQueryCache();
+        Category::flushQueryCache();
+        UomGroup::flushQueryCache();
+        UomGroupUnit::flushQueryCache();
+        UnitOfMeasure::flushQueryCache();
+        ItemVariation::flushQueryCache();
+        Branch::flushQueryCache();
+
+        return [
+            'total' => count($items),
+            'created' => $createdCount,
+            'updated' => $updatedCount,
+        ];
     }
 
     private function prepareUomPrices(array $rows, array &$items, array &$contexts, array $itemIndexBySku, array $unitMap, array &$errors): void
@@ -437,14 +889,46 @@ class ItemExcelImportService
             $context = &$contexts[$itemIndex];
             $unitCode = trim((string) ($row['unit_code'] ?? ''));
             $unit = $unitMap[$this->key($unitCode)] ?? null;
+            if (! $unit && $unitCode !== '') {
+                $cleanCode = strtoupper(substr(preg_replace('/[^A-Za-z0-9_-]/', '', $unitCode), 0, 32)) ?: 'UNIT';
+                $existingUnit = UnitOfMeasure::where('code', $cleanCode)->first();
+                if ($existingUnit) {
+                    $unit = $existingUnit;
+                } else {
+                    $unit = UnitOfMeasure::create([
+                        'code' => $cleanCode,
+                        'name' => $unitCode,
+                        'status' => 'Active',
+                        'is_base_unit' => false,
+                        'decimal_places' => 0,
+                        'conversion_factor_to_base' => 1,
+                        'base_quantity' => 1,
+                        'alternate_quantity' => 1,
+                    ]);
+                }
+                $unitMap[$this->key($unitCode)] = $unit;
+                $unitMap[$this->key($cleanCode)] = $unit;
+            }
+
             if (! $unit) {
                 $errors[] = "UOM Prices row {$excelRow}: choose a valid active unit code.";
             }
-            $allowedUnits = collect($context['uom_group']?->units ?? [])
-                ->filter(fn ($groupUnit) => $groupUnit->status === 'Active')
-                ->keyBy(fn ($groupUnit) => (int) $groupUnit->unit_of_measure_id);
-            if ($unit && ! $allowedUnits->has((int) $unit->id)) {
-                $errors[] = "UOM Prices row {$excelRow}: unit {$unitCode} does not belong to the selected UOM group.";
+
+            if ($unit && $context['uom_group']) {
+                $hasUnitInGroup = collect($context['uom_group']->units)
+                    ->contains('unit_of_measure_id', (int) $unit->id);
+                if (! $hasUnitInGroup) {
+                    UomGroupUnit::create([
+                        'uom_group_id' => $context['uom_group']->id,
+                        'unit_of_measure_id' => $unit->id,
+                        'is_base_unit' => false,
+                        'conversion_factor_to_base' => 1,
+                        'base_quantity' => 1,
+                        'alternate_quantity' => 1,
+                        'status' => 'Active',
+                    ]);
+                    $context['uom_group']->load('units.unit');
+                }
             }
             if ($unit && collect($items[$itemIndex]['uom_prices'])->contains('unit_of_measure_id', (int) $unit->id)) {
                 $errors[] = "UOM Prices row {$excelRow}: unit {$unitCode} is duplicated for item {$items[$itemIndex]['sku']}.";
@@ -529,7 +1013,16 @@ class ItemExcelImportService
                 $variationValue = trim((string) ($row['variation'] ?? ''));
                 $variation = $variationValue === '' ? null : ($variationMap[$this->key($variationValue)] ?? null);
                 if ($variationValue !== '' && ! $variation) {
-                    $errors[] = "Options row {$excelRow}: {$variationValue} is not a valid active variation.";
+                    $variation = ItemVariation::create([
+                        'name' => $variationValue,
+                        'type' => $type,
+                        'selection_type' => $selectionType,
+                        'is_required' => $required ?? true,
+                        'min_selections' => $min ?? 1,
+                        'max_selections' => $max ?? 1,
+                        'status' => 'Active',
+                    ]);
+                    $variationMap[$this->key($variationValue)] = $variation;
                 }
                 $min = ($row['min_selections'] ?? '') === '' ? (($required ?? false) ? 1 : 0) : $row['min_selections'];
                 $max = ($row['max_selections'] ?? '') === '' ? ($selectionType === 'single' ? 1 : null) : $row['max_selections'];
@@ -611,11 +1104,12 @@ class ItemExcelImportService
                 'status' => $valueStatus,
             ];
             $context['value_groups'][$valueKeyNormalized] = $groupKeyNormalized;
+            $context['has_options'] = true;
             unset($group, $context);
         }
     }
 
-    private function prepareVariants(array $rows, array &$items, array &$contexts, array $itemIndexBySku, array $seenItemSkus, array &$seenVariantSkus, array &$seenBarcodes, array &$errors): void
+    private function prepareVariants(array $rows, array &$items, array &$contexts, array $itemIndexBySku, array $seenItemSkus, array &$seenVariantSkus, array &$seenBarcodes, array &$seenVariantItemMap, array &$seenBarcodeItemMap, array &$errors): void
     {
         foreach ($rows as $row) {
             $itemIndex = $this->linkedItemIndex($row, 'Variants', $itemIndexBySku, $errors);
@@ -649,13 +1143,16 @@ class ItemExcelImportService
             }
             if ($sku !== '') {
                 $seenVariantSkus[$skuKey] = true;
+                $seenVariantItemMap[$skuKey] = $items[$itemIndex]['sku'];
             }
             if ($barcode !== '' && isset($seenBarcodes[$barcodeKey])) {
                 $errors[] = "Variants row {$excelRow}: barcode {$barcode} is duplicated in the file.";
             }
             if ($barcode !== '') {
                 $seenBarcodes[$barcodeKey] = true;
+                $seenBarcodeItemMap[$barcodeKey] = $items[$itemIndex]['sku'];
             }
+            $context['has_variants'] = true;
             if (! is_numeric($stock) || (float) $stock < 0 || floor((float) $stock) !== (float) $stock) {
                 $errors[] = "Variants row {$excelRow}: stock must be a whole number of zero or greater.";
             }
@@ -760,6 +1257,10 @@ class ItemExcelImportService
     private function readSheet(Spreadsheet $spreadsheet, string $name, array $requiredHeaders, int $maxRows, array &$errors, bool $required = false): array
     {
         $sheet = $spreadsheet->getSheetByName($name);
+        if (! $sheet && $name === 'Items' && $spreadsheet->getSheetCount() === 1) {
+            $sheet = $spreadsheet->getSheet(0);
+        }
+
         if (! $sheet) {
             if ($required) {
                 $errors[] = "The {$name} sheet is missing.";
@@ -776,7 +1277,9 @@ class ItemExcelImportService
             return [];
         }
         $headers = array_map(fn ($header) => $this->normalizeHeader($header), array_shift($rows));
-        $missing = array_values(array_diff($requiredHeaders, $headers));
+        $optionalHeaders = ['stock_control', 'purchase', 'sale'];
+        $strictlyRequired = array_values(array_diff($requiredHeaders, $optionalHeaders));
+        $missing = array_values(array_diff($strictlyRequired, $headers));
         if ($missing !== []) {
             $errors[] = "The {$name} header row is missing: ".implode(', ', $missing).'.';
 
@@ -865,7 +1368,7 @@ class ItemExcelImportService
 
     private function normalizeWholeNumber(mixed $value): mixed
     {
-        if ($value === false) {
+        if ($value === false || $value === null || trim((string) $value) === '') {
             return 0;
         }
 

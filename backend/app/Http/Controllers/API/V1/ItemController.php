@@ -92,7 +92,7 @@ class ItemController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => translate('Item created successfully.', request('lng')),
+            'message' => translate('Item created successfully.'),
             'data' => new ItemResource($item->load(['category', 'uomGroup.units.unit', 'uomPrices.unit', 'galleries', 'image', 'optionGroups.values', 'variants.optionValues'])),
         ], 200);
     }
@@ -113,7 +113,7 @@ class ItemController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => translate('Item updated successfully.', request('lng')),
+            'message' => translate('Item updated successfully.'),
             'data' => new ItemResource($itemModel->load(['category', 'currency', 'uomGroup.units.unit', 'uomPrices.unit', 'galleries', 'image', 'optionGroups.values', 'variants.optionValues'])),
         ], 200);
     }
@@ -125,7 +125,7 @@ class ItemController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => translate('Item deleted successfully.', request('lng')),
+            'message' => translate('Item deleted successfully.'),
         ], 200);
     }
 

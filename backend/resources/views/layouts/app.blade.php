@@ -1,5 +1,9 @@
+@php
+    $appLocale = app()->getLocale();
+    $isKhmerLocale = in_array($appLocale, ['kh', 'km']);
+@endphp
 <!doctype html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="{{ str_replace('_', '-', $appLocale) }}" @if($isKhmerLocale) data-khmer="true" @endif>
 
 <head>
     @php
@@ -49,8 +53,7 @@
             || $layoutCanViewItemVariations
             || $layoutCanViewItemOptions
             || $layoutCanViewItems
-            || $layoutCanViewPriceLists
-            || $layoutCanViewSliders);
+            || $layoutCanViewPriceLists);
         $layoutHasSettingsMenu = $layoutTenantAreaUnlocked && ($layoutCanViewGeneralSettings
             || $layoutCanViewCurrencies
             || $layoutCanViewRateIndexes
@@ -65,8 +68,7 @@
             || $layoutUnitManagementActive
             || $layoutVariationManagementActive
             || request()->routeIs('admin.items.*')
-            || request()->routeIs('admin.price-lists.*')
-            || request()->routeIs('admin.sliders.*');
+            || request()->routeIs('admin.price-lists.*');
         $layoutUserManagementActive = request()->routeIs('admin.tenant-users.*')
             || request()->routeIs('admin.roles.*')
             || request()->routeIs('admin.addresses.*');
@@ -284,7 +286,8 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:ital,wght@0,100..700;1,100..700&family=Noto+Sans+Khmer:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ global_asset('fonts/khmer/khmer-fonts.css') }}">
     <link rel="shortcut icon" href="{{ global_asset('branding/v-pos-mark.svg') }}" type="image/svg+xml">
     <link href="{{ global_asset('minible/assets/css/bootstrap.min.css') }}" id="bootstrap-style" rel="stylesheet"
         type="text/css" />
@@ -295,8 +298,7 @@
     @stack('styles')
 </head>
 
-<body @auth data-sidebar="light" @else class="@yield('body_class', 'authentication-bg')"
-@endauth @hasSection('body_style') style="@yield('body_style')" @endif>
+<body @auth data-sidebar="light" @endauth class="{{ $isKhmerLocale ? 'lang-khmer' : '' }} @guest @yield('body_class', 'authentication-bg') @endguest" @hasSection('body_style') style="@yield('body_style')" @endif>
     @guest
         @yield('content')
     @else
@@ -309,6 +311,7 @@
                 <header id="page-topbar">
                     <div class="navbar-header">
                         <div class="d-flex">
+                            
                             <div class="navbar-brand-box">
                                 <a href="{{ route('admin.dashboard') }}" class="logo logo-dark">
                                     <span class="logo-sm">
@@ -459,6 +462,26 @@
                                             <span class="align-middle">{{ __('Telescope') }}</span>
                                         </a>
                                     @endif
+                                    <div class="dropdown-divider"></div>
+                                    <div class="px-3 py-2">
+                                        <div class="text-muted font-size-11 fw-bold text-uppercase mb-2 d-flex align-items-center justify-content-between">
+                                            <span><i class="uil uil-globe me-1 text-primary"></i>{{ __('Language') }}</span>
+                                            <span class="badge bg-soft-primary text-primary font-size-10">{{ in_array(app()->getLocale(), ['kh', 'km']) ? 'KH' : 'EN' }}</span>
+                                        </div>
+                                        <div class="d-flex gap-1" role="group">
+                                            <a href="{{ route('locale.switch', 'kh') }}"
+                                               class="btn btn-sm flex-fill {{ in_array(app()->getLocale(), ['kh', 'km']) ? 'btn-primary' : 'btn-light border text-secondary' }} py-1 px-2 font-size-12 fw-medium d-flex align-items-center justify-content-center gap-1.5 rounded-2">
+                                                <span>🇰🇭</span>
+                                                <span>ភាសាខ្មែរ</span>
+                                            </a>
+                                            <a href="{{ route('locale.switch', 'en') }}"
+                                               class="btn btn-sm flex-fill {{ app()->getLocale() === 'en' ? 'btn-primary' : 'btn-light border text-secondary' }} py-1 px-2 font-size-12 fw-medium d-flex align-items-center justify-content-center gap-1.5 rounded-2">
+                                                <span>🇬🇧</span>
+                                                <span>English</span>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div class="dropdown-divider"></div>
                                     <a class="dropdown-item" href="#"
                                         onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
                                         <i class="uil uil-sign-out-alt font-size-18 align-middle me-1 text-muted"></i>
@@ -672,14 +695,6 @@
                                                     </a>
                                                 </li>
                                             @endif
-                                            @if ($layoutCanViewSliders)
-                                                <li>
-                                                    <a href="{{ route('admin.sliders.index') }}"
-                                                        class="{{ request()->routeIs('admin.sliders.*') ? 'active' : '' }}">
-                                                        {{ __('Slider') }}
-                                                    </a>
-                                                </li>
-                                            @endif
                                         </ul>
                                     </li>
                                 @endif
@@ -740,6 +755,16 @@
                                     </li>
                                 @endif
 
+                                @if ($layoutTenantAreaUnlocked && $layoutCanViewSliders)
+                                    <li>
+                                        <a href="{{ route('admin.sliders.index') }}"
+                                            class="waves-effect {{ request()->routeIs('admin.sliders.*') ? 'active' : '' }}">
+                                            <i class="uil-images"></i>
+                                            <span>{{ __('Slider') }}</span>
+                                        </a>
+                                    </li>
+                                @endif
+
                                 @if ($layoutTenantAreaUnlocked && $layoutCanViewReports)
                                     <li class="{{ $layoutReportsActive ? 'mm-active' : '' }}">
                                         <a href="javascript: void(0);" class="has-arrow waves-effect">
@@ -775,6 +800,14 @@
                                         </ul>
                                     </li>
                                 @endif
+
+                                <li>
+                                    <a href="{{ route('admin.translations.index') }}"
+                                        class="waves-effect {{ request()->routeIs('admin.translations.*') ? 'active' : '' }}">
+                                        <i class="uil-language"></i>
+                                        <span>{{ __('Translations') }}</span>
+                                    </a>
+                                </li>
 
                                 @if ($layoutHasSettingsMenu)
                                     <li class="{{ $layoutSettingsActive ? 'mm-active' : '' }}">
@@ -822,6 +855,54 @@
                             </ul>
                         </div>
                     </div>
+
+                    <!-- Pinned Sidebar Language Switcher (Moved from navbar to left sidebar) -->
+                    <div class="vpos-sidebar-lang-footer">
+                        <div class="vpos-lang-pill-container">
+                            <div class="vpos-lang-header d-flex align-items-center justify-content-between mb-1.5">
+                                <span class="vpos-lang-label">
+                                    <i class="uil uil-globe me-1"></i>{{ __('Language') }}
+                                </span>
+                                <span class="vpos-lang-badge">{{ in_array(app()->getLocale(), ['kh', 'km']) ? 'ភាសាខ្មែរ' : 'English' }}</span>
+                            </div>
+                            <div class="vpos-lang-toggle" role="group" aria-label="Language selection">
+                                <a href="{{ route('locale.switch', 'kh') }}"
+                                   class="vpos-lang-btn {{ in_array(app()->getLocale(), ['kh', 'km']) ? 'active' : '' }}"
+                                   title="ប្តូរទៅភាសាខ្មែរ">
+                                    <span class="flag">🇰🇭</span>
+                                    <span class="name">ខ្មែរ</span>
+                                </a>
+                                <a href="{{ route('locale.switch', 'en') }}"
+                                   class="vpos-lang-btn {{ app()->getLocale() === 'en' ? 'active' : '' }}"
+                                   title="Switch to English">
+                                    <span class="flag">🇬🇧</span>
+                                    <span class="name">EN</span>
+                                </a>
+                            </div>
+                        </div>
+                        <!-- Mini Collapsed Sidebar Button (Shown only when data-sidebar-size="sm") -->
+                        <div class="vpos-lang-mini-btn dropdown">
+                            <button type="button" class="btn btn-sm btn-light border w-100 p-1.5 rounded-2"
+                                id="sidebar-mini-lang-dropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
+                                title="{{ __('Switch Language') }}">
+                                <span style="font-size: 16px;">{{ in_array(app()->getLocale(), ['kh', 'km']) ? '🇰🇭' : '🇬🇧' }}</span>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-start shadow-sm" aria-labelledby="sidebar-mini-lang-dropdown" style="min-width: 150px;">
+                                <a href="{{ route('locale.switch', 'kh') }}" class="dropdown-item d-flex align-items-center justify-content-between py-2 {{ in_array(app()->getLocale(), ['kh', 'km']) ? 'active' : '' }}">
+                                    <span>🇰🇭 ភាសាខ្មែរ</span>
+                                    @if (in_array(app()->getLocale(), ['kh', 'km']))
+                                        <i class="uil uil-check text-primary font-size-14"></i>
+                                    @endif
+                                </a>
+                                <a href="{{ route('locale.switch', 'en') }}" class="dropdown-item d-flex align-items-center justify-content-between py-2 {{ app()->getLocale() === 'en' ? 'active' : '' }}">
+                                    <span>🇬🇧 English</span>
+                                    @if (app()->getLocale() === 'en')
+                                        <i class="uil uil-check text-primary font-size-14"></i>
+                                    @endif
+                                </a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <!-- ========== Left Sidebar End ========== -->
 
@@ -842,14 +923,24 @@
 
                     <footer class="footer">
                         <div class="container-fluid">
-                            <div class="row">
+                            <div class="row align-items-center">
                                 <div class="col-sm-6">
                                     <script>document.write(new Date().getFullYear())</script> ©
                                     {{ config('app.name', 'V-POS') }}.
                                 </div>
                                 <div class="col-sm-6">
-                                    <div class="text-sm-end d-none d-sm-block">
-                                        {{ __('V-POS') }}
+                                    <div class="text-sm-end d-none d-sm-flex align-items-center justify-content-end gap-2">
+                                        <span class="text-muted font-size-12"><i class="uil uil-globe me-1"></i>{{ __('Language') }}:</span>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{{ route('locale.switch', 'kh') }}"
+                                               class="btn btn-xs {{ in_array(app()->getLocale(), ['kh', 'km']) ? 'btn-primary' : 'btn-light border text-secondary' }} px-2 py-0.5 font-size-11 fw-medium">
+                                                🇰🇭 ភាសាខ្មែរ
+                                            </a>
+                                            <a href="{{ route('locale.switch', 'en') }}"
+                                               class="btn btn-xs {{ app()->getLocale() === 'en' ? 'btn-primary' : 'btn-light border text-secondary' }} px-2 py-0.5 font-size-11 fw-medium">
+                                                🇬🇧 English
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -939,6 +1030,64 @@
             $sideMenu.append($emptyLi);
 
             var $menuTitle = $sideMenu.find('> li.menu-title');
+            // Build flyout headers for collapsed sidebar mode
+            $('#side-menu > li').each(function () {
+                var $li = $(this);
+                var $sub = $li.children('ul.sub-menu');
+                if ($sub.length && !$sub.children('.flyout-header').length) {
+                    var titleText = $.trim($li.children('a').find('span').first().text());
+                    if (titleText) {
+                        $sub.prepend('<li class="flyout-header">' + $('<div>').text(titleText).html() + '</li>');
+                    }
+                }
+            });
+
+            // Handle clicking parent menu in collapsed mode
+            $(document).on('click', '#side-menu > li > a', function (e) {
+                var isCollapsed = $('body').attr('data-sidebar-size') === 'sm' || $('body').attr('data-sidebar-size') === 'small';
+                if (!isCollapsed) return;
+
+                var $li = $(this).closest('li');
+                var $sub = $li.children('ul.sub-menu');
+                if ($sub.length) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    var wasOpen = $li.hasClass('flyout-open');
+                    $('#side-menu li').removeClass('flyout-open');
+
+                    if (!wasOpen) {
+                        $li.addClass('flyout-open');
+                    }
+                }
+            });
+
+            // Handle clicking 2nd-level submenu in collapsed mode
+            $(document).on('click', '#side-menu ul.sub-menu > li > a.has-arrow', function (e) {
+                var isCollapsed = $('body').attr('data-sidebar-size') === 'sm' || $('body').attr('data-sidebar-size') === 'small';
+                if (!isCollapsed) return;
+
+                var $li = $(this).closest('li');
+                var $sub = $li.children('ul.sub-menu');
+                if ($sub.length) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    $li.toggleClass('flyout-open').siblings().removeClass('flyout-open');
+                }
+            });
+
+            // Close flyout when clicking outside
+            $(document).on('click', function (e) {
+                if (!$(e.target).closest('.vertical-menu').length) {
+                    $('#side-menu li').removeClass('flyout-open');
+                }
+            });
+
+            // Clear flyout state when toggling sidebar
+            $(document).on('click', '.vertical-menu-btn', function () {
+                $('#side-menu li').removeClass('flyout-open');
+            });
+
 
             function filterMenu(query) {
                 var q = $.trim(query).toLowerCase();

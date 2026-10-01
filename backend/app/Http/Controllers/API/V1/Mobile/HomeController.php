@@ -129,7 +129,7 @@ class HomeController extends Controller
             'data' => [
                 'currency' => $currencyPayload,
                 'currencies' => $currenciesPayload,
-                'khr_exchange_rate' => 4100.0,
+                'khr_exchange_rate' => data_get($currenciesPayload->firstWhere('code', 'KHR'), 'exchange_rate'),
                 'mobile_version' => [
                     'minimum_version' => $generalSettings['minimum_mobile_version'] ?? '1.0.0',
                     'latest_version' => $generalSettings['latest_mobile_version'] ?? '1.0.0',

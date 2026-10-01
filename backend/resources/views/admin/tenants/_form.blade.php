@@ -1,6 +1,7 @@
 @php
     $configurationFields = [
         'alias',
+        'domain',
         'id',
         'db_connection',
         'db_name',
@@ -150,16 +151,12 @@
 
                     <div class="col-md-6">
                         <label class="form-label">{{ __('Public Domain') }}</label>
-                        <div class="notice d-flex bg-light-primary rounded border-primary border border-dashed p-4">
-                            <div class="d-flex flex-stack flex-grow-1">
-                                <div class="fw-semibold text-break">
-                                    <div class="fs-6 text-gray-700">{{ __('Company address') }}</div>
-                                    <div class="fw-bold text-gray-900">
-                                        {{ $savedTenantDomain ?: ((old('alias', $tenant->alias) ?: 'company') . '.' . env('TENANT_HOST', 'localhost')) }}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <input type="text" name="domain" id="tenant_domain_input"
+                            value="{{ old('domain', $savedTenantDomain) }}"
+                            class="form-control @error('domain') is-invalid @enderror"
+                            placeholder="{{ (old('alias', $tenant->alias) ?: 'store') . '.' . env('TENANT_HOST', 'vanna-pos.duckdns.org') }}">
+                        <div class="form-text">{{ __('Public store domain or sub-subdomain (e.g. rechna.vanna-pos.duckdns.org). Leave empty to use alias with default host.') }}</div>
+                        @error('domain')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
 
                     <div class="col-12">

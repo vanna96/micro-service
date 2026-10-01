@@ -70,6 +70,13 @@ Route::middleware(['admin.central'])->group(function () {
     Route::redirect('/home', '/admin/dashboard', 301)
         ->name('home');
 
+        Route::middleware('auth')->prefix('admin')->name('admin.translations.')->group(function () {
+        Route::get('translations', [\App\Http\Controllers\Admin\TranslationController::class, 'index'])->name('index');
+        Route::post('translations/update', [\App\Http\Controllers\Admin\TranslationController::class, 'update'])->name('update');
+        Route::post('translations/test', [\App\Http\Controllers\Admin\TranslationController::class, 'testTranslate'])->name('test');
+        Route::post('translations/clear-cache', [\App\Http\Controllers\Admin\TranslationController::class, 'clearCache'])->name('clear-cache');
+    });
+
     Route::middleware('auth')->prefix('admin')->name('admin.notifications.')->group(function () {
         Route::get('notifications', [\App\Http\Controllers\Admin\NotificationController::class, 'index'])->name('index');
         Route::get('notifications/open', [\App\Http\Controllers\Admin\NotificationController::class, 'open'])->name('open');
@@ -116,6 +123,7 @@ Route::middleware(['admin.central'])->group(function () {
         Route::resource('uom-groups', UomGroupController::class)->except('show');
         Route::resource('units-of-measure', UnitOfMeasureController::class)->except('show');
         Route::resource('customers', CustomerController::class)->except('show');
+        Route::get('items/export', [ItemController::class, 'export'])->name('items.export');
         Route::get('items/import-template', [ItemController::class, 'importTemplate'])->name('items.import-template');
         Route::post('items/import', [ItemController::class, 'import'])->name('items.import');
         Route::delete('items/{item}/gallery/{gallery}', [ItemController::class, 'destroyGallery'])

@@ -52,12 +52,17 @@ interface ApiOptionValue {
   id: number;
   name: string;
   price_adjustment: number;
+  is_default?: boolean;
 }
 
 interface ApiOptionGroup {
   id: number;
   name: string;
   type: string;
+  selection_type: "single" | "multiple";
+  is_required: boolean;
+  min_selections: number;
+  max_selections: number | null;
   values: ApiOptionValue[];
 }
 
@@ -235,12 +240,30 @@ function mapCurrency(currency?: ApiCurrency | null): CurrencyInfo | null {
   };
 }
 
+
+function getCurrentLocale(): string {
+  if (typeof window !== "undefined") {
+    const loc = window.localStorage.getItem("vpos.language");
+    if (loc === "km") return "kh";
+    return loc || "kh";
+  }
+  return "kh";
+}
+
+function getApiHeaders(customHeaders?: HeadersInit): Record<string, string> {
+  const loc = getCurrentLocale();
+  return {
+    Accept: "application/json",
+    "Accept-Language": loc,
+    "X-Locale": loc,
+    ...(customHeaders as Record<string, string> || {}),
+  };
+}
+
 async function request<T>(path: string): Promise<T> {
   const response = await fetch(`${apiBase}${path}`, {
     cache: "no-store",
-    headers: {
-      Accept: "application/json",
-    },
+    headers: getApiHeaders(),
   });
 
   if (!response.ok) {
@@ -258,9 +281,7 @@ async function request<T>(path: string): Promise<T> {
 async function requestEnvelope<T>(path: string): Promise<ApiEnvelope<T>> {
   const response = await fetch(`${apiBase}${path}`, {
     cache: "no-store",
-    headers: {
-      Accept: "application/json",
-    },
+    headers: getApiHeaders(),
   });
 
   if (!response.ok) {
@@ -318,11 +339,11 @@ export function normalizeMediaUrl(url?: string | null): string {
 function mapProduct(item: ApiProduct): Product {
   const units = item.uom_group?.units || [];
   const variants = item.variants || [];
-  const variantGroups = (item.option_groups || []).filter(
-    (group) => group.type === "variant" && group.values.length > 0
+  const allOptionGroups = (item.option_groups || []).filter(
+    (group) => group.values.length > 0
   );
   const catalogStock =
-    item.item_type === "variation" && variantGroups.length > 0
+    item.item_type === "variation" && variants.length > 0
       ? variants.reduce((total, variant) => total + Math.max(0, Number(variant.stock)), 0)
       : item.stock;
   const defaultUnit = units.find((unit) => unit.is_base_unit) || units[0];
@@ -340,14 +361,22 @@ function mapProduct(item: ApiProduct): Product {
     stockStatus:
       !isStockControl ? "instock" : catalogStock <= 0 ? "outofstock" : catalogStock <= 10 ? "lowstock" : "instock",
     stockControl: isStockControl,
-    hasVariants: item.item_type === "variation" && variantGroups.length > 0,
-    variantOptions: variantGroups.map((group) => ({
+    hasVariants: (item.item_type === "variation" && allOptionGroups.length > 0) || variants.length > 0,
+    variantOptions: allOptionGroups.map((group) => ({
       id: group.id,
       name: group.name,
+      type: group.type === "variant" ? "variant" : "modifier",
+      selectionType: group.selection_type === "multiple" ? "multiple" : "single",
+      isRequired: Boolean(group.is_required),
+      minSelections: Math.max(0, Number(group.min_selections || 0)),
+      maxSelections: group.max_selections === null
+        ? null
+        : Math.max(1, Number(group.max_selections || 1)),
       values: group.values.map((value) => ({
         id: value.id,
         label: value.name,
         priceDelta: Number(value.price_adjustment || 0),
+        isDefault: Boolean(value.is_default),
       })),
     })),
     variants: variants.map((variant) => ({
@@ -566,11 +595,10 @@ async function posSaleRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBase}${path}`, {
     ...init,
     cache: "no-store",
-    headers: {
-      Accept: "application/json",
+    headers: getApiHeaders({
       "Content-Type": "application/json",
-      ...init?.headers,
-    },
+      ...(init?.headers as Record<string, string> || {}),
+    }),
   });
   const payload = await response.json().catch(() => null) as (ApiEnvelope<T> & { message?: string }) | null;
 

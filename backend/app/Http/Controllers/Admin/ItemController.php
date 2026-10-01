@@ -52,7 +52,7 @@ class ItemController extends Controller
         $this->currencies = $currencies;
         $this->priceLists = $priceLists;
         $this->uomGroups = $uomGroups;
-        $this->middleware('admin.permission:items.view')->only(['index']);
+        $this->middleware('admin.permission:items.view')->only(['index', 'export']);
         $this->middleware('admin.permission:items.create')->only(['create', 'store', 'importTemplate', 'import']);
         $this->middleware('admin.permission:items.edit')->only(['edit', 'update', 'destroyGallery']);
         $this->middleware('admin.permission:items.delete')->only(['destroy']);
@@ -105,7 +105,22 @@ class ItemController extends Controller
 
         return redirect()
             ->route('admin.items.index')
-            ->with('status', 'Item created successfully.');
+            ->with('status', __('Item created successfully.'));
+    }
+
+    public function export(Request $request, ItemExcelImportService $importer): StreamedResponse
+    {
+        $selectedTenant = $this->requiredTenant($request);
+        $spreadsheet = $importer->exportItems($selectedTenant);
+        $filename = 'items-export-'.now()->format('Y-m-d-His').'.xlsx';
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            (new Xlsx($spreadsheet))->save('php://output');
+            $spreadsheet->disconnectWorksheets();
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
+        ]);
     }
 
     public function importTemplate(Request $request, ItemExcelImportService $importer): StreamedResponse
@@ -126,14 +141,29 @@ class ItemController extends Controller
     {
         $this->requiredTenant($request);
         $validated = $request->validate([
-            'import_file' => ['required', 'file', 'mimes:xlsx,xls', 'max:5120'],
+            'import_file' => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'max:5120'],
         ]);
 
-        $count = $importer->import($validated['import_file']);
+        $result = $importer->import($validated['import_file']);
+        $created = is_array($result) ? ($result['created'] ?? 0) : (int) $result;
+        $updated = is_array($result) ? ($result['updated'] ?? 0) : 0;
+        $total = is_array($result) ? ($result['total'] ?? ($created + $updated)) : (int) $result;
+
+        if ($updated > 0 && $created > 0) {
+            $status = __(':created created, :updated updated (:total total) successfully.', [
+                'created' => $created.' item'.($created === 1 ? '' : 's'),
+                'updated' => $updated.' item'.($updated === 1 ? '' : 's'),
+                'total' => $total,
+            ]);
+        } elseif ($updated > 0) {
+            $status = __(':count item'.($updated === 1 ? '' : 's').' updated successfully.', ['count' => $updated]);
+        } else {
+            $status = $created.' item'.($created === 1 ? '' : 's').' imported successfully.';
+        }
 
         return redirect()
             ->route('admin.items.index')
-            ->with('status', $count.' item'.($count === 1 ? '' : 's').' imported successfully.');
+            ->with('status', $status);
     }
 
     public function edit(Request $request, string $item): View
@@ -169,7 +199,7 @@ class ItemController extends Controller
 
         return redirect()
             ->route('admin.items.index')
-            ->with('status', 'Item updated successfully.');
+            ->with('status', __('Item updated successfully.'));
     }
 
     public function destroy(Request $request, string $item): RedirectResponse
@@ -180,7 +210,7 @@ class ItemController extends Controller
 
         return redirect()
             ->route('admin.items.index')
-            ->with('status', 'Item deleted successfully.');
+            ->with('status', __('Item deleted successfully.'));
     }
 
     public function destroyGallery(Request $request, string $item, string $gallery): JsonResponse

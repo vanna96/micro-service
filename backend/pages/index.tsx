@@ -291,10 +291,24 @@ function LoginPage() {
   const { t, locale, setLocale } = useTranslation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(true);
+  const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("vpos_remember_login");
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data.username) setUsername(data.username);
+        if (data.password) setPassword(data.password);
+        setRemember(true);
+      }
+    } catch {
+      // Ignore
+    }
+  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -323,6 +337,20 @@ function LoginPage() {
           ? Object.values(payload.errors).flat().find(Boolean)
           : undefined;
         throw new Error(validationMessage || payload.message || t("invalidCredentials"));
+      }
+
+      if (remember) {
+        try {
+          localStorage.setItem("vpos_remember_login", JSON.stringify({ username, password }));
+        } catch {
+          // Ignore
+        }
+      } else {
+        try {
+          localStorage.removeItem("vpos_remember_login");
+        } catch {
+          // Ignore
+        }
       }
 
       window.location.reload();
@@ -363,10 +391,10 @@ function LoginPage() {
                     gap: "4px",
                     color: "#334155",
                   }}
-                  onClick={() => setLocale(locale === "en" ? "km" : "en")}
+                  onClick={() => setLocale(locale === "en" ? "kh" : "en")}
                   title={t("language")}
                 >
-                  🌐 <span>{locale === "en" ? "KM" : "EN"}</span>
+                  🌐 <span>{locale === "en" ? "KH" : "EN"}</span>
                 </button>
                 <span className={styles.proBadge}>POS PRO</span>
               </div>
@@ -422,7 +450,7 @@ function LoginPage() {
 
               <label className={styles.remember}>
                 <input checked={remember} onChange={(event) => setRemember(event.target.checked)} type="checkbox" />
-                <span>{t("keepMeSignedIn")}</span>
+                <span>{t("rememberMe")}</span>
               </label>
 
               <button className={styles.primaryButton} disabled={submitting} type="submit">
@@ -523,10 +551,10 @@ function TenantChooser({ session }: { session: PortalSession }) {
                     gap: "4px",
                     color: "#334155",
                   }}
-                  onClick={() => setLocale(locale === "en" ? "km" : "en")}
+                  onClick={() => setLocale(locale === "en" ? "kh" : "en")}
                   title={t("language")}
                 >
-                  🌐 <span>{locale === "en" ? "KM" : "EN"}</span>
+                  🌐 <span>{locale === "en" ? "KH" : "EN"}</span>
                 </button>
                 <span className={styles.proBadge}>POS PRO</span>
               </div>

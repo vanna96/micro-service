@@ -18,7 +18,10 @@
     --pos-text-muted: #64748b;
     --pos-text-subtle: #94a3b8;
 
-    --font-main: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+        /* Modern Khmer & Latin Typography System */
+    --font-latin: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-khmer: 'Kantumruy Pro', 'Noto Sans Khmer', 'Battambang', 'Siemreap', sans-serif;
+    --font-main: 'Plus Jakarta Sans', 'Kantumruy Pro', 'Noto Sans Khmer', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 body {
@@ -416,3 +419,553 @@ body[data-sidebar-size="small"] .sidebar-search-wrapper {
     }
 }
 
+
+
+/* ==========================================================================
+   Collapsed Sidebar (Mini Mode: data-sidebar-size="sm") Flyout Menu System
+   ========================================================================== */
+
+/* 1. Prevent clipping of floating submenus */
+body[data-sidebar-size="sm"] .vertical-menu,
+body[data-sidebar-size="sm"] .vertical-menu .sidebar-menu-scroll,
+body[data-sidebar-size="sm"] .vertical-menu .simplebar-wrapper,
+body[data-sidebar-size="sm"] .vertical-menu .simplebar-mask,
+body[data-sidebar-size="sm"] .vertical-menu .simplebar-offset,
+body[data-sidebar-size="sm"] .vertical-menu .simplebar-content-wrapper,
+body[data-sidebar-size="small"] .vertical-menu,
+body[data-sidebar-size="small"] .vertical-menu .sidebar-menu-scroll,
+body[data-sidebar-size="small"] .vertical-menu .simplebar-wrapper,
+body[data-sidebar-size="small"] .vertical-menu .simplebar-mask,
+body[data-sidebar-size="small"] .vertical-menu .simplebar-offset,
+body[data-sidebar-size="small"] .vertical-menu .simplebar-content-wrapper {
+    overflow: visible !important;
+}
+
+/* 2. Top-level icons alignment and sizing in collapsed mode */
+body[data-sidebar-size="sm"] #sidebar-menu > ul > li,
+body[data-sidebar-size="small"] #sidebar-menu > ul > li {
+    position: relative !important;
+    white-space: nowrap !important;
+}
+
+body[data-sidebar-size="sm"] #sidebar-menu > ul > li > a,
+body[data-sidebar-size="small"] #sidebar-menu > ul > li > a {
+    padding: 12px 0 !important;
+    margin: 4px 10px !important;
+    text-align: center !important;
+    justify-content: center !important;
+    width: calc(100% - 20px) !important;
+    border-radius: 9px !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+body[data-sidebar-size="sm"] #sidebar-menu > ul > li > a i,
+body[data-sidebar-size="small"] #sidebar-menu > ul > li > a i {
+    font-size: 1.3rem !important;
+    text-align: center !important;
+    margin: 0 !important;
+    min-width: 0 !important;
+    line-height: 1 !important;
+}
+
+body[data-sidebar-size="sm"] #sidebar-menu > ul > li > a span,
+body[data-sidebar-size="small"] #sidebar-menu > ul > li > a span {
+    display: none !important;
+}
+
+body[data-sidebar-size="sm"] #sidebar-menu .has-arrow:after,
+body[data-sidebar-size="small"] #sidebar-menu .has-arrow:after {
+    display: none !important;
+}
+
+/* 3. Flyout Submenu Floating Box on Hover OR Click (.flyout-open) */
+body[data-sidebar-size="sm"] #sidebar-menu > ul > li:hover > ul.sub-menu,
+body[data-sidebar-size="sm"] #sidebar-menu > ul > li.flyout-open > ul.sub-menu,
+body[data-sidebar-size="small"] #sidebar-menu > ul > li:hover > ul.sub-menu,
+body[data-sidebar-size="small"] #sidebar-menu > ul > li.flyout-open > ul.sub-menu {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: absolute !important;
+    left: 70px !important;
+    top: 0 !important;
+    width: 230px !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 0 10px 10px 10px !important;
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.1) !important;
+    padding: 8px 6px !important;
+    z-index: 10050 !important;
+    height: auto !important;
+}
+
+/* Hide default collapsed submenus if not hovered and not opened */
+body[data-sidebar-size="sm"] #sidebar-menu > ul > li:not(:hover):not(.flyout-open) > ul.sub-menu,
+body[data-sidebar-size="small"] #sidebar-menu > ul > li:not(:hover):not(.flyout-open) > ul.sub-menu {
+    display: none !important;
+}
+
+/* 4. Submenu Items inside Flyout */
+body[data-sidebar-size="sm"] #sidebar-menu > ul > li ul.sub-menu li,
+body[data-sidebar-size="small"] #sidebar-menu > ul > li ul.sub-menu li {
+    position: relative !important;
+    list-style: none !important;
+}
+
+body[data-sidebar-size="sm"] #sidebar-menu > ul > li ul.sub-menu li a,
+body[data-sidebar-size="small"] #sidebar-menu > ul > li ul.sub-menu li a {
+    padding: 8px 14px !important;
+    margin: 2px 4px !important;
+    font-size: 13.5px !important;
+    font-weight: 500 !important;
+    color: #475569 !important;
+    border-radius: 6px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    text-align: left !important;
+    width: auto !important;
+    background: transparent !important;
+    transition: all 0.15s ease-in-out !important;
+}
+
+body[data-sidebar-size="sm"] #sidebar-menu > ul > li ul.sub-menu li a:hover,
+body[data-sidebar-size="small"] #sidebar-menu > ul > li ul.sub-menu li a:hover {
+    color: #4f46e5 !important;
+    background: #f1f5f9 !important;
+}
+
+body[data-sidebar-size="sm"] #sidebar-menu > ul > li ul.sub-menu li a.active,
+body[data-sidebar-size="small"] #sidebar-menu > ul > li ul.sub-menu li a.active {
+    color: #4f46e5 !important;
+    background: #eef2ff !important;
+    font-weight: 600 !important;
+}
+
+/* 5. Nested 2nd-level submenus (e.g. Unit Management, Variation Management) */
+body[data-sidebar-size="sm"] #sidebar-menu > ul > li ul.sub-menu li > ul.sub-menu,
+body[data-sidebar-size="small"] #sidebar-menu > ul > li ul.sub-menu li > ul.sub-menu {
+    display: none !important;
+    position: absolute !important;
+    left: 100% !important;
+    top: 0 !important;
+    width: 200px !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15) !important;
+    padding: 6px !important;
+    z-index: 10060 !important;
+}
+
+body[data-sidebar-size="sm"] #sidebar-menu > ul > li ul.sub-menu li:hover > ul.sub-menu,
+body[data-sidebar-size="sm"] #sidebar-menu > ul > li ul.sub-menu li.flyout-open > ul.sub-menu,
+body[data-sidebar-size="small"] #sidebar-menu > ul > li ul.sub-menu li:hover > ul.sub-menu,
+body[data-sidebar-size="small"] #sidebar-menu > ul > li ul.sub-menu li.flyout-open > ul.sub-menu {
+    display: block !important;
+}
+
+/* 6. Section title header inside flyout */
+body[data-sidebar-size="sm"] #sidebar-menu .flyout-header,
+body[data-sidebar-size="small"] #sidebar-menu .flyout-header {
+    display: block !important;
+    padding: 8px 14px 6px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.5px !important;
+    text-transform: uppercase !important;
+    color: #94a3b8 !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    margin-bottom: 4px !important;
+    list-style: none !important;
+}
+
+body:not([data-sidebar-size="sm"]):not([data-sidebar-size="small"]) #sidebar-menu .flyout-header {
+    display: none !important;
+}
+
+
+/* ==========================================================================
+   Khmer Typography Perfection System (Kantumruy Pro + Noto Sans Khmer)
+   ========================================================================== */
+
+/* 1. Global Font Smoothing & Legibility */
+body {
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    text-rendering: optimizeLegibility !important;
+}
+
+/* 2. Active Khmer Mode: Language / Attribute Selectors */
+html[lang="kh"],
+html[lang="km"],
+html[data-khmer="true"],
+body.lang-khmer,
+.font-khmer,
+:lang(kh),
+:lang(km) {
+    --font-main: 'Kantumruy Pro', 'Noto Sans Khmer', 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    font-family: var(--font-main) !important;
+}
+
+html[lang="kh"] body,
+html[lang="km"] body,
+html[data-khmer="true"] body,
+body.lang-khmer {
+    font-family: 'Kantumruy Pro', 'Noto Sans Khmer', 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    line-height: 1.68 !important;
+    letter-spacing: normal !important;
+}
+
+/* 3. Universal Inheritance for All Interface Elements in Khmer Mode */
+html[lang="kh"] input,
+html[lang="kh"] button,
+html[lang="kh"] select,
+html[lang="kh"] textarea,
+html[lang="kh"] optgroup,
+html[lang="kh"] .form-control,
+html[lang="kh"] .form-select,
+html[lang="kh"] .btn,
+html[lang="kh"] .dropdown-menu,
+html[lang="kh"] .dropdown-item,
+html[lang="kh"] .modal-content,
+html[lang="kh"] .modal-title,
+html[lang="kh"] .table,
+html[lang="kh"] .nav,
+html[lang="kh"] .card-title,
+html[lang="kh"] .page-title-box,
+html[lang="kh"] #sidebar-menu,
+html[lang="kh"] .badge,
+html[lang="km"] input,
+html[lang="km"] button,
+html[lang="km"] select,
+html[lang="km"] textarea,
+html[lang="km"] optgroup,
+html[lang="km"] .form-control,
+html[lang="km"] .form-select,
+html[lang="km"] .btn,
+html[lang="km"] .dropdown-menu,
+html[lang="km"] .dropdown-item,
+html[lang="km"] .modal-content,
+html[lang="km"] .modal-title,
+html[lang="km"] .table,
+html[lang="km"] .nav,
+html[lang="km"] .card-title,
+html[lang="km"] .page-title-box,
+html[lang="km"] #sidebar-menu,
+html[lang="km"] .badge,
+body.lang-khmer input,
+body.lang-khmer button,
+body.lang-khmer select,
+body.lang-khmer textarea,
+body.lang-khmer optgroup,
+body.lang-khmer .form-control,
+body.lang-khmer .form-select,
+body.lang-khmer .btn,
+body.lang-khmer .dropdown-menu,
+body.lang-khmer .dropdown-item,
+body.lang-khmer .modal-content,
+body.lang-khmer .modal-title,
+body.lang-khmer .table,
+body.lang-khmer .nav,
+body.lang-khmer .card-title,
+body.lang-khmer .page-title-box,
+body.lang-khmer #sidebar-menu,
+body.lang-khmer .badge {
+    font-family: 'Kantumruy Pro', 'Noto Sans Khmer', 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    letter-spacing: normal !important;
+}
+
+/* 4. Headings & Page Titles in Khmer */
+html[lang="kh"] h1, html[lang="kh"] h2, html[lang="kh"] h3, html[lang="kh"] h4, html[lang="kh"] h5, html[lang="kh"] h6,
+html[lang="km"] h1, html[lang="km"] h2, html[lang="km"] h3, html[lang="km"] h4, html[lang="km"] h5, html[lang="km"] h6,
+body.lang-khmer h1, body.lang-khmer h2, body.lang-khmer h3, body.lang-khmer h4, body.lang-khmer h5, body.lang-khmer h6,
+html[lang="kh"] .page-title-box h4,
+html[lang="km"] .page-title-box h4,
+body.lang-khmer .page-title-box h4,
+html[lang="kh"] .card-title,
+html[lang="km"] .card-title,
+body.lang-khmer .card-title {
+    line-height: 1.5 !important;
+    letter-spacing: normal !important;
+    font-weight: 600 !important;
+}
+
+/* 5. Buttons with Khmer Text */
+html[lang="kh"] .btn,
+html[lang="km"] .btn,
+body.lang-khmer .btn {
+    line-height: 1.5 !important;
+    font-weight: 500 !important;
+    padding-top: calc(0.475rem + 1px) !important;
+    padding-bottom: calc(0.475rem + 1px) !important;
+    letter-spacing: normal !important;
+}
+
+html[lang="kh"] .btn-sm,
+html[lang="km"] .btn-sm,
+body.lang-khmer .btn-sm {
+    line-height: 1.45 !important;
+    font-size: 12.5px !important;
+    padding-top: 0.28rem !important;
+    padding-bottom: 0.28rem !important;
+}
+
+/* 6. Form Controls & Inputs (Ensures Subscript Consonants & Vowels are not clipped) */
+html[lang="kh"] .form-control,
+html[lang="kh"] .form-select,
+html[lang="km"] .form-control,
+html[lang="km"] .form-select,
+body.lang-khmer .form-control,
+body.lang-khmer .form-select {
+    line-height: 1.55 !important;
+    font-size: 13.5px !important;
+    padding-top: 0.45rem !important;
+    padding-bottom: 0.45rem !important;
+}
+
+html[lang="kh"] .form-label,
+html[lang="km"] .form-label,
+body.lang-khmer .form-label {
+    line-height: 1.5 !important;
+    font-weight: 500 !important;
+    font-size: 13px !important;
+    margin-bottom: 0.35rem !important;
+}
+
+html[lang="kh"] .form-control::placeholder,
+html[lang="km"] .form-control::placeholder,
+body.lang-khmer .form-control::placeholder {
+    font-family: 'Kantumruy Pro', 'Noto Sans Khmer', sans-serif !important;
+    font-size: 12.5px !important;
+    opacity: 0.75 !important;
+}
+
+/* 7. Badges with Khmer Script */
+html[lang="kh"] .badge,
+html[lang="km"] .badge,
+body.lang-khmer .badge {
+    line-height: 1.38 !important;
+    padding: 0.35em 0.65em !important;
+    font-size: 11.5px !important;
+    font-weight: 600 !important;
+    letter-spacing: normal !important;
+    text-transform: none !important;
+}
+
+/* 8. Table Headers & Cells */
+html[lang="kh"] .table th,
+html[lang="km"] .table th,
+body.lang-khmer .table th {
+    line-height: 1.5 !important;
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    vertical-align: middle !important;
+}
+
+html[lang="kh"] .table td,
+html[lang="km"] .table td,
+body.lang-khmer .table td {
+    line-height: 1.6 !important;
+    font-size: 13px !important;
+    vertical-align: middle !important;
+}
+
+/* 9. Sidebar Navigation */
+html[lang="kh"] #sidebar-menu ul li.menu-title,
+html[lang="km"] #sidebar-menu ul li.menu-title,
+body.lang-khmer #sidebar-menu ul li.menu-title {
+    letter-spacing: normal !important;
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+    text-transform: none !important;
+}
+
+html[lang="kh"] #sidebar-menu ul li a,
+html[lang="km"] #sidebar-menu ul li a,
+body.lang-khmer #sidebar-menu ul li a {
+    font-size: 13.5px !important;
+    line-height: 1.55 !important;
+    font-weight: 500 !important;
+}
+
+html[lang="kh"] #sidebar-menu ul li ul.sub-menu li a,
+html[lang="km"] #sidebar-menu ul li ul.sub-menu li a,
+body.lang-khmer #sidebar-menu ul li ul.sub-menu li a {
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+}
+
+/* 10. Modals, Alerts, Dropdowns & Breadcrumbs */
+html[lang="kh"] .dropdown-item,
+html[lang="km"] .dropdown-item,
+body.lang-khmer .dropdown-item {
+    font-size: 13px !important;
+    line-height: 1.55 !important;
+    padding: 0.45rem 1rem !important;
+}
+
+html[lang="kh"] .alert,
+html[lang="km"] .alert,
+body.lang-khmer .alert {
+    font-size: 13.5px !important;
+    line-height: 1.6 !important;
+}
+
+html[lang="kh"] .modal-title,
+html[lang="km"] .modal-title,
+body.lang-khmer .modal-title {
+    line-height: 1.45 !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+}
+
+html[lang="kh"] .breadcrumb-item,
+html[lang="km"] .breadcrumb-item,
+body.lang-khmer .breadcrumb-item {
+    font-size: 12.5px !important;
+    line-height: 1.5 !important;
+}
+
+/* 11. Select2 Dropdowns in Khmer */
+.select2-container--default .select2-selection--single,
+.select2-container--default .select2-selection--multiple {
+    font-family: var(--font-main) !important;
+}
+
+.select2-container--default .select2-results__option {
+    font-family: var(--font-main) !important;
+    line-height: 1.55 !important;
+    font-size: 13px !important;
+}
+
+
+/* ==========================================================================
+   Sidebar Pinned Language Switcher Footer (Replaces awkward navbar button)
+   ========================================================================== */
+.vpos-sidebar-lang-footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
+    padding: 12px 14px;
+    box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.03);
+    transition: all 0.25s ease;
+}
+
+body[data-sidebar="dark"] .vpos-sidebar-lang-footer {
+    background: #1e293b;
+    border-top-color: #334155;
+}
+
+.vertical-menu .sidebar-menu-scroll {
+    height: calc(100vh - 70px - 82px) !important;
+    height: calc(100% - 70px - 82px) !important;
+    max-height: calc(100vh - 70px - 82px) !important;
+}
+
+.vpos-lang-pill-container {
+    display: block;
+}
+
+.vpos-lang-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.vpos-lang-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+}
+
+.vpos-lang-badge {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #4f46e5;
+    background: #eef2ff;
+    padding: 1px 7px;
+    border-radius: 999px;
+    border: 1px solid #e0e7ff;
+}
+
+.vpos-lang-toggle {
+    display: flex;
+    gap: 4px;
+    background: #f1f5f9;
+    padding: 3px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.vpos-lang-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    text-decoration: none !important;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #475569;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.vpos-lang-btn:hover {
+    background: #ffffff;
+    color: #0f172a;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.vpos-lang-btn.active {
+    background: #4f46e5;
+    color: #ffffff !important;
+    box-shadow: 0 2px 5px rgba(79, 70, 229, 0.3);
+}
+
+.vpos-lang-btn .flag {
+    font-size: 14px;
+    line-height: 1;
+}
+
+.vpos-lang-mini-btn {
+    display: none;
+}
+
+/* Collapsed Sidebar Mini Mode (data-sidebar-size="sm" or "small") */
+body[data-sidebar-size="sm"] .vertical-menu .sidebar-menu-scroll,
+body[data-sidebar-size="small"] .vertical-menu .sidebar-menu-scroll {
+    height: calc(100vh - 70px - 58px) !important;
+    max-height: calc(100vh - 70px - 58px) !important;
+}
+
+body[data-sidebar-size="sm"] .vpos-sidebar-lang-footer,
+body[data-sidebar-size="small"] .vpos-sidebar-lang-footer {
+    padding: 8px 6px;
+    text-align: center;
+}
+
+body[data-sidebar-size="sm"] .vpos-lang-pill-container,
+body[data-sidebar-size="small"] .vpos-lang-pill-container {
+    display: none !important;
+}
+
+body[data-sidebar-size="sm"] .vpos-lang-mini-btn,
+body[data-sidebar-size="small"] .vpos-lang-mini-btn {
+    display: block !important;
+}

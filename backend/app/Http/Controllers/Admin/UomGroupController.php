@@ -61,7 +61,7 @@ class UomGroupController extends Controller
 
         return redirect()
             ->route('admin.uom-groups.edit', ['uom_group' => $group->id])
-            ->with('status', 'UoM group created successfully.');
+            ->with('status', __('UoM group created successfully.'));
     }
 
     public function edit(string $uom_group): View
@@ -86,7 +86,7 @@ class UomGroupController extends Controller
 
         return redirect()
             ->route('admin.uom-groups.edit', ['uom_group' => $group->id])
-            ->with('status', 'UoM group updated successfully.');
+            ->with('status', __('UoM group updated successfully.'));
     }
 
     public function destroy(string $uom_group): RedirectResponse
@@ -97,7 +97,7 @@ class UomGroupController extends Controller
 
         return redirect()
             ->route('admin.uom-groups.index')
-            ->with('status', 'UoM group deleted successfully.');
+            ->with('status', __('UoM group deleted successfully.'));
     }
 
     private function validateGroup(Request $request, ?UomGroup $group = null): array

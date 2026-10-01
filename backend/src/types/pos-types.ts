@@ -49,11 +49,17 @@ export interface VariantValue {
   id: number;
   label: string;
   priceDelta?: number;
+  isDefault?: boolean;
 }
 
 export interface ProductVariantOption {
   id: number;
   name: string;
+  type: "variant" | "modifier";
+  selectionType: "single" | "multiple";
+  isRequired: boolean;
+  minSelections: number;
+  maxSelections: number | null;
   values: VariantValue[];
 }
 

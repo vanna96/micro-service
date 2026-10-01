@@ -49,7 +49,7 @@ class RoleController extends Controller
 
         return redirect()
             ->route('admin.roles.edit', ['role' => $role->id])
-            ->with('status', 'Role created successfully.');
+            ->with('status', __('Role created successfully.'));
     }
 
     public function edit(Request $request, string $role): View
@@ -72,7 +72,7 @@ class RoleController extends Controller
 
         return redirect()
             ->route('admin.roles.index')
-            ->with('status', 'Role updated successfully.');
+            ->with('status', __('Role updated successfully.'));
     }
 
     public function destroy(Request $request, string $role): RedirectResponse
@@ -83,7 +83,7 @@ class RoleController extends Controller
 
         return redirect()
             ->route('admin.roles.index')
-            ->with('status', 'Role deleted successfully.');
+            ->with('status', __('Role deleted successfully.'));
     }
 
     private function validateRole(Request $request, ?Role $role = null): array

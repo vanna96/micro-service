@@ -56,7 +56,7 @@ class CategoryController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => translate('Category created successfully.', request('lng')),
+            'message' => translate('Category created successfully.'),
             'data' => new CategoryResource($category->load(['parent', 'galleries', 'image'])),
         ], 200);
     }
@@ -81,7 +81,7 @@ class CategoryController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => translate('Category updated successfully.', request('lng')),
+            'message' => translate('Category updated successfully.'),
             'data' => new CategoryResource($categoryModel->load(['parent', 'galleries', 'image'])),
         ], 200);
     }
@@ -93,7 +93,7 @@ class CategoryController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => translate('Category deleted successfully.', request('lng')),
+            'message' => translate('Category deleted successfully.'),
         ], 200);
     }
 

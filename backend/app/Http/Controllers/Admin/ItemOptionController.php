@@ -61,7 +61,7 @@ class ItemOptionController extends Controller
         ItemOption::query()->create($this->validated($request));
         ItemOption::flushQueryCache();
 
-        return redirect()->route('admin.item-options.index')->with('status', 'Option created successfully.');
+        return redirect()->route('admin.item-options.index')->with('status', __('Option created successfully.'));
     }
 
     public function edit(string $item_option): View
@@ -81,7 +81,7 @@ class ItemOptionController extends Controller
         $option->update($this->validated($request, $option));
         ItemOption::flushQueryCache();
 
-        return redirect()->route('admin.item-options.index')->with('status', 'Option updated successfully.');
+        return redirect()->route('admin.item-options.index')->with('status', __('Option updated successfully.'));
     }
 
     public function destroy(string $item_option): RedirectResponse
@@ -90,7 +90,7 @@ class ItemOptionController extends Controller
         $this->find($item_option)->delete();
         ItemOption::flushQueryCache();
 
-        return redirect()->route('admin.item-options.index')->with('status', 'Option deleted successfully.');
+        return redirect()->route('admin.item-options.index')->with('status', __('Option deleted successfully.'));
     }
 
     private function validated(Request $request, ?ItemOption $option = null): array

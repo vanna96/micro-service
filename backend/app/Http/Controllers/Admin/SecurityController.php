@@ -112,6 +112,9 @@ class SecurityController extends Controller
             $updates['admin_ip_whitelist_enabled'] = $request->has('admin_ip_whitelist_enabled') ? '1' : '0';
             if ($request->has('admin_whitelisted_ips')) {
                 $updates['admin_whitelisted_ips'] = json_encode($whitelistedArray);
+                foreach ($whitelistedArray as $wIp) {
+                    BlockedIp::unblock($wIp);
+                }
             }
             $updates['block_vpn_proxies'] = $request->has('block_vpn_proxies') ? '1' : '0';
             $updates['block_tor_nodes'] = $request->has('block_tor_nodes') ? '1' : '0';
@@ -163,7 +166,7 @@ class SecurityController extends Controller
 
         return redirect()
             ->route('admin.security.index', ['tab' => $tab])
-            ->with('status', 'Security settings updated successfully.');
+            ->with('status', __('Security settings updated successfully.'));
     }
 
     public function blockIp(Request $request): RedirectResponse
@@ -225,7 +228,7 @@ class SecurityController extends Controller
 
         return redirect()
             ->route('admin.security.index', ['tab' => 'monitor'])
-            ->with('status', 'Security incident logs have been cleared.');
+            ->with('status', __('Security incident logs have been cleared.'));
     }
 
     public function seedSampleLogs(): RedirectResponse
@@ -235,7 +238,7 @@ class SecurityController extends Controller
 
             return redirect()
                 ->route('admin.security.index', ['tab' => 'monitor'])
-                ->with('status', 'Sample security incidents loaded successfully.');
+                ->with('status', __('Sample security incidents loaded successfully.'));
         } catch (\Throwable $e) {
             return redirect()
                 ->route('admin.security.index', ['tab' => 'monitor'])
@@ -249,6 +252,10 @@ class SecurityController extends Controller
     public function triggerHoneypot(Request $request)
     {
         $ip = $request->ip();
+
+        if (BlockedIp::isWhitelisted($ip) || \App\Services\GeoIpService::isPrivateIp($ip)) {
+            return response()->json(['status' => 'not found'], 404);
+        }
 
         if (SecuritySetting::getBool('honeypot_traps_enabled', true)) {
             $incident = SecurityLog::logIncident(

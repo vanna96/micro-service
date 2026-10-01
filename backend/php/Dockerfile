@@ -59,6 +59,9 @@ COPY supervisor/queue-worker.conf /etc/supervisor/conf.d/queue-worker.conf
 
 # Copy startup script
 COPY start-queue.sh /start-queue.sh
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
 RUN chmod +x /start-queue.sh
 
 EXPOSE 9000

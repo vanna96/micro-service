@@ -34,6 +34,7 @@ class Kernel extends HttpKernel
             \App\Http\Middleware\EncryptCookies::class,
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
             \Illuminate\Session\Middleware\StartSession::class,
+            \App\Http\Middleware\SetLocale::class,
             \App\Http\Middleware\InitializeTenantUserSessionTenancy::class,
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
             \App\Http\Middleware\VerifyCsrfToken::class,
@@ -42,6 +43,7 @@ class Kernel extends HttpKernel
 
         'api' => [
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+            \App\Http\Middleware\SetLocale::class,
             'throttle:api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
@@ -72,6 +74,7 @@ class Kernel extends HttpKernel
         'admin.administrator' => \App\Http\Middleware\EnsureAdministratorAccess::class,
         'admin.permission' => \App\Http\Middleware\EnsureTenantPermission::class,
         'admin.central' => \App\Http\Middleware\PreventAccessFromTenantDomains::class,
+        'locale' => \App\Http\Middleware\SetLocale::class,
     ];
 
     /**

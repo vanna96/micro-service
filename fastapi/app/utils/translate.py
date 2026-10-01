@@ -1,49 +1,67 @@
-# from googletrans import Translator
+from typing import Any
+from googletrans import Translator
+from deep_translator import MyMemoryTranslator, GoogleTranslator
 
-# translator = Translator()
+_googletrans_client = None
 
-# def translate_recursive_googletrans(data, target_lang='km'):
-#     if isinstance(data, dict):
-#         return {key: translate_recursive_googletrans(value, target_lang) for key, value in data.items()}
-#     elif isinstance(data, list):
-#         return [translate_recursive_googletrans(item, target_lang) for item in data]
-#     elif isinstance(data, str):
-#         cleaned_string = data.replace('\n', ' ').replace('\r', '')
-#         print(cleaned_string)
-#         try:
-#             return translator.translate(cleaned_string, dest=target_lang).text
-#         except Exception as e:
-#             print(f"Error translating string '{cleaned_string}': {e}")
-#             return data
-#     else:
-#         return data
+def get_googletrans():
+    global _googletrans_client
+    if _googletrans_client is None:
+        _googletrans_client = Translator()
+    return _googletrans_client
 
-from deep_translator import GoogleTranslator
+def translate_single_line(text: str, target_lang: str = 'km') -> str:
+    cleaned = text.strip()
+    if not cleaned:
+        return text
 
-def translate_recursive_deep_translator(data, target_lang='km'):
-    translator = GoogleTranslator(source='auto', target=target_lang)
+    target = 'km' if target_lang.lower() in ('kh', 'km') else target_lang.lower()
 
-    def _translate(item):
-        if isinstance(item, dict):
-            return {key: _translate(value) for key, value in item.items()}
-        elif isinstance(item, list):
-            return [_translate(value) for value in item]
-        elif isinstance(item, str):
-            # Split by lines, translate each, then join back
-            lines = item.splitlines()
-            translated_lines = []
-            for line in lines:
-                line = line.strip()
-                if line:
-                    try:
-                        translated_lines.append(translator.translate(line))
-                    except Exception as e:
-                        print(f"Error translating line: '{line}' -> {e}")
-                        translated_lines.append(line)
-                else:
-                    translated_lines.append('')
-            return '\n'.join(translated_lines)
-        else:
-            return item
+    # 1. Try googletrans
+    try:
+        gt = get_googletrans()
+        result = gt.translate(cleaned, dest=target)
+        if result and hasattr(result, 'text') and result.text:
+            return result.text
+    except Exception as e:
+        print(f"googletrans error for '{cleaned}': {e}")
 
-    return _translate(data)
+    # 2. Try MyMemoryTranslator
+    try:
+        mm_target = 'km-KH' if target in ('km', 'kh') else target
+        mm = MyMemoryTranslator(source='en-GB', target=mm_target)
+        result = mm.translate(cleaned)
+        if result and result.strip() != cleaned:
+            return result
+    except Exception as e:
+        print(f"MyMemory error for '{cleaned}': {e}")
+
+    # 3. Fallback to deep_translator GoogleTranslator
+    try:
+        d_gt = GoogleTranslator(source='auto', target=target)
+        result = d_gt.translate(cleaned)
+        if result and result.strip():
+            return result
+    except Exception as e:
+        print(f"GoogleTranslator error for '{cleaned}': {e}")
+
+    return text
+
+def translate_recursive_deep_translator(data: Any, target_lang: str = 'km') -> Any:
+    target = 'km' if target_lang.lower() in ('kh', 'km') else target_lang.lower()
+
+    if isinstance(data, dict):
+        return {key: translate_recursive_deep_translator(value, target) for key, value in data.items()}
+    elif isinstance(data, list):
+        return [translate_recursive_deep_translator(item, target) for item in data]
+    elif isinstance(data, str):
+        lines = data.splitlines()
+        translated_lines = []
+        for line in lines:
+            if line.strip():
+                translated_lines.append(translate_single_line(line, target))
+            else:
+                translated_lines.append('')
+        return '\n'.join(translated_lines)
+    else:
+        return data

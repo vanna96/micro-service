@@ -36,12 +36,18 @@ class TenantRepository extends RepositoryBase
 
     public function createForAdmin(array $attributes): Tenant
     {
+        $domain = $attributes['domain'] ?? null;
+        unset($attributes['domain']);
+
         /** @var \App\Models\Tenant $tenant */
         $tenant = $this->createModel();
         $tenant->fill($attributes);
         $tenant->save();
-        $tenant->domains()->firstOrCreate([
-            'domain' => $this->makeTenantDomain($tenant->alias),
+
+        $domainValue = ! empty($domain) ? strtolower(trim((string) $domain)) : $this->makeTenantDomain($tenant->alias);
+
+        $tenant->domains()->create([
+            'domain' => $domainValue,
         ]);
 
         return $tenant;
@@ -49,12 +55,20 @@ class TenantRepository extends RepositoryBase
 
     public function updateForAdmin(Tenant $tenant, array $attributes): Tenant
     {
+        $domain = $attributes['domain'] ?? null;
+        unset($attributes['domain']);
+
         $tenant->fill($attributes);
         $tenant->save();
-        $tenant->domains()->updateOrCreate(
-            ['tenant_id' => $tenant->id],
-            ['domain' => $this->makeTenantDomain($tenant->alias)]
-        );
+
+        $domainValue = ! empty($domain) ? strtolower(trim((string) $domain)) : $this->makeTenantDomain($tenant->alias);
+
+        $existingDomain = $tenant->domains()->first();
+        if ($existingDomain) {
+            $existingDomain->update(['domain' => $domainValue]);
+        } else {
+            $tenant->domains()->create(['domain' => $domainValue]);
+        }
 
         return $tenant;
     }
@@ -67,6 +81,6 @@ class TenantRepository extends RepositoryBase
 
     private function makeTenantDomain(?string $alias): string
     {
-        return ($alias ?: 'tenant') . '.' . env('TENANT_HOST', 'localhost');
+        return ($alias ?: 'tenant') . '.' . env('TENANT_HOST', 'vanna-pos.duckdns.org');
     }
 }
