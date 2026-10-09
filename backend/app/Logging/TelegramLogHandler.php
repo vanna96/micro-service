@@ -4,6 +4,7 @@ namespace App\Logging;
 
 use App\Services\TelegramNotificationService;
 use Monolog\Handler\AbstractProcessingHandler;
+use Monolog\LogRecord;
 use Throwable;
 
 class TelegramLogHandler extends AbstractProcessingHandler
@@ -16,7 +17,7 @@ class TelegramLogHandler extends AbstractProcessingHandler
     /**
      * Write the log record to Telegram.
      */
-    protected function write(array $record): void
+    protected function write(LogRecord $record): void
     {
         if (static::$isHandling) {
             return;
@@ -32,7 +33,7 @@ class TelegramLogHandler extends AbstractProcessingHandler
                 return;
             }
 
-            $service->notifyErrorRecord($record);
+            $service->notifyErrorRecord($record->toArray());
         } catch (Throwable) {
             // Silently ignore failures in the error logger to prevent crashing the application
         } finally {

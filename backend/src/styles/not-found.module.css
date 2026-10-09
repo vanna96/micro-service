@@ -53,6 +53,7 @@
 .badge {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   margin-bottom: 14px;
   padding: 4px 12px;
   border: 1px solid rgba(var(--accent-rgb), .35);
@@ -63,6 +64,19 @@
   font-weight: 700;
   letter-spacing: .05em;
   text-transform: uppercase;
+}
+.pulseDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+  animation: pulseDot 1.8s ease-in-out infinite;
+  display: inline-block;
+}
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.75); }
 }
 .card h1 { margin: 0 0 12px; color: #fff; font-size: 30px; font-weight: 800; letter-spacing: -.025em; }
 .description { max-width: 460px; margin: 0 auto 28px; color: #94a3b8; font-size: 15px; line-height: 1.6; }

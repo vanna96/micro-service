@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use App\Repositories\CurrencyRepository;
+use App\Services\MailNotificationService;
 use App\Services\TelegramNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -20,7 +21,7 @@ class GeneralSettingController extends Controller
     {
         $this->currencies = $currencies;
         $this->middleware('admin.permission:general_settings.view')->only(['index']);
-        $this->middleware('admin.permission:general_settings.edit')->only(['update', 'testTelegram']);
+        $this->middleware('admin.permission:general_settings.edit')->only(['update', 'testTelegram', 'testMail']);
     }
 
     public function index(): View
@@ -89,6 +90,41 @@ class GeneralSettingController extends Controller
             ->with($result['success'] ? 'status' : 'error', $result['message']);
     }
 
+    public function testMail(Request $request, MailNotificationService $mail): JsonResponse|RedirectResponse
+    {
+        $tenant = $this->requiredTenant();
+        $recipientEmail = trim((string) $request->input('recipient_email'));
+
+        if ($recipientEmail === '' || ! filter_var($recipientEmail, FILTER_VALIDATE_EMAIL)) {
+            $error = 'A valid recipient email address is required to send a test message.';
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $error], 422);
+            }
+            return redirect()->back()->withErrors(['recipient_email' => $error]);
+        }
+
+        $credentials = [
+            'mail_mailer' => $request->input('mail_mailer'),
+            'mail_host' => $request->input('mail_host'),
+            'mail_port' => $request->input('mail_port'),
+            'mail_username' => $request->input('mail_username'),
+            'mail_password' => $request->input('mail_password'),
+            'mail_encryption' => $request->input('mail_encryption'),
+            'mail_from_address' => $request->input('mail_from_address'),
+            'mail_from_name' => $request->input('mail_from_name'),
+        ];
+
+        $result = $mail->sendTestEmail($recipientEmail, $credentials, $tenant);
+
+        if ($request->wantsJson()) {
+            return response()->json($result, $result['success'] ? 200 : 400);
+        }
+
+        return redirect()
+            ->back()
+            ->with($result['success'] ? 'status' : 'error', $result['message']);
+    }
+
     private function validateSettings(Request $request): array
     {
         $rules = [
@@ -105,6 +141,20 @@ class GeneralSettingController extends Controller
             'telegram_error_log_enabled' => ['nullable', 'boolean'],
             'telegram_error_log_bot_token' => ['nullable', 'string', 'max:255'],
             'telegram_error_log_chat_id' => ['nullable', 'string', 'max:255'],
+            'mail_notifications_enabled' => ['nullable', 'boolean'],
+            'mail_mailer' => ['nullable', 'string', 'in:smtp,sendmail,log'],
+            'mail_host' => ['nullable', 'string', 'max:255'],
+            'mail_port' => ['nullable', 'integer', 'between:1,65535'],
+            'mail_username' => ['nullable', 'string', 'max:255'],
+            'mail_password' => ['nullable', 'string', 'max:255'],
+            'mail_encryption' => ['nullable', 'string', 'in:tls,ssl,null,none'],
+            'mail_from_address' => ['nullable', 'string', 'max:255'],
+            'mail_from_name' => ['nullable', 'string', 'max:255'],
+            'mail_order_notifications_enabled' => ['nullable', 'boolean'],
+            'facebook_login_enabled' => ['nullable', 'boolean'],
+            'facebook_app_id' => ['nullable', 'string', 'max:255'],
+            'facebook_app_secret' => ['nullable', 'string', 'max:255'],
+            'facebook_graph_version' => ['nullable', 'regex:/^v\d+\.\d+$/'],
             'terms_conditions' => ['nullable', 'string'],
             'privacy_policy' => ['nullable', 'string'],
             'minimum_mobile_version' => ['nullable', 'string', 'max:20'],
@@ -121,6 +171,15 @@ class GeneralSettingController extends Controller
         }
         if ($request->has('telegram_error_log_enabled')) {
             $validated['telegram_error_log_enabled'] = $request->boolean('telegram_error_log_enabled');
+        }
+        if ($request->has('mail_notifications_enabled')) {
+            $validated['mail_notifications_enabled'] = $request->boolean('mail_notifications_enabled');
+        }
+        if ($request->has('mail_order_notifications_enabled')) {
+            $validated['mail_order_notifications_enabled'] = $request->boolean('mail_order_notifications_enabled');
+        }
+        if ($request->has('facebook_login_enabled')) {
+            $validated['facebook_login_enabled'] = $request->boolean('facebook_login_enabled');
         }
 
         return $validated;
@@ -143,6 +202,20 @@ class GeneralSettingController extends Controller
             'telegram_error_log_enabled' => false,
             'telegram_error_log_bot_token' => '',
             'telegram_error_log_chat_id' => '',
+            'mail_notifications_enabled' => false,
+            'mail_mailer' => 'smtp',
+            'mail_host' => '',
+            'mail_port' => 1025,
+            'mail_username' => '',
+            'mail_password' => '',
+            'mail_encryption' => 'null',
+            'mail_from_address' => '',
+            'mail_from_name' => '',
+            'mail_order_notifications_enabled' => false,
+            'facebook_login_enabled' => false,
+            'facebook_app_id' => '',
+            'facebook_app_secret' => '',
+            'facebook_graph_version' => 'v24.0',
             'terms_conditions' => '',
             'privacy_policy' => '',
             'minimum_mobile_version' => '1.0.0',

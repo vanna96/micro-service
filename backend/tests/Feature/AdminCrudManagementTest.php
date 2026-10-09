@@ -508,6 +508,7 @@ class AdminCrudManagementTest extends TestCase
             ->withSession(['admin_selected_tenant_id' => $selectedTenant->id])
             ->post(route('admin.tenants.store'), [
                 'id' => 'beta',
+                'alias' => 'beta',
                 'db_connection' => 'mysql',
                 'db_port' => '3306',
                 'db_name' => 'beta_db',
@@ -527,12 +528,13 @@ class AdminCrudManagementTest extends TestCase
 
         $this->assertDatabaseHas('domains', [
             'tenant_id' => 'beta',
-            'domain' => 'beta.'.env('TENANT_HOST', 'localhost'),
+            'domain' => 'beta.'.config('tenancy.tenant_host', 'localhost'),
         ], 'central');
 
         $this->actingAs($admin)
             ->withSession(['admin_selected_tenant_id' => $selectedTenant->id])
             ->put(route('admin.tenants.update', $tenant), [
+                'alias' => 'beta',
                 'db_connection' => 'mysql',
                 'db_port' => '3307',
                 'db_name' => 'beta_db_v2',

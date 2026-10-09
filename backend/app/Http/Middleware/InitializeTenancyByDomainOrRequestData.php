@@ -7,6 +7,8 @@ namespace App\Http\Middleware;
 use App\Models\Tenant;
 use Closure;
 use Illuminate\Http\Request;
+use Stancl\Tenancy\Exceptions\TenantCouldNotBeIdentifiedByRequestDataException;
+use Stancl\Tenancy\Exceptions\TenantCouldNotBeIdentifiedOnDomainException;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\InitializeTenancyByRequestData;
 
@@ -41,11 +43,27 @@ class InitializeTenancyByDomainOrRequestData
             // Fallback to domain middleware if payload wasn't matched
             try {
                 return $this->domainMiddleware->handle($request, $next);
-            } catch (\Throwable $e) {
-                return $this->requestDataMiddleware->handle($request, $next);
+            } catch (TenantCouldNotBeIdentifiedOnDomainException) {
+                try {
+                    return $this->requestDataMiddleware->handle($request, $next);
+                } catch (TenantCouldNotBeIdentifiedByRequestDataException) {
+                    return $this->storeNotFound();
+                }
             }
         }
 
-        return $this->domainMiddleware->handle($request, $next);
+        try {
+            return $this->domainMiddleware->handle($request, $next);
+        } catch (TenantCouldNotBeIdentifiedOnDomainException) {
+            return $this->storeNotFound();
+        }
+    }
+
+    private function storeNotFound()
+    {
+        return response()->json([
+            'success' => false,
+            'message' => 'Store not found.',
+        ], 404);
     }
 }

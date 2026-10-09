@@ -16,6 +16,7 @@ class Kernel extends HttpKernel
     protected $middleware = [
         // \App\Http\Middleware\TrustHosts::class,
         \App\Http\Middleware\TrustProxies::class,
+        \App\Http\Middleware\TrackMonitoringRequest::class,
         \Illuminate\Http\Middleware\HandleCors::class,
         \App\Http\Middleware\PreventRequestsDuringMaintenance::class,
         \Illuminate\Foundation\Http\Middleware\ValidatePostSize::class,
@@ -69,6 +70,7 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'tenant.active' => \App\Http\Middleware\EnsureTenantIsActive::class,
         'tenant.access' => \App\Http\Middleware\EnsureTenantAccess::class,
+        'customer.access' => \App\Http\Middleware\EnsureCustomerAccess::class,
         'admin.tenant' => \App\Http\Middleware\EnsureAdminTenantSelected::class,
         'admin.tenancy' => \App\Http\Middleware\InitializeAdminTenancy::class,
         'admin.administrator' => \App\Http\Middleware\EnsureAdministratorAccess::class,

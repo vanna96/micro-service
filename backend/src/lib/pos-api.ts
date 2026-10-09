@@ -517,6 +517,45 @@ export async function fetchPosProducts({
   };
 }
 
+export async function searchPosProductsByImage(
+  file: File,
+  options: { page?: number; perPage?: number; threshold?: number } = {}
+): Promise<PosProductsPage> {
+  const { page = 1, perPage = 20, threshold = 14 } = options;
+
+  const formData = new FormData();
+  formData.append("image", file);
+  formData.append("page", String(page));
+  formData.append("per_page", String(perPage));
+  formData.append("threshold", String(threshold));
+
+  const response = await fetch(`${apiBase}/item/search-by-image`, {
+    method: "POST",
+    headers: getApiHeaders(),
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to search products by image: ${response.statusText}`);
+  }
+
+  const payload = await response.json();
+  const products = (payload.data || []).map(mapProduct);
+  const meta = payload; // the payload directly contains pagination fields
+  const currentPage = meta?.current_page ?? page;
+  const lastPage = meta?.last_page ?? (products.length < perPage ? currentPage : currentPage + 1);
+  const total = meta?.total ?? products.length;
+
+  return {
+    products,
+    page: currentPage,
+    perPage: meta?.per_page ?? perPage,
+    total,
+    lastPage,
+    hasMore: currentPage < lastPage,
+  };
+}
+
 export async function fetchPosCatalog(): Promise<PosCatalog> {
   const [categories, productsPage] = await Promise.all([
     fetchPosCategories(),

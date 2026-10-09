@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\GeneralSettingController;
 use App\Http\Controllers\Admin\ItemController;
 use App\Http\Controllers\Admin\ItemOptionController;
 use App\Http\Controllers\Admin\ItemVariationController;
+use App\Http\Controllers\Admin\MonitoringController;
 use App\Http\Controllers\Admin\PriceListController;
 use App\Http\Controllers\Admin\PromotionController;
 use App\Http\Controllers\Admin\PurchaseOrderController;
@@ -73,6 +74,7 @@ Route::middleware(['admin.central'])->group(function () {
         Route::middleware('auth')->prefix('admin')->name('admin.translations.')->group(function () {
         Route::get('translations', [\App\Http\Controllers\Admin\TranslationController::class, 'index'])->name('index');
         Route::post('translations/update', [\App\Http\Controllers\Admin\TranslationController::class, 'update'])->name('update');
+        Route::delete('translations', [\App\Http\Controllers\Admin\TranslationController::class, 'destroy'])->name('destroy');
         Route::post('translations/test', [\App\Http\Controllers\Admin\TranslationController::class, 'testTranslate'])->name('test');
         Route::post('translations/clear-cache', [\App\Http\Controllers\Admin\TranslationController::class, 'clearCache'])->name('clear-cache');
     });
@@ -88,7 +90,11 @@ Route::middleware(['admin.central'])->group(function () {
         Route::resource('users', UserController::class)->except('show');
         Route::resource('tenants', TenantController::class)->except('show');
         Route::post('tenants/test-telegram', [TenantController::class, 'testTelegram'])->name('tenants.test-telegram');
+        Route::post('tenants/test-mail', [TenantController::class, 'testMail'])->name('tenants.test-mail');
         Route::get('security', [SecurityController::class, 'index'])->name('security.index');
+        Route::get('monitoring/live', [MonitoringController::class, 'live'])->name('monitoring.live');
+        Route::put('monitoring/live-preference', [MonitoringController::class, 'updateLivePreference'])->name('monitoring.live-preference');
+        Route::get('monitoring', [MonitoringController::class, 'index'])->name('monitoring.index');
         Route::put('security/settings', [SecurityController::class, 'updateSettings'])->name('security.settings.update');
         Route::post('security/block-ip', [SecurityController::class, 'blockIp'])->name('security.block-ip');
         Route::delete('security/unblock-ip/{id}', [SecurityController::class, 'unblockIp'])->name('security.unblock-ip');
@@ -105,10 +111,14 @@ Route::middleware(['admin.central'])->group(function () {
         Route::get('file-manager', [FileManagerController::class, 'index'])->name('file-manager.index');
         Route::post('file-manager', [FileManagerController::class, 'store'])->name('file-manager.store');
         Route::post('file-manager/folders', [FileManagerController::class, 'storeFolder'])->name('file-manager.folders.store');
+        Route::patch('file-manager/rename', [FileManagerController::class, 'renameFile'])->name('file-manager.rename');
+        Route::patch('file-manager/replace-from-my-files', [FileManagerController::class, 'replaceFromMyFiles'])->name('file-manager.replace-from-my-files');
+        Route::delete('file-manager/bulk', [FileManagerController::class, 'destroyMany'])->name('file-manager.bulk-destroy');
         Route::delete('file-manager', [FileManagerController::class, 'destroy'])->name('file-manager.destroy');
         Route::get('general-settings', [GeneralSettingController::class, 'index'])->name('general-settings.index');
         Route::put('general-settings', [GeneralSettingController::class, 'update'])->name('general-settings.update');
         Route::post('general-settings/test-telegram', [GeneralSettingController::class, 'testTelegram'])->name('general-settings.test-telegram');
+        Route::post('general-settings/test-mail', [GeneralSettingController::class, 'testMail'])->name('general-settings.test-mail');
         Route::get('telegram-notifications', [TelegramNotificationSettingController::class, 'index'])->name('telegram-notifications.index');
         Route::put('telegram-notifications', [TelegramNotificationSettingController::class, 'update'])->name('telegram-notifications.update');
         Route::post('telegram-notifications/test', [TelegramNotificationSettingController::class, 'test'])->name('telegram-notifications.test');

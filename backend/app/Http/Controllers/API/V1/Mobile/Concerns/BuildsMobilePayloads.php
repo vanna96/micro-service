@@ -6,17 +6,17 @@ use App\Models\Address;
 use App\Models\Branch;
 use App\Models\Category;
 use App\Models\Currency;
+use App\Models\Customer;
 use App\Models\Item;
 use App\Models\Notification;
 use App\Models\PosSale;
 use App\Models\RateIndexValue;
 use App\Models\Slider;
-use App\Models\User;
 use Carbon\Carbon;
 
 trait BuildsMobilePayloads
 {
-    protected function mobileUserPayload(User $user): array
+    protected function mobileUserPayload(Customer $user): array
     {
         return [
             'id' => (int) $user->id,
@@ -29,6 +29,7 @@ trait BuildsMobilePayloads
             'gender' => (string) ($user->gender ?? ''),
             'dob' => $user->dob ? date('Y-m-d', strtotime((string) $user->dob)) : '',
             'email' => (string) ($user->email ?? ''),
+            'email_verified' => (bool) $user->email_verified_at,
             'status' => (string) ($user->status ?? 'Active'),
             'profile_image_url' => $user->profile_image_url,
             'created_at' => optional($user->created_at)->toIso8601String(),
@@ -257,6 +258,7 @@ trait BuildsMobilePayloads
             'payment_status' => (string) ($sale->status === 'completed' ? 'Paid' : 'Pending'),
             'payment_method' => (string) ($sale->payment_method ?? 'Cash'),
             'delivery_method' => (string) ($sale->order_type ?? 'Home Delivery'),
+            'delivery_address' => data_get($sale->snapshot, 'delivery_address'),
             'currency_code' => (string) ($sale->base_currency_code ?? 'USD'),
             'total_items' => (int) $sale->item_count,
             'subtotal' => (float) $sale->subtotal_base,

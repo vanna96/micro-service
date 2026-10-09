@@ -3,12 +3,14 @@
 namespace App\Console\Commands;
 
 use App\Models\Tenant;
+use App\Services\TenantJobContext;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Laravel\Pulse\Pulse;
 use Throwable;
 
 class TenantsQueueWork extends Command
@@ -53,6 +55,7 @@ class TenantsQueueWork extends Command
             // Check if queue:restart was signaled
             if ($this->shouldRestart()) {
                 $this->info('Queue worker restart signal detected. Exiting gracefully.');
+
                 return 0;
             }
 
@@ -62,7 +65,7 @@ class TenantsQueueWork extends Command
             try {
                 $tenants = Tenant::all();
             } catch (Throwable $e) {
-                $this->error('Failed to load tenants: ' . $e->getMessage());
+                $this->error('Failed to load tenants: '.$e->getMessage());
                 $tenants = collect();
             }
 
@@ -70,23 +73,13 @@ class TenantsQueueWork extends Command
                 try {
                     $hasTenantJob = false;
 
-                    $tenant->run(function () use (&$hasTenantJob, $tries, $timeout) {
-                        if (! Schema::hasTable('jobs')) {
-                            return;
-                        }
-
-                        $jobCount = DB::table('jobs')->where('available_at', '<=', time())->count();
-                        if ($jobCount > 0) {
+                    TenantJobContext::run((string) $tenant->id, function () use (&$hasTenantJob, $tries, $timeout) {
+                        if ($this->hasAvailableJob('tenant', 'tenant')) {
                             $hasTenantJob = true;
 
                             // Process one job inside this tenant database context
                             $this->forgetQueueConnections();
-                            Artisan::call('queue:work', [
-                                'connection' => 'tenant',
-                                '--once' => true,
-                                '--tries' => $tries,
-                                '--timeout' => $timeout,
-                            ]);
+                            $this->processQueueJob('tenant', $tries, $timeout);
                         }
                     });
 
@@ -97,7 +90,7 @@ class TenantsQueueWork extends Command
                         }
                     }
                 } catch (Throwable $e) {
-                    Log::error("[TenantsQueueWork] Error processing queue for tenant {$tenant->id}: " . $e->getMessage(), [
+                    Log::error("[TenantsQueueWork] Error processing queue for tenant {$tenant->id}: ".$e->getMessage(), [
                         'exception' => $e,
                     ]);
                 }
@@ -105,31 +98,23 @@ class TenantsQueueWork extends Command
 
             // 2. Process central queue jobs if any exist
             try {
-                $centralConnection = config('tenancy.database.central_connection', 'central');
-                if (Schema::connection($centralConnection)->hasTable('jobs')) {
-                    $centralJobs = DB::connection($centralConnection)->table('jobs')->where('available_at', '<=', time())->count();
-                    if ($centralJobs > 0) {
-                        // Ensure tenancy is not initialized for central job processing
-                        if (function_exists('tenancy') && tenancy()->initialized) {
-                            tenancy()->end();
-                        }
+                $centralConnection = config('queue.connections.database.connection') ?: config('tenancy.database.central_connection', 'central');
+                if ($this->hasAvailableJob($centralConnection, 'database')) {
+                    // Ensure tenancy is not initialized for central job processing
+                    if (function_exists('tenancy') && tenancy()->initialized) {
+                        tenancy()->end();
+                    }
 
-                        $this->forgetQueueConnections();
-                        Artisan::call('queue:work', [
-                            'connection' => 'database',
-                            '--once' => true,
-                            '--tries' => $tries,
-                            '--timeout' => $timeout,
-                        ]);
+                    $this->forgetQueueConnections();
+                    $this->processQueueJob('database', $tries, $timeout);
 
-                        $jobProcessed = true;
-                        if ($runOnce) {
-                            return 0;
-                        }
+                    $jobProcessed = true;
+                    if ($runOnce) {
+                        return 0;
                     }
                 }
             } catch (Throwable $e) {
-                Log::error('[TenantsQueueWork] Error processing central queue: ' . $e->getMessage(), [
+                Log::error('[TenantsQueueWork] Error processing central queue: '.$e->getMessage(), [
                     'exception' => $e,
                 ]);
             }
@@ -145,6 +130,47 @@ class TenantsQueueWork extends Command
         }
 
         return 0;
+    }
+
+    protected function processQueueJob(string $connection, int $tries, int $timeout): void
+    {
+        try {
+            Artisan::call('queue:work', [
+                'connection' => $connection,
+                '--once' => true,
+                '--tries' => $tries,
+                '--timeout' => $timeout,
+            ]);
+        } finally {
+            // --once skips Pulse's Looping/WorkerStopping hooks. Save each job's
+            // buffered telemetry before this long-running command continues.
+            if (config('pulse.enabled') && class_exists(Pulse::class)) {
+                try {
+                    app(Pulse::class)->ingest();
+                } catch (Throwable) {
+                    // Optional telemetry must never interrupt queue processing.
+                }
+            }
+        }
+    }
+
+    protected function hasAvailableJob(string $databaseConnection, string $queueConnection): bool
+    {
+        $table = config("queue.connections.{$queueConnection}.table", 'jobs');
+        if (! Schema::connection($databaseConnection)->hasTable($table)) {
+            return false;
+        }
+
+        $now = time();
+        $expired = $now - (int) config("queue.connections.{$queueConnection}.retry_after", 90);
+
+        return DB::connection($databaseConnection)->table($table)
+            ->where('queue', config("queue.connections.{$queueConnection}.queue", 'default'))
+            ->where(function ($query) use ($now, $expired): void {
+                $query->where(function ($query) use ($now): void {
+                    $query->whereNull('reserved_at')->where('available_at', '<=', $now);
+                })->orWhere('reserved_at', '<=', $expired);
+            })->exists();
     }
 
     /**
@@ -170,6 +196,7 @@ class TenantsQueueWork extends Command
     {
         try {
             $lastRestart = Cache::get('illuminate:queue:restart');
+
             return $lastRestart && $this->workerStartTime < $lastRestart;
         } catch (Throwable) {
             return false;

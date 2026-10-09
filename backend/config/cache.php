@@ -67,6 +67,14 @@ return [
             'path' => storage_path('framework/cache/data'),
         ],
 
+        // Translation lookups are cleared from the admin translation editor.
+        // Keep them isolated so clearing translations cannot remove login
+        // throttles, locks, or other application cache files mid-request.
+        'translations' => [
+            'driver' => 'file',
+            'path' => storage_path('framework/cache/translations'),
+        ],
+
         'portal_sessions' => [
             'driver' => 'file',
             'path' => storage_path('framework/cache/portal-sessions'),

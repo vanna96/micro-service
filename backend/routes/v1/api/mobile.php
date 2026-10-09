@@ -19,8 +19,14 @@ Route::prefix('mobile')
         'tenant.active',
     ])->group(function () {
         Route::prefix('auth')->group(function () {
-            Route::post('register', [AuthController::class, 'register']);
-            Route::post('login', [AuthController::class, 'login']);
+            Route::post('register', [AuthController::class, 'register'])->middleware('throttle:6,1');
+            Route::post('login', [AuthController::class, 'login'])->middleware('throttle:6,1');
+            Route::get('facebook/start', [AuthController::class, 'facebookStart'])->middleware('throttle:10,1');
+            Route::get('facebook/callback', [AuthController::class, 'facebookCallback'])->middleware('throttle:10,1');
+            Route::get('google/start', [AuthController::class, 'googleStart'])->middleware('throttle:10,1');
+            Route::get('google/callback', [AuthController::class, 'googleCallback'])->middleware('throttle:10,1');
+            Route::post('verify-email', [AuthController::class, 'verifyEmail'])->middleware('throttle:10,1');
+            Route::post('resend-verification', [AuthController::class, 'resendVerification'])->middleware('throttle:3,1');
             Route::post('refresh', [AuthController::class, 'refresh']);
         });
 
@@ -33,9 +39,10 @@ Route::prefix('mobile')
         Route::get('categories', [CatalogController::class, 'categories']);
         Route::get('products', [CatalogController::class, 'products']);
         Route::get('products/{item}', [CatalogController::class, 'show']);
+        Route::post('products/search-by-image', [App\Http\Controllers\API\V1\Mobile\ImageSearchController::class, 'search']);
         Route::post('cart/price', [CatalogController::class, 'priceCart']);
 
-        Route::middleware(['tenant.access'])->group(function () {
+        Route::middleware(['customer.access'])->group(function () {
             Route::prefix('auth')->group(function () {
                 Route::get('me', [AuthController::class, 'me']);
                 Route::post('logout', [AuthController::class, 'logout']);

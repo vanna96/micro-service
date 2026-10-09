@@ -85,7 +85,7 @@ export function ModalInvoicePreview({
     const previousTitle = document.title;
     const printPageStyle = document.createElement("style");
     const printRoot = document.createElement("div");
-    printRoot.className = `invoice-print-root invoice-print-root--${invoiceFormat}`;
+    printRoot.className = `pos-app invoice-print-root invoice-print-root--${invoiceFormat}`;
     printRoot.appendChild(invoiceRef.current.cloneNode(true));
     if (invoiceFormat === "thermal") {
       const pageHeight = Math.max(

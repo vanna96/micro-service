@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-router = APIRouter()
+# router = APIRouter()
 
 # @router.post("/register")
 # def phone_register():

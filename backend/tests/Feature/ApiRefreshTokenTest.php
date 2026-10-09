@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Mail\CustomerVerificationCode;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\PersonalAccessToken;
 use Tests\TestCase;
 
@@ -46,6 +48,7 @@ class ApiRefreshTokenTest extends TestCase
         DB::purge('mysql');
 
         Artisan::call('migrate:fresh', ['--database' => 'central']);
+        Mail::fake();
     }
 
     protected function tearDown(): void
@@ -231,12 +234,29 @@ class ApiRefreshTokenTest extends TestCase
         ]);
 
         $registerResponse->assertCreated()
+            ->assertJsonPath('data.requires_verification', true);
+
+        $mail = Mail::queued(CustomerVerificationCode::class)
+            ->first(fn (CustomerVerificationCode $message) => $message->hasTo('shopper@example.com'))
+            ?? Mail::sent(CustomerVerificationCode::class)
+            ->first(fn (CustomerVerificationCode $message) => $message->hasTo('shopper@example.com'));
+        $this->assertNotNull($mail);
+
+        $verificationResponse = $this->withHeaders([
+            'X-Tenant' => $tenant->id,
+            'Accept' => 'application/json',
+        ])->postJson('/v1/api/mobile/auth/verify-email', [
+            'email' => 'shopper@example.com',
+            'code' => $mail->code,
+        ]);
+
+        $verificationResponse->assertOk()
             ->assertJsonPath('data.expires_in', 3600)
             ->assertJsonPath('data.timeout', 3600)
             ->assertJsonPath('data.token_type', 'Bearer');
 
-        $initialAccessToken = $registerResponse->json('data.access_token');
-        $initialRefreshToken = $registerResponse->json('data.refresh_token');
+        $initialAccessToken = $verificationResponse->json('data.access_token');
+        $initialRefreshToken = $verificationResponse->json('data.refresh_token');
 
         $this->assertNotEmpty($initialAccessToken);
         $this->assertNotEmpty($initialRefreshToken);
@@ -277,6 +297,27 @@ class ApiRefreshTokenTest extends TestCase
         ])->postJson('/v1/api/mobile/auth/refresh', [
             'refresh_token' => $initialRefreshToken,
         ])->assertStatus(401);
+
+        // A refresh credential cannot read customer data, but the logout
+        // endpoint may use it to revoke the refresh credential itself.
+        $this->withHeaders([
+            'Authorization' => 'Bearer '.$newRefreshToken,
+            'X-Tenant' => $tenant->id,
+            'Accept' => 'application/json',
+        ])->getJson('/v1/api/mobile/auth/me')->assertUnauthorized();
+
+        $this->withHeaders([
+            'Authorization' => 'Bearer '.$newRefreshToken,
+            'X-Tenant' => $tenant->id,
+            'Accept' => 'application/json',
+        ])->postJson('/v1/api/mobile/auth/logout')->assertOk();
+
+        $this->withHeaders([
+            'X-Tenant' => $tenant->id,
+            'Accept' => 'application/json',
+        ])->postJson('/v1/api/mobile/auth/refresh', [
+            'refresh_token' => $newRefreshToken,
+        ])->assertUnauthorized();
     }
 
     protected function createTenant(string $id): Tenant

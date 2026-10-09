@@ -39,4 +39,9 @@ return [
         'access_token' => env('MAPBOX_ACCESS_TOKEN'),
     ],
 
+    'vision_embeddings' => [
+        'url' => env('VISION_EMBEDDING_SERVICE_URL', 'http://fastapi-app:8000/api/image-embeddings'),
+        'timeout' => (int) env('VISION_EMBEDDING_TIMEOUT', 45),
+    ],
+
 ];

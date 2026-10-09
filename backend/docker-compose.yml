@@ -69,24 +69,6 @@ services:
     networks:
       - app-network
 
-  caddy:
-    build:
-      context: ./caddy
-    container_name: vpos_caddy
-    restart: always
-    # Ubuntu production ingress. The router forwards public TCP 80/443 to
-    # this host, and Caddy terminates TLS before proxying to Nginx.
-    profiles: ["container-ingress"]
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - nginx
-    networks:
-      - app-network
 
   nextjs:
     image: node:24-alpine
@@ -126,12 +108,99 @@ services:
     networks:
       - app-network
 
+  prometheus:
+    image: prom/prometheus:v3.7.2
+    container_name: monitoring_prometheus
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    expose:
+      - "9090"
+    healthcheck:
+      test: ["CMD", "promtool", "check", "healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - app-network
+      - monitoring-network
+
+  pulse:
+    build:
+      context: ./php
+    container_name: monitoring_pulse
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    command: php artisan pulse:check
+    user: www-data
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+    networks:
+      - app-network
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    container_name: monitoring_node_exporter
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro,rslave
+    expose:
+      - "9100"
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - monitoring-network
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.55.1
+    container_name: monitoring_cadvisor
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    privileged: true
+    command:
+      - --docker_only=true
+      - --housekeeping_interval=15s
+      - --store_container_labels=false
+      - --whitelisted_container_labels=com.docker.compose.service,com.docker.compose.project
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /var/lib/containerd:/var/lib/containerd:ro
+      - /dev/disk:/dev/disk:ro
+    expose:
+      - "8080"
+    networks:
+      - monitoring-network
+
 volumes:
   next_node_modules:
   next_cache:
-  caddy_data:
-  caddy_config:
+  prometheus_data:
 
 networks:
   app-network:
     external: true
+  monitoring-network:
+    internal: true

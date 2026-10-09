@@ -81,6 +81,6 @@ class TenantRepository extends RepositoryBase
 
     private function makeTenantDomain(?string $alias): string
     {
-        return ($alias ?: 'tenant') . '.' . env('TENANT_HOST', 'vanna-pos.duckdns.org');
+        return ($alias ?: 'tenant') . '.' . config('tenancy.tenant_host', 'localhost');
     }
 }

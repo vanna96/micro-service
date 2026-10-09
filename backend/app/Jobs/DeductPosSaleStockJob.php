@@ -7,7 +7,7 @@ use App\Models\Item;
 use App\Models\ItemVariant;
 use App\Models\PosSale;
 use App\Models\PosSaleItem;
-use App\Models\Tenant;
+use App\Services\TenantJobContext;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -34,8 +34,8 @@ class DeductPosSaleStockJob implements ShouldQueue
     /**
      * Create a new job instance.
      *
-     * @param int|string $saleId ID of the PosSale
-     * @param string|null $tenantId Optional tenant ID
+     * @param  int|string  $saleId  ID of the PosSale
+     * @param  string|null  $tenantId  Optional tenant ID
      */
     public function __construct(
         public int|string $saleId,
@@ -49,15 +49,13 @@ class DeductPosSaleStockJob implements ShouldQueue
      */
     public function handle(): void
     {
-        try {
-            if ($this->tenantId && (! tenancy()->initialized || tenant('id') !== $this->tenantId)) {
-                $tenant = Tenant::find($this->tenantId);
-                if ($tenant) {
-                    tenancy()->initialize($tenant);
-                }
-            }
+        TenantJobContext::run($this->tenantId, fn () => $this->deductSaleStock());
+    }
 
-            $connectionName = tenant()?->database_connection_name ?? 'tenant';
+    protected function deductSaleStock(): void
+    {
+        try {
+            $connectionName = (new PosSale)->getConnectionName();
             $affectedItemIds = [];
             $clientToken = null;
 
@@ -70,6 +68,7 @@ class DeductPosSaleStockJob implements ShouldQueue
 
                 if (! $sale) {
                     Log::warning("[DeductPosSaleStockJob] PosSale #{$this->saleId} not found.");
+
                     return;
                 }
 
@@ -78,6 +77,7 @@ class DeductPosSaleStockJob implements ShouldQueue
                 // Idempotency check: if stock was already deducted for this sale, do not re-deduct.
                 if ($sale->stock_deducted_at !== null) {
                     Log::info("[DeductPosSaleStockJob] PosSale #{$this->saleId} stock already deducted at {$sale->stock_deducted_at}. Skipping.");
+
                     return;
                 }
 
@@ -102,11 +102,11 @@ class DeductPosSaleStockJob implements ShouldQueue
                         $this->tenantId
                     ));
                 } catch (Throwable $broadcastError) {
-                    Log::warning("[DeductPosSaleStockJob] Could not broadcast PosStockUpdatedEvent: " . $broadcastError->getMessage());
+                    Log::warning('[DeductPosSaleStockJob] Could not broadcast PosStockUpdatedEvent: '.$broadcastError->getMessage());
                 }
             }
         } catch (Throwable $e) {
-            Log::error("[DeductPosSaleStockJob] Failed to deduct stock for PosSale #{$this->saleId}: " . $e->getMessage(), [
+            Log::error("[DeductPosSaleStockJob] Failed to deduct stock for PosSale #{$this->saleId}: ".$e->getMessage(), [
                 'exception' => $e,
             ]);
 
@@ -172,6 +172,7 @@ class DeductPosSaleStockJob implements ShouldQueue
                     if ($optIds->isNotEmpty()) {
                         $variant = $itemVariants->first(function (ItemVariant $v) use ($optIds) {
                             $vIds = $v->optionValues->pluck('id')->map(fn ($id) => (int) $id);
+
                             return $vIds->isNotEmpty()
                                 && $vIds->count() === $optIds->count()
                                 && $optIds->diff($vIds)->isEmpty();
@@ -190,6 +191,7 @@ class DeductPosSaleStockJob implements ShouldQueue
                         if ($optNames->isNotEmpty()) {
                             $variant = $itemVariants->first(function (ItemVariant $v) use ($optNames) {
                                 $vNames = $v->optionValues->map(fn ($ov) => strtolower(trim((string) $ov->name)));
+
                                 return $vNames->isNotEmpty()
                                     && $vNames->count() === $optNames->count()
                                     && $optNames->diff($vNames)->isEmpty();

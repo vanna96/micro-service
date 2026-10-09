@@ -5,10 +5,19 @@ declare(strict_types=1);
 use Stancl\Tenancy\Database\Models\Domain;
 use Stancl\Tenancy\Database\Models\Tenant;
 
-$centralPortalHost = strtolower(trim((string) env('CENTRAL_PORTAL_HOST', 'localhost')));
+$appUrlHost = parse_url(trim((string) env('APP_URL', 'http://localhost')), PHP_URL_HOST);
+$centralPortalHost = strtolower(trim((string) env('CENTRAL_PORTAL_HOST', '')));
 
 if ($centralPortalHost === '') {
-    $centralPortalHost = 'localhost';
+    $centralPortalHost = is_string($appUrlHost) && $appUrlHost !== ''
+        ? strtolower($appUrlHost)
+        : 'localhost';
+}
+
+$tenantHost = strtolower(trim((string) env('TENANT_HOST', '')));
+
+if ($tenantHost === '') {
+    $tenantHost = $centralPortalHost;
 }
 
 return [
@@ -18,6 +27,8 @@ return [
     'domain_model' => Domain::class,
 
     'central_portal_host' => $centralPortalHost,
+
+    'tenant_host' => $tenantHost,
 
     /**
      * The list of domains hosting your central app.

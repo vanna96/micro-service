@@ -2,11 +2,18 @@
 
 namespace Tests\Unit;
 
+use App\Jobs\SendTelegramMessageJob;
+use App\Jobs\SendTelegramOrderNotificationJob;
+use App\Models\Address;
 use App\Models\PosSale;
 use App\Models\PosSaleItem;
 use App\Models\Tenant;
+use App\Models\User;
 use App\Services\TelegramNotificationService;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
@@ -18,23 +25,23 @@ class TelegramNotificationServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new TelegramNotificationService();
+        $this->service = new TelegramNotificationService;
     }
 
     public function test_is_enabled_respects_tenant_settings_and_fallback(): void
     {
-        $tenantWithEnabled = (new Tenant())->forceFill([
+        $tenantWithEnabled = (new Tenant)->forceFill([
             'general_settings' => ['telegram_notifications_enabled' => true],
         ]);
         $this->assertTrue($this->service->isEnabled($tenantWithEnabled));
 
-        $tenantWithDisabled = (new Tenant())->forceFill([
+        $tenantWithDisabled = (new Tenant)->forceFill([
             'general_settings' => ['telegram_notifications_enabled' => false],
         ]);
         $this->assertFalse($this->service->isEnabled($tenantWithDisabled));
 
         // Test fallback to config
-        $tenantWithoutSetting = (new Tenant())->forceFill(['general_settings' => []]);
+        $tenantWithoutSetting = (new Tenant)->forceFill(['general_settings' => []]);
         config(['telegram.enabled' => true]);
         $this->assertTrue($this->service->isEnabled($tenantWithoutSetting));
 
@@ -44,7 +51,7 @@ class TelegramNotificationServiceTest extends TestCase
 
     public function test_get_bot_token_and_chat_id_resolves_tenant_and_config(): void
     {
-        $tenant = (new Tenant())->forceFill([
+        $tenant = (new Tenant)->forceFill([
             'general_settings' => [
                 'telegram_bot_token' => 'tenant-bot-token-123',
                 'telegram_chat_id' => 'tenant-chat-id-456',
@@ -55,7 +62,7 @@ class TelegramNotificationServiceTest extends TestCase
         $this->assertSame('tenant-chat-id-456', $this->service->getChatId($tenant));
 
         // Fallback to global config when tenant has empty values
-        $tenantEmpty = (new Tenant())->forceFill(['general_settings' => []]);
+        $tenantEmpty = (new Tenant)->forceFill(['general_settings' => []]);
         config([
             'telegram.bot_token' => 'global-token-789',
             'telegram.chat_id' => 'global-chat-999',
@@ -119,7 +126,7 @@ class TelegramNotificationServiceTest extends TestCase
             'https://api.telegram.org/botSAMPLE_TOKEN/sendMessage' => Http::response(['ok' => true], 200),
         ]);
 
-        $tenant = (new Tenant())->forceFill([
+        $tenant = (new Tenant)->forceFill([
             'id' => 'sample-t',
             'general_settings' => [
                 'currency' => 'USD',
@@ -184,7 +191,7 @@ class TelegramNotificationServiceTest extends TestCase
             'https://api.telegram.org/botTEST_TOKEN/sendMessage' => Http::response(['ok' => true], 200),
         ]);
 
-        $tenant = (new Tenant())->forceFill([
+        $tenant = (new Tenant)->forceFill([
             'id' => 'tenant-1',
             'name' => 'Cafe Angkor',
             'general_settings' => [
@@ -223,7 +230,7 @@ class TelegramNotificationServiceTest extends TestCase
 
         $saleMock->forceFill($sale->getAttributes());
 
-        $hasManyMock = $this->getMockBuilder(\Illuminate\Database\Eloquent\Relations\HasMany::class)
+        $hasManyMock = $this->getMockBuilder(HasMany::class)
             ->disableOriginalConstructor()
             ->getMock();
 
@@ -235,6 +242,7 @@ class TelegramNotificationServiceTest extends TestCase
 
         Http::assertSent(function ($request) {
             $text = $request['text'];
+
             return str_contains($text, 'INV-2026-0001')
                 && str_contains($text, 'Iced Latte')
                 && str_contains($text, 'Total Paid:')
@@ -249,7 +257,7 @@ class TelegramNotificationServiceTest extends TestCase
             'https://api.telegram.org/botORDER_TOKEN/sendMessage' => Http::response(['ok' => true], 200),
         ]);
 
-        $tenant = (new Tenant())->forceFill([
+        $tenant = (new Tenant)->forceFill([
             'id' => 'tenant-1',
             'name' => 'Online Store',
             'general_settings' => [
@@ -259,7 +267,7 @@ class TelegramNotificationServiceTest extends TestCase
             ],
         ]);
 
-        $order = new \App\Models\Order([
+        $attributes = [
             'order_number' => 'ORD-999',
             'payment_method' => 'KHQR',
             'delivery_method' => 'Express Delivery',
@@ -268,32 +276,30 @@ class TelegramNotificationServiceTest extends TestCase
             'discount_total' => 5.00,
             'total' => 15.00,
             'note' => 'Please call upon arrival',
-        ]);
+        ];
 
-        $user = new \App\Models\User(['name' => 'Dara Meas']);
-        $order->setRelation('user', $user);
+        $user = new User(['name' => 'Dara Meas']);
 
-        $address = new \App\Models\Address([
+        $address = new Address([
             'address_line' => 'Street 2004',
             'city' => 'Phnom Penh',
         ]);
-        $order->setRelation('address', $address);
 
-        $item = new \App\Models\OrderItem([
+        $item = (object) [
             'name' => 'Burger Combo',
             'quantity' => 2,
             'line_total' => 15.00,
-        ]);
+        ];
 
-        $orderMock = $this->getMockBuilder(\App\Models\Order::class)
+        $orderMock = $this->getMockBuilder(TelegramOrderFixture::class)
             ->onlyMethods(['items'])
             ->getMock();
 
-        $orderMock->forceFill($order->getAttributes());
+        $orderMock->forceFill($attributes);
         $orderMock->setRelation('user', $user);
         $orderMock->setRelation('address', $address);
 
-        $hasManyMock = $this->getMockBuilder(\Illuminate\Database\Eloquent\Relations\HasMany::class)
+        $hasManyMock = $this->getMockBuilder(HasMany::class)
             ->disableOriginalConstructor()
             ->getMock();
 
@@ -305,6 +311,7 @@ class TelegramNotificationServiceTest extends TestCase
 
         Http::assertSent(function ($request) {
             $text = $request['text'];
+
             return str_contains($text, 'ORD-999')
                 && str_contains($text, 'Dara Meas')
                 && str_contains($text, 'Burger Combo')
@@ -316,33 +323,49 @@ class TelegramNotificationServiceTest extends TestCase
 
     public function test_job_handles_missing_model_and_invalid_type_safely(): void
     {
-        $job = new \App\Jobs\SendTelegramOrderNotificationJob('unknown_type', 99999);
-        $job->handle($this->service);
+        config(['database.default' => 'central', 'database.connections.central' => [
+            'driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '',
+        ]]);
+        DB::purge('central');
+        DB::connection('central')->getSchemaBuilder()->create('pos_sales', function ($table): void {
+            $table->id();
+        });
+        Http::preventStrayRequests();
+        Http::fake();
 
-        $jobPos = new \App\Jobs\SendTelegramOrderNotificationJob('pos_sale', 99999);
-        $jobPos->handle($this->service);
+        $telegram = $this->createMock(TelegramNotificationService::class);
+        $telegram->expects($this->once())->method('isEnabled')->willReturn(true);
+        $telegram->expects($this->never())->method('notifyPosSale');
+        (new SendTelegramOrderNotificationJob('pos_sale', 99999))->handle($telegram);
 
-        $jobOrder = new \App\Jobs\SendTelegramOrderNotificationJob('order', 99999);
-        $jobOrder->handle($this->service);
+        foreach (['unknown_type', 'order'] as $type) {
+            try {
+                (new SendTelegramOrderNotificationJob($type, 99999))->handle($telegram);
+                $this->fail('Unsupported notification types must be rejected.');
+            } catch (\InvalidArgumentException $exception) {
+                $this->assertSame('Unsupported Telegram notification type.', $exception->getMessage());
+            }
+        }
 
-        $this->assertTrue(true);
+        Http::assertNothingSent();
+        DB::purge('central');
     }
 
     public function test_is_error_log_enabled_respects_tenant_and_fallback(): void
     {
-        $tenantWithEnabled = (new Tenant())->forceFill([
+        $tenantWithEnabled = (new Tenant)->forceFill([
             'general_settings' => ['telegram_error_log_enabled' => true],
         ]);
         $this->assertTrue($this->service->isErrorLogEnabled($tenantWithEnabled));
 
-        $tenantWithDisabled = (new Tenant())->forceFill([
+        $tenantWithDisabled = (new Tenant)->forceFill([
             'general_settings' => ['telegram_error_log_enabled' => false],
         ]);
         $this->assertFalse($this->service->isErrorLogEnabled($tenantWithDisabled));
 
         // Fallback to config
         config(['telegram.error_log_enabled' => true]);
-        $tenantWithoutSetting = new Tenant();
+        $tenantWithoutSetting = new Tenant;
         $this->assertTrue($this->service->isErrorLogEnabled($tenantWithoutSetting));
 
         config(['telegram.error_log_enabled' => false]);
@@ -352,7 +375,7 @@ class TelegramNotificationServiceTest extends TestCase
     public function test_get_error_log_bot_token_and_chat_id_with_fallbacks(): void
     {
         // 1. Dedicated tenant error log credentials
-        $tenantDedicated = (new Tenant())->forceFill([
+        $tenantDedicated = (new Tenant)->forceFill([
             'general_settings' => [
                 'telegram_bot_token' => 'MAIN_BOT_TOKEN',
                 'telegram_chat_id' => 'MAIN_CHAT_ID',
@@ -364,7 +387,7 @@ class TelegramNotificationServiceTest extends TestCase
         $this->assertSame('ERROR_CHAT_ID', $this->service->getErrorLogChatId($tenantDedicated));
 
         // 2. Inherits from main tenant credentials if error log fields are blank
-        $tenantInherited = (new Tenant())->forceFill([
+        $tenantInherited = (new Tenant)->forceFill([
             'general_settings' => [
                 'telegram_bot_token' => 'MAIN_BOT_TOKEN',
                 'telegram_chat_id' => 'MAIN_CHAT_ID',
@@ -380,7 +403,7 @@ class TelegramNotificationServiceTest extends TestCase
             'telegram.error_log_bot_token' => 'CONFIG_ERR_TOKEN',
             'telegram.error_log_chat_id' => 'CONFIG_ERR_CHAT',
         ]);
-        $tenantEmpty = new Tenant();
+        $tenantEmpty = new Tenant;
         $this->assertSame('CONFIG_ERR_TOKEN', $this->service->getErrorLogBotToken($tenantEmpty));
         $this->assertSame('CONFIG_ERR_CHAT', $this->service->getErrorLogChatId($tenantEmpty));
     }
@@ -391,7 +414,7 @@ class TelegramNotificationServiceTest extends TestCase
             'https://api.telegram.org/botERROR_TOKEN/sendMessage' => Http::response(['ok' => true], 200),
         ]);
 
-        $tenant = (new Tenant())->forceFill([
+        $tenant = (new Tenant)->forceFill([
             'id' => 'tech-tenant',
             'general_settings' => [
                 'store_name' => 'Tech Store',
@@ -415,6 +438,7 @@ class TelegramNotificationServiceTest extends TestCase
 
         Http::assertSent(function ($request) {
             $text = $request['text'];
+
             return $request->url() === 'https://api.telegram.org/botERROR_TOKEN/sendMessage'
                 && $request['chat_id'] === '-100999888777'
                 && str_contains($text, '[CRITICAL] Laravel Error Alert')
@@ -449,7 +473,7 @@ class TelegramNotificationServiceTest extends TestCase
     {
         TelegramNotificationService::$isSendingErrorLog = true;
 
-        $tenant = (new Tenant())->forceFill([
+        $tenant = (new Tenant)->forceFill([
             'general_settings' => [
                 'telegram_error_log_bot_token' => 'TOKEN',
                 'telegram_error_log_chat_id' => 'CHAT',
@@ -472,7 +496,7 @@ class TelegramNotificationServiceTest extends TestCase
             'telegram.error_log_chat_id' => null,
         ]);
 
-        $tenant = (new Tenant())->forceFill([
+        $tenant = (new Tenant)->forceFill([
             'id' => 'db_tenant',
             'general_settings' => [
                 'telegram_notifications_enabled' => true,
@@ -497,7 +521,7 @@ class TelegramNotificationServiceTest extends TestCase
             'https://api.telegram.org/botJOB_TOKEN/sendMessage' => Http::response(['ok' => true], 200),
         ]);
 
-        $job = new \App\Jobs\SendTelegramMessageJob('<b>Job Message</b>', 'JOB_TOKEN', 'CHAT123');
+        $job = new SendTelegramMessageJob('<b>Job Message</b>', 'JOB_TOKEN', 'CHAT123');
         $job->handle($this->service);
 
         Http::assertSent(function ($request) {
@@ -506,4 +530,10 @@ class TelegramNotificationServiceTest extends TestCase
     }
 }
 
-
+class TelegramOrderFixture extends Model
+{
+    public function items(): HasMany
+    {
+        return $this->hasMany(PosSaleItem::class, 'pos_sale_id');
+    }
+}

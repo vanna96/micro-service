@@ -15,6 +15,7 @@ class Address extends Model
 
     protected $fillable = [
         'user_id',
+        'customer_id',
         'label',
         'recipient_name',
         'code',
@@ -29,6 +30,7 @@ class Address extends Model
 
     protected $casts = [
         'user_id' => 'integer',
+        'customer_id' => 'integer',
         'latitude' => 'float',
         'longitude' => 'float',
         'is_default' => 'boolean',
@@ -53,5 +55,10 @@ class Address extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
     }
 }

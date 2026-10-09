@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class TranslationController extends Controller
@@ -69,11 +70,35 @@ class TranslationController extends Controller
         $translations[trim($validated['key'])] = trim($validated['value']);
 
         $this->saveTranslations($translations);
-        Cache::flush();
+        $this->clearTranslationCache();
 
         return redirect()
             ->route('admin.translations.index')
             ->with('status', __('Translation saved successfully.'));
+    }
+
+    public function destroy(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'key' => ['required', 'string', 'max:1000'],
+        ]);
+
+        $translations = $this->loadTranslations();
+        $key = $validated['key'];
+
+        if (!array_key_exists($key, $translations)) {
+            throw ValidationException::withMessages([
+                'key' => __('Translation entry not found.'),
+            ]);
+        }
+
+        unset($translations[$key]);
+        $this->saveTranslations($translations);
+        $this->clearTranslationCache();
+
+        return redirect()
+            ->route('admin.translations.index')
+            ->with('status', __('Translation deleted successfully.'));
     }
 
     public function testTranslate(Request $request): JsonResponse
@@ -100,7 +125,7 @@ class TranslationController extends Controller
 
     public function clearCache(): RedirectResponse
     {
-        Cache::flush();
+        $this->clearTranslationCache();
 
         return redirect()
             ->route('admin.translations.index')
@@ -118,21 +143,42 @@ class TranslationController extends Controller
         return [];
     }
 
+    protected function clearTranslationCache(): void
+    {
+        Cache::store('translations')->flush();
+    }
+
     protected function saveTranslations(array $data): void
     {
         ksort($data);
-        $encoded = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
         try {
+            $encoded = json_encode((object) $data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+
             if (!is_dir(dirname($this->khJsonPath))) {
-                @mkdir(dirname($this->khJsonPath), 0775, true);
+                if (!mkdir(dirname($this->khJsonPath), 0775, true)) {
+                    throw new \RuntimeException('Unable to create the translation directory.');
+                }
             }
-            file_put_contents($this->khJsonPath, $encoded);
-            if (file_exists(dirname($this->kmJsonPath))) {
-                file_put_contents($this->kmJsonPath, $encoded);
+
+            // Check both locales before writing so a permissions error on km
+            // does not leave kh updated while the alias remains stale.
+            foreach ([$this->khJsonPath, $this->kmJsonPath] as $path) {
+                if (!is_writable(file_exists($path) ? $path : dirname($path))) {
+                    throw new \RuntimeException('Translation file is not writable: ' . $path);
+                }
+            }
+
+            foreach ([$this->khJsonPath, $this->kmJsonPath] as $path) {
+                if (file_put_contents($path, $encoded, LOCK_EX) === false) {
+                    throw new \RuntimeException('Unable to write translation file: ' . $path);
+                }
             }
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('Failed to save translations: ' . $e->getMessage());
+
+            throw ValidationException::withMessages([
+                'value' => __('Unable to save translations. Please try again or contact your administrator.'),
+            ]);
         }
     }
 }

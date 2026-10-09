@@ -62,6 +62,9 @@ class NextPortalAuthTest extends TestCase
 
     public function test_administrator_can_choose_only_an_assigned_tenant_and_redeem_once(): void
     {
+        $this->get('http://localhost/admin/login')->assertRedirect('/admin');
+        $this->get('http://localhost/admin/dashboard')->assertRedirect('/admin');
+        $this->get('http://localhost/admin/items')->assertRedirect('/admin');
         $user = $this->createUser();
         $assignedTenant = $this->createTenant('rechna', 'rechna.localhost');
         $unassignedTenant = $this->createTenant('other', 'other.localhost');
@@ -102,7 +105,7 @@ class NextPortalAuthTest extends TestCase
         $this->assertNotSame('', $ticket);
 
         $this->get('http://rechna.localhost/next/auth/tenant-handoff?ticket=' . urlencode($ticket))
-            ->assertRedirect('/');
+            ->assertRedirect('/admin');
 
         $this->getJson('http://rechna.localhost/next/auth/session')
             ->assertOk()
@@ -111,7 +114,7 @@ class NextPortalAuthTest extends TestCase
             ->assertJsonPath('data.tenant.domain', 'rechna.localhost');
 
         $this->get('http://rechna.localhost/next/auth/tenant-handoff?ticket=' . urlencode($ticket))
-            ->assertRedirect('http://localhost/');
+            ->assertRedirect('http://localhost/admin');
     }
 
     public function test_tenant_domain_has_no_portal_session_without_a_handoff(): void
@@ -127,7 +130,7 @@ class NextPortalAuthTest extends TestCase
         config()->set('tenancy.central_portal_host', 'vanna-pos.duckdns.org');
 
         $this->get('https://rechna.localhost/next/auth/tenant-handoff?ticket=invalid')
-            ->assertRedirect('https://vanna-pos.duckdns.org/');
+            ->assertRedirect('https://vanna-pos.duckdns.org/admin');
     }
 
     public function test_query_cache_invalidation_does_not_end_the_portal_session(): void

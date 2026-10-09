@@ -44,6 +44,12 @@ class Handler extends ExceptionHandler
     public function register()
     {
         $this->reportable(function (Throwable $e) {
+            try {
+                app(\App\Monitoring\Services\MetricsRepository::class)->recordException($e);
+            } catch (Throwable) {
+                // Monitoring is optional and must not interfere with reporting.
+            }
+
             \Sentry\Laravel\Integration::captureUnhandledException($e);
 
             try {

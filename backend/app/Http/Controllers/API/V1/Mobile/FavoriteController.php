@@ -17,8 +17,7 @@ class FavoriteController extends Controller
 
     public function index(Request $request)
     {
-        $centralUser = $this->currentCentralUser($request);
-        $this->ensureTenantAccess($centralUser);
+        $customer = $this->currentCustomer($request);
 
         $favorites = Favorite::query()
             ->with([
@@ -35,7 +34,7 @@ class FavoriteController extends Controller
                 'item.variants' => fn ($query) => $query->where('status', 'Active'),
                 'item.variants.optionValues',
             ])
-            ->where('user_id', $centralUser->id)
+            ->where('customer_id', $customer->id)
             ->latest('id')
             ->get();
 
@@ -53,15 +52,14 @@ class FavoriteController extends Controller
 
     public function toggle(Request $request)
     {
-        $centralUser = $this->currentCentralUser($request);
-        $this->ensureTenantAccess($centralUser);
+        $customer = $this->currentCustomer($request);
 
         $validated = $request->validate([
             'item_id' => ['required', 'integer', Rule::exists((new Item())->getTable(), 'id')],
         ]);
 
         $favorite = Favorite::query()
-            ->where('user_id', $centralUser->id)
+            ->where('customer_id', $customer->id)
             ->where('item_id', (int) $validated['item_id'])
             ->first();
 
@@ -79,7 +77,7 @@ class FavoriteController extends Controller
         }
 
         Favorite::query()->create([
-            'user_id' => $centralUser->id,
+            'customer_id' => $customer->id,
             'item_id' => (int) $validated['item_id'],
         ]);
 

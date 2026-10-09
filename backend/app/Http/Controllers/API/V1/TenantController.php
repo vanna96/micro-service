@@ -83,7 +83,7 @@ class TenantController extends Controller
             'db_connection' => $data['db_connection'],
             'db_port' => $data['db_port']
         ]);
-        $domainName = $request->filled('domain') ? strtolower(trim((string) $request->input('domain'))) : ($tenant->alias . '.' . env('TENANT_HOST', 'vanna-pos.duckdns.org'));
+        $domainName = $request->filled('domain') ? strtolower(trim((string) $request->input('domain'))) : ($tenant->alias . '.' . config('tenancy.tenant_host', 'localhost'));
         $tenant->domains()->create(['domain' => $domainName]);
 
         return response()->json([
@@ -129,9 +129,9 @@ class TenantController extends Controller
 
         $domain = $tenant->domains()->first();
         if ($domain) {
-            $domain->update(['domain' => $tenant->alias.'.'.env('TENANT_HOST', 'localhost')]);
+            $domain->update(['domain' => $tenant->alias.'.'.config('tenancy.tenant_host', 'localhost')]);
         } else {
-            $domainName = $request->filled('domain') ? strtolower(trim((string) $request->input('domain'))) : ($tenant->alias . '.' . env('TENANT_HOST', 'vanna-pos.duckdns.org'));
+            $domainName = $request->filled('domain') ? strtolower(trim((string) $request->input('domain'))) : ($tenant->alias . '.' . config('tenancy.tenant_host', 'localhost'));
         $tenant->domains()->create(['domain' => $domainName]);
         }
 

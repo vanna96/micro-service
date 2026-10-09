@@ -68,11 +68,11 @@ export function ModalDisplayPair({
   const protocol = typeof window !== "undefined" ? window.location.protocol : "http:";
 
   // Wi-Fi URL specifically for phone/tablet scanner
-  const wifiDisplayUrl = `${protocol}//${lanIp}${port}/pos/display?token=${encodeURIComponent(clientToken)}`;
+  const wifiDisplayUrl = `${protocol}//${lanIp}${port}/admin/display?token=${encodeURIComponent(clientToken)}`;
 
   // Local URL for clicking from this computer
   const localDisplayUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/pos/display?token=${encodeURIComponent(clientToken)}`
+    ? `${window.location.origin}/admin/display?token=${encodeURIComponent(clientToken)}`
     : wifiDisplayUrl;
 
   useEffect(() => {

@@ -121,7 +121,9 @@ class NotificationController extends Controller
                 $storeName = admin_tenant_display_name($t);
 
                 $recentSales = \App\Models\PosSale::query()
-                    ->latest('id')
+                    ->where('status', 'completed')
+                    ->orderByDesc('completed_at')
+                    ->orderByDesc('id')
                     ->take(50)
                     ->get();
 

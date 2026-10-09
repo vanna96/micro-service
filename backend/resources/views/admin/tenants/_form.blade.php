@@ -12,7 +12,9 @@
     ];
     $hasConfigurationErrors = collect($configurationFields)->contains(fn ($field) => $errors->has($field));
     $hasTelegramErrors = $errors->has('general_settings.telegram_bot_token') || $errors->has('general_settings.telegram_chat_id');
-    $activeTenantTab = $hasTelegramErrors ? 'telegram' : ($hasConfigurationErrors ? 'configuration' : 'general');
+    $hasMailErrors = collect($errors->keys())->contains(fn ($key) => str_starts_with($key, 'general_settings.mail_') || $key === 'recipient_email');
+    $hasSocialErrors = collect($errors->keys())->contains(fn ($key) => str_starts_with($key, 'general_settings.facebook_'));
+    $activeTenantTab = $hasSocialErrors ? 'social' : ($hasMailErrors ? 'mail' : ($hasTelegramErrors ? 'telegram' : ($hasConfigurationErrors ? 'configuration' : 'general')));
     $savedTenantDomain = $tenant->exists ? optional($tenant->domains->first())->domain : null;
 @endphp
 
@@ -29,6 +31,30 @@
                     aria-controls="tenant-general-pane"
                     aria-selected="{{ $activeTenantTab === 'general' ? 'true' : 'false' }}">
                     <i class="uil uil-setting me-1"></i>{{ __('General Setting') }}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button type="button"
+                    class="nav-link {{ $activeTenantTab === 'mail' ? 'active' : '' }}"
+                    id="tenant-mail-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#tenant-mail-pane"
+                    role="tab"
+                    aria-controls="tenant-mail-pane"
+                    aria-selected="{{ $activeTenantTab === 'mail' ? 'true' : 'false' }}">
+                    <i class="uil uil-envelope-alt me-1"></i>{{ __('Email Notification') }}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button type="button"
+                    class="nav-link {{ $activeTenantTab === 'social' ? 'active' : '' }}"
+                    id="tenant-social-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#tenant-social-pane"
+                    role="tab"
+                    aria-controls="tenant-social-pane"
+                    aria-selected="{{ $activeTenantTab === 'social' ? 'true' : 'false' }}">
+                    <i class="uil uil-facebook-f me-1"></i>{{ __('Social Login') }}
                 </button>
             </li>
             <li class="nav-item" role="presentation">
@@ -154,7 +180,7 @@
                         <input type="text" name="domain" id="tenant_domain_input"
                             value="{{ old('domain', $savedTenantDomain) }}"
                             class="form-control @error('domain') is-invalid @enderror"
-                            placeholder="{{ (old('alias', $tenant->alias) ?: 'store') . '.' . env('TENANT_HOST', 'vanna-pos.duckdns.org') }}">
+                            placeholder="{{ (old('alias', $tenant->alias) ?: 'store') . '.' . config('tenancy.tenant_host', 'localhost') }}">
                         <div class="form-text">{{ __('Public store domain or sub-subdomain (e.g. rechna.vanna-pos.duckdns.org). Leave empty to use alias with default host.') }}</div>
                         @error('domain')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
@@ -358,6 +384,351 @@
                 </fieldset>
             </div>
 
+            {{-- ========================================================================= --}}
+            {{-- TAB: EMAIL NOTIFICATION (DATABASE-BACKED MULTI-TENANT SMTP) --}}
+            {{-- ========================================================================= --}}
+            <div class="tab-pane fade {{ $activeTenantTab === 'mail' ? 'show active' : '' }}"
+                id="tenant-mail-pane"
+                role="tabpanel"
+                aria-labelledby="tenant-mail-tab"
+                tabindex="0">
+
+                <div class="d-flex align-items-center justify-content-between mb-4">
+                    <div>
+                        <h3 class="fw-bold mb-1 d-flex align-items-center gap-2">
+                            <i class="uil uil-envelope-alt text-primary fs-3"></i>
+                            {{ __('Email Notification') }}
+                        </h3>
+                        <p class="text-muted mb-0">{{ __('Configure custom outgoing mail server settings stored in database for this specific tenant instead of server .env.') }}</p>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-soft-primary text-primary fs-6 px-2 py-1">{{ __('Database Stored') }}</span>
+                    </div>
+                </div>
+
+                {{-- ========================================================================= --}}
+                {{-- LEGEND 1: SMTP OUTGOING SERVER CREDENTIALS --}}
+                {{-- ========================================================================= --}}
+                <fieldset class="border border-primary border-opacity-25 rounded-3 p-3 p-md-4 mb-4 bg-white shadow-sm">
+                    <legend class="float-none w-auto px-3 py-1 fs-6 fw-bold border border-primary border-opacity-25 rounded-pill bg-light text-primary shadow-xs d-flex align-items-center gap-2 mb-3">
+                        <i class="uil uil-server-network fs-5"></i>
+                        <span>{{ __('SMTP Outgoing Mail Settings (Database)') }}</span>
+                        <span class="badge bg-soft-primary text-primary fs-8 fw-semibold">{{ __('Per-Tenant Mailer') }}</span>
+                    </legend>
+
+                    <p class="text-muted small mb-3">
+                        {{ __('Customer OTP verification codes, order receipts, and notifications sent within this tenant scope will use these database settings instead of server .env.') }}
+                    </p>
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="form-check form-switch form-switch-md mb-1">
+                                <input class="form-check-input" type="checkbox" id="tenant_mail_notifications_enabled"
+                                    name="general_settings[mail_notifications_enabled]" value="1"
+                                    @checked(old('general_settings.mail_notifications_enabled', $generalSettings['mail_notifications_enabled'] ?? false))>
+                                <label class="form-check-label fw-semibold" for="tenant_mail_notifications_enabled">
+                                    {{ __('Enable Custom Email Configuration for this Tenant') }}
+                                </label>
+                            </div>
+                            <div class="text-muted small">
+                                {{ __('When active, customer registrations and OTP verification codes from Next.js web & mobile will send via this tenant’s dedicated mail credentials.') }}
+                            </div>
+                        </div>
+
+                        {{-- MAIL_MAILER --}}
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold" for="tenant_mail_mailer">
+                                {{ __('MAIL_MAILER (Mailer Driver)') }}
+                            </label>
+                            <select id="tenant_mail_mailer" name="general_settings[mail_mailer]"
+                                class="form-select @error('general_settings.mail_mailer') is-invalid @enderror">
+                                <option value="smtp" @selected(old('general_settings.mail_mailer', $generalSettings['mail_mailer'] ?? 'smtp') === 'smtp')>SMTP (Recommended)</option>
+                                <option value="sendmail" @selected(old('general_settings.mail_mailer', $generalSettings['mail_mailer'] ?? '') === 'sendmail')>Sendmail</option>
+                                <option value="log" @selected(old('general_settings.mail_mailer', $generalSettings['mail_mailer'] ?? '') === 'log')>Log (Testing / Debug)</option>
+                            </select>
+                            <div class="form-text">{{ __('Default is smtp.') }}</div>
+                            @error('general_settings.mail_mailer')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+
+                        {{-- MAIL_HOST --}}
+                        <div class="col-md-5">
+                            <label class="form-label fw-semibold" for="tenant_mail_host">
+                                {{ __('MAIL_HOST (SMTP Host)') }}
+                            </label>
+                            <input type="text" id="tenant_mail_host" name="general_settings[mail_host]"
+                                value="{{ old('general_settings.mail_host', $generalSettings['mail_host'] ?? '') }}"
+                                class="form-control font-monospace @error('general_settings.mail_host') is-invalid @enderror"
+                                placeholder="mailpit or smtp.gmail.com">
+                            <div class="form-text">{{ __('SMTP server hostname (e.g. mailpit, smtp.gmail.com, smtp.mailgun.org).') }}</div>
+                            @error('general_settings.mail_host')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+
+                        {{-- MAIL_PORT --}}
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold" for="tenant_mail_port">
+                                {{ __('MAIL_PORT') }}
+                            </label>
+                            <input type="number" id="tenant_mail_port" name="general_settings[mail_port]"
+                                value="{{ old('general_settings.mail_port', $generalSettings['mail_port'] ?? 1025) }}"
+                                class="form-control font-monospace @error('general_settings.mail_port') is-invalid @enderror"
+                                placeholder="1025 or 587">
+                            <div class="form-text">{{ __('Port number (1025 for Mailpit, 587 for TLS, 465 for SSL).') }}</div>
+                            @error('general_settings.mail_port')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+
+                        {{-- MAIL_USERNAME --}}
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold" for="tenant_mail_username">
+                                {{ __('MAIL_USERNAME') }}
+                            </label>
+                            <input type="text" id="tenant_mail_username" name="general_settings[mail_username]"
+                                value="{{ old('general_settings.mail_username', $generalSettings['mail_username'] ?? '') }}"
+                                class="form-control font-monospace @error('general_settings.mail_username') is-invalid @enderror"
+                                placeholder="null or username@example.com">
+                            <div class="form-text">{{ __('Leave blank or null if your SMTP server does not require authentication.') }}</div>
+                            @error('general_settings.mail_username')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+
+                        {{-- MAIL_PASSWORD --}}
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold" for="tenant_mail_password">
+                                {{ __('MAIL_PASSWORD') }}
+                            </label>
+                            <div class="input-group">
+                                <input type="password" id="tenant_mail_password" name="general_settings[mail_password]"
+                                    value="{{ old('general_settings.mail_password', $generalSettings['mail_password'] ?? '') }}"
+                                    class="form-control font-monospace @error('general_settings.mail_password') is-invalid @enderror"
+                                    placeholder="••••••••">
+                                <button class="btn btn-outline-secondary" type="button" id="btn-toggle-mail-password" title="Show/Hide Password">
+                                    <i class="uil uil-eye"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">{{ __('SMTP account password or app password.') }}</div>
+                            @error('general_settings.mail_password')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+
+                        {{-- MAIL_ENCRYPTION --}}
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold" for="tenant_mail_encryption">
+                                {{ __('MAIL_ENCRYPTION') }}
+                            </label>
+                            <select id="tenant_mail_encryption" name="general_settings[mail_encryption]"
+                                class="form-select @error('general_settings.mail_encryption') is-invalid @enderror">
+                                <option value="null" @selected(old('general_settings.mail_encryption', $generalSettings['mail_encryption'] ?? 'null') === 'null')>None / null (Mailpit / Port 1025 / Port 25)</option>
+                                <option value="tls" @selected(old('general_settings.mail_encryption', $generalSettings['mail_encryption'] ?? '') === 'tls')>TLS / STARTTLS (Port 587)</option>
+                                <option value="ssl" @selected(old('general_settings.mail_encryption', $generalSettings['mail_encryption'] ?? '') === 'ssl')>SSL / SMTPS (Port 465)</option>
+                            </select>
+                            <div class="form-text">{{ __('Encryption type (null for Mailpit, TLS for port 587).') }}</div>
+                            @error('general_settings.mail_encryption')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+
+                        {{-- MAIL_FROM_ADDRESS --}}
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" for="tenant_mail_from_address">
+                                {{ __('MAIL_FROM_ADDRESS (Sender Email)') }}
+                            </label>
+                            <input type="email" id="tenant_mail_from_address" name="general_settings[mail_from_address]"
+                                value="{{ old('general_settings.mail_from_address', $generalSettings['mail_from_address'] ?? ($generalSettings['contact_email'] ?? 'hello@example.com')) }}"
+                                class="form-control font-monospace @error('general_settings.mail_from_address') is-invalid @enderror"
+                                placeholder="hello@example.com">
+                            <div class="form-text">{{ __('Address shown in customer inboxes as the sender.') }}</div>
+                            @error('general_settings.mail_from_address')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+
+                        {{-- MAIL_FROM_NAME --}}
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" for="tenant_mail_from_name">
+                                {{ __('MAIL_FROM_NAME (Sender Name)') }}
+                            </label>
+                            <input type="text" id="tenant_mail_from_name" name="general_settings[mail_from_name]"
+                                value="{{ old('general_settings.mail_from_name', $generalSettings['mail_from_name'] ?? ($generalSettings['store_name'] ?? $tenant->alias)) }}"
+                                class="form-control @error('general_settings.mail_from_name') is-invalid @enderror"
+                                placeholder="Rechna Store">
+                            <div class="form-text">{{ __('Display name for outgoing emails (e.g. Rechna Store).') }}</div>
+                            @error('general_settings.mail_from_name')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                    </div>
+                </fieldset>
+
+                {{-- ========================================================================= --}}
+                {{-- LEGEND 2: AUTOMATED EMAIL TRIGGERS --}}
+                {{-- ========================================================================= --}}
+                <fieldset class="border border-info border-opacity-25 rounded-3 p-3 p-md-4 mb-4 bg-white shadow-sm">
+                    <legend class="float-none w-auto px-3 py-1 fs-6 fw-bold border border-info border-opacity-25 rounded-pill bg-soft-info text-info shadow-xs d-flex align-items-center gap-2 mb-3">
+                        <i class="uil uil-envelope-check fs-5"></i>
+                        <span>{{ __('Automated Email Notifications') }}</span>
+                        <span class="badge bg-info text-white fs-8 fw-semibold">{{ __('Customer Triggers') }}</span>
+                    </legend>
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="form-check form-switch form-switch-md mb-1">
+                                <input class="form-check-input" type="checkbox" id="tenant_mail_order_notifications_enabled"
+                                    name="general_settings[mail_order_notifications_enabled]" value="1"
+                                    @checked(old('general_settings.mail_order_notifications_enabled', $generalSettings['mail_order_notifications_enabled'] ?? false))>
+                                <label class="form-check-label fw-semibold" for="tenant_mail_order_notifications_enabled">
+                                    {{ __('Send Customer Order & POS Sale Receipts via Email') }}
+                                </label>
+                            </div>
+                            <div class="text-muted small mb-2">
+                                {{ __('When enabled, completed orders and sales send an email receipt to the customer.') }}
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+
+                {{-- ========================================================================= --}}
+                {{-- LIVE SMTP TEST SECTION --}}
+                {{-- ========================================================================= --}}
+                <fieldset class="border border-secondary border-opacity-25 rounded-3 p-3 p-md-4 mb-3 bg-white shadow-sm">
+                    <legend class="float-none w-auto px-3 py-1 fs-6 fw-bold border border-secondary border-opacity-25 rounded-pill bg-light text-dark shadow-xs d-flex align-items-center gap-2 mb-3">
+                        <i class="uil uil-envelope-send fs-5 text-primary"></i>
+                        <span>{{ __('Test Email Delivery (Live SMTP Test)') }}</span>
+                    </legend>
+
+                    <p class="text-muted small mb-3">
+                        {{ __('Send an immediate test email to verify your database SMTP configuration before saving or during diagnostics.') }}
+                    </p>
+
+                    <div class="row g-3 align-items-center">
+                        <div class="col-md-7">
+                            <label class="form-label fw-semibold" for="tenant_test_mail_recipient">{{ __('Recipient Test Email') }}</label>
+                            <input type="email" id="tenant_test_mail_recipient" class="form-control font-monospace"
+                                placeholder="your-email@example.com"
+                                value="{{ auth()->user()?->email ?? ($generalSettings['contact_email'] ?? '') }}">
+                            <div class="form-text">{{ __('Email address where the test verification email will be delivered.') }}</div>
+                        </div>
+
+                        <div class="col-md-5 d-flex align-items-end pt-md-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="button" id="tenant-btn-test-mail" class="btn btn-primary px-3">
+                                    <i class="uil uil-envelope-send me-1"></i> {{ __('Send Real Test Email') }}
+                                </button>
+                                <span id="tenant-mail-test-spinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"></span>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div id="tenant-mail-test-alert" class="d-none alert alert-sm py-2 px-3 mt-1 mb-0" role="alert">
+                                <span id="tenant-mail-test-message"></span>
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+            </div>
+
+            <div class="tab-pane fade {{ $activeTenantTab === 'social' ? 'show active' : '' }}"
+                id="tenant-social-pane"
+                role="tabpanel"
+                aria-labelledby="tenant-social-tab"
+                tabindex="0">
+                <div class="mb-4">
+                    <h3 class="fw-bold mb-1 d-flex align-items-center gap-2">
+                        <i class="uil uil-facebook-f text-primary fs-3"></i>
+                        {{ __('Facebook Login') }}
+                    </h3>
+                    <p class="text-muted mb-0">{{ __('Use a separate Facebook application for this tenant. Credentials are stored in the tenant settings database and are never sent to the storefront browser.') }}</p>
+                </div>
+
+                <fieldset class="border border-primary border-opacity-25 rounded-3 p-3 p-md-4 mb-4 bg-white shadow-sm">
+                    <legend class="float-none w-auto px-3 py-1 fs-6 fw-bold border border-primary border-opacity-25 rounded-pill bg-light text-primary">
+                        {{ __('Facebook OAuth Configuration') }}
+                    </legend>
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="form-check form-switch form-switch-md">
+                                <input class="form-check-input" type="checkbox" id="tenant_facebook_login_enabled"
+                                    name="general_settings[facebook_login_enabled]" value="1"
+                                    @checked(old('general_settings.facebook_login_enabled', $generalSettings['facebook_login_enabled'] ?? false))>
+                                <label class="form-check-label fw-semibold" for="tenant_facebook_login_enabled">
+                                    {{ __('Enable Facebook Login for this Tenant') }}
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" for="tenant_facebook_app_id">{{ __('Facebook App ID') }}</label>
+                            <input type="text" id="tenant_facebook_app_id" name="general_settings[facebook_app_id]"
+                                value="{{ old('general_settings.facebook_app_id', $generalSettings['facebook_app_id'] ?? '') }}"
+                                class="form-control font-monospace @error('general_settings.facebook_app_id') is-invalid @enderror"
+                                autocomplete="off">
+                            @error('general_settings.facebook_app_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" for="tenant_facebook_app_secret">{{ __('Facebook App Secret') }}</label>
+                            <input type="password" id="tenant_facebook_app_secret" name="general_settings[facebook_app_secret]"
+                                value="" class="form-control font-monospace @error('general_settings.facebook_app_secret') is-invalid @enderror"
+                                placeholder="{{ ! empty($generalSettings['facebook_app_secret']) ? __('Saved — leave blank to keep current secret') : '' }}"
+                                autocomplete="new-password">
+                            @error('general_settings.facebook_app_secret')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold" for="tenant_facebook_graph_version">{{ __('Graph API Version') }}</label>
+                            <input type="text" id="tenant_facebook_graph_version" name="general_settings[facebook_graph_version]"
+                                value="{{ old('general_settings.facebook_graph_version', $generalSettings['facebook_graph_version'] ?? 'v24.0') }}"
+                                class="form-control font-monospace @error('general_settings.facebook_graph_version') is-invalid @enderror"
+                                placeholder="v24.0">
+                            @error('general_settings.facebook_graph_version')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">{{ __('Valid OAuth Redirect URI') }}</label>
+                            <input type="text" readonly class="form-control font-monospace bg-light"
+                                value="{{ $savedTenantDomain ? 'https://'.$savedTenantDomain.'/api/shop/auth/facebook/callback' : __('Save the tenant domain to generate the callback URL') }}">
+                            <div class="form-text">{{ __('Copy this exact URL into Facebook Login → Settings → Valid OAuth Redirect URIs.') }}</div>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="border border-danger border-opacity-25 rounded-3 p-3 p-md-4 mb-4 bg-white shadow-sm">
+                    <legend class="float-none w-auto px-3 py-1 fs-6 fw-bold border border-danger border-opacity-25 rounded-pill bg-light text-danger">
+                        {{ __('Google OAuth Configuration') }}
+                    </legend>
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="form-check form-switch form-switch-md">
+                                <input class="form-check-input" type="checkbox" id="tenant_google_login_enabled"
+                                    name="general_settings[google_login_enabled]" value="1"
+                                    @checked(old('general_settings.google_login_enabled', $generalSettings['google_login_enabled'] ?? false))>
+                                <label class="form-check-label fw-semibold" for="tenant_google_login_enabled">
+                                    {{ __('Enable Google Login for this Tenant') }}
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" for="tenant_google_client_id">{{ __('Google Client ID') }}</label>
+                            <input type="text" id="tenant_google_client_id" name="general_settings[google_client_id]"
+                                value="{{ old('general_settings.google_client_id', $generalSettings['google_client_id'] ?? '') }}"
+                                class="form-control font-monospace @error('general_settings.google_client_id') is-invalid @enderror"
+                                autocomplete="off">
+                            @error('general_settings.google_client_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" for="tenant_google_client_secret">{{ __('Google Client Secret') }}</label>
+                            <input type="password" id="tenant_google_client_secret" name="general_settings[google_client_secret]"
+                                value="" class="form-control font-monospace @error('general_settings.google_client_secret') is-invalid @enderror"
+                                placeholder="{{ ! empty($generalSettings['google_client_secret']) ? __('Saved — leave blank to keep current secret') : '' }}"
+                                autocomplete="new-password">
+                            @error('general_settings.google_client_secret')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label fw-semibold">{{ __('Authorized redirect URI') }}</label>
+                            <input type="text" readonly class="form-control font-monospace bg-light"
+                                value="{{ $savedTenantDomain ? 'https://'.$savedTenantDomain.'/api/shop/auth/google/callback' : __('Save the tenant domain to generate the callback URL') }}">
+                            <div class="form-text">{{ __('Copy this exact URL into Google Cloud Console → Credentials → Authorized redirect URIs.') }}</div>
+                        </div>
+                    </div>
+                </fieldset>
+            </div>
+
             <div class="tab-pane fade {{ $activeTenantTab === 'configuration' ? 'show active' : '' }}"
                 id="tenant-configuration-pane"
                 role="tabpanel"
@@ -553,6 +924,82 @@
 
     $('#tenant-btn-test-error-ping').on('click', function () {
         runTenantTelegramErrorTest('error_ping', $(this));
+    });
+
+    // Toggle Mail Password Visibility
+    $('#btn-toggle-mail-password').on('click', function () {
+        var $input = $('#tenant_mail_password');
+        var $icon = $(this).find('i');
+        if ($input.attr('type') === 'password') {
+            $input.attr('type', 'text');
+            $icon.removeClass('uil-eye').addClass('uil-eye-slash');
+        } else {
+            $input.attr('type', 'password');
+            $icon.removeClass('uil-eye-slash').addClass('uil-eye');
+        }
+    });
+
+    // Test Mail Delivery via AJAX
+    function runTenantMailTest($btn) {
+        var recipient = ($('#tenant_test_mail_recipient').val() || '').trim();
+        var $spinner = $('#tenant-mail-test-spinner');
+        var $alert = $('#tenant-mail-test-alert');
+        var $message = $('#tenant-mail-test-message');
+
+        if (!recipient) {
+            $alert.removeClass('d-none alert-success').addClass('alert-danger');
+            $message.html('<strong>✕ Error:</strong> Please enter a recipient email address to send a test message.');
+            $('#tenant_test_mail_recipient').focus();
+            return;
+        }
+
+        $btn.prop('disabled', true);
+        $spinner.removeClass('d-none');
+        $alert.addClass('d-none').removeClass('alert-success alert-danger');
+
+        $.ajax({
+            url: "{{ route('admin.tenants.test-mail') }}",
+            method: "POST",
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+                'Accept': 'application/json'
+            },
+            data: {
+                tenant_id: "{{ $tenant->id ?? '' }}",
+                recipient_email: recipient,
+                mail_mailer: $('#tenant_mail_mailer').val(),
+                mail_host: $('#tenant_mail_host').val(),
+                mail_port: $('#tenant_mail_port').val(),
+                mail_encryption: $('#tenant_mail_encryption').val(),
+                mail_username: $('#tenant_mail_username').val(),
+                mail_password: $('#tenant_mail_password').val(),
+                mail_from_address: $('#tenant_mail_from_address').val(),
+                mail_from_name: $('#tenant_mail_from_name').val()
+            },
+            success: function (response) {
+                $btn.prop('disabled', false);
+                $spinner.addClass('d-none');
+                $alert.removeClass('d-none alert-danger').addClass('alert-success');
+                $message.html('<strong>✓ Success!</strong> ' + (response.message || 'Test email delivered successfully!'));
+            },
+            error: function (xhr) {
+                $btn.prop('disabled', false);
+                $spinner.addClass('d-none');
+                var errorMsg = 'Failed to connect to SMTP server.';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMsg = xhr.responseJSON.message;
+                } else if (xhr.responseJSON && xhr.responseJSON.errors) {
+                    var firstKey = Object.keys(xhr.responseJSON.errors)[0];
+                    errorMsg = xhr.responseJSON.errors[firstKey][0];
+                }
+                $alert.removeClass('d-none alert-success').addClass('alert-danger');
+                $message.html('<strong>✕ Error:</strong> ' + errorMsg);
+            }
+        });
+    }
+
+    $('#tenant-btn-test-mail').on('click', function () {
+        runTenantMailTest($(this));
     });
 })(jQuery);
 </script>

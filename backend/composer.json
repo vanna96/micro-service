@@ -5,37 +5,67 @@
     "keywords": ["framework", "laravel"],
     "license": "MIT",
     "require": {
-        "php": "^8.0.2",
-        "guzzlehttp/guzzle": "^7.2",
-        "laravel/framework": "^9.19",
-        "laravel/sanctum": "^3.0",
+        "php": "^8.2",
+        "guzzlehttp/guzzle": "^7.15.2",
+        "laravel/framework": "^12.69.3",
+        "laravel/pulse": "^1.8",
+        "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.7",
         "laravel/ui": "^4.6",
-        "league/flysystem-aws-s3-v3": "^3.0",
+        "league/flysystem-aws-s3-v3": "^3.35.3",
         "phpoffice/phpspreadsheet": "^1.30",
-        "propaganistas/laravel-phone": "^5.1",
+        "propaganistas/laravel-phone": "^6.1",
         "pusher/pusher-php-server": "^7.3",
-        "rennokki/laravel-eloquent-query-cache": "^3.4",
+        "rennokki/laravel-eloquent-query-cache": "^3.6",
         "rinvex/laravel-repositories": "dev-master",
-        "sentry/sentry-laravel": "^4.27",
-        "spatie/laravel-activitylog": "^4.7.3",
-        "stancl/tenancy": "^3.8"
+        "sentry/sentry-laravel": "^4.28",
+        "spatie/laravel-activitylog": "^4.12",
+        "stancl/tenancy": "^3.10"
     },
     "require-dev": {
-        "barryvdh/laravel-debugbar": "^3.14",
+        "barryvdh/laravel-debugbar": "^4.4",
         "fakerphp/faker": "^1.9.1",
         "laravel/pint": "^1.0",
         "laravel/sail": "^1.0.1",
-        "laravel/telescope": "^5.19",
+        "laravel/telescope": "^5.25",
         "mockery/mockery": "^1.4.4",
-        "nunomaduro/collision": "^6.1",
-        "phpunit/phpunit": "^9.5.10",
-        "spatie/laravel-ignition": "^1.0"
+        "nunomaduro/collision": "^8.9",
+        "phpunit/phpunit": "^11.5.50",
+        "spatie/laravel-ignition": "^2.12"
     },
     "repositories": [
         {
-            "type": "vcs",
-            "url": "https://github.com/poungsovanna/laravel-repositories.git"
+            "type": "package",
+            "canonical": true,
+            "package": {
+                "name": "rinvex/laravel-repositories",
+                "version": "dev-master",
+                "dist": {
+                    "type": "zip",
+                    "url": "https://api.github.com/repos/poungsovanna/laravel-repositories/zipball/ff3f763136e32b5d54df16bc3f43b31cdea83613",
+                    "reference": "ff3f763136e32b5d54df16bc3f43b31cdea83613"
+                },
+                "require": {
+                    "php": "^8.2",
+                    "illuminate/container": "^12.0",
+                    "illuminate/contracts": "^12.0",
+                    "illuminate/database": "^12.0",
+                    "illuminate/events": "^12.0",
+                    "illuminate/support": "^12.0"
+                },
+                "autoload": {
+                    "psr-4": {
+                        "Rinvex\\Repository\\": "src/"
+                    }
+                },
+                "extra": {
+                    "laravel": {
+                        "providers": [
+                            "Rinvex\\Repository\\Providers\\RepositoryServiceProvider"
+                        ]
+                    }
+                }
+            }
         }
     ],
     "autoload": {

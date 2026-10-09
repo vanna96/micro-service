@@ -7,6 +7,8 @@ interface PosCatalogToolbarProps {
   stockFilter: string;
   onStockFilterChange: (filter: string) => void;
   onOpenScanModal: () => void;
+  onImageSearch?: (file: File) => void;
+  isImageSearching?: boolean;
 }
 
 export function PosCatalogToolbar({
@@ -15,10 +17,13 @@ export function PosCatalogToolbar({
   stockFilter,
   onStockFilterChange,
   onOpenScanModal,
+  onImageSearch,
+  isImageSearching,
 }: PosCatalogToolbarProps) {
   const { t } = useTranslation();
   const [inputValue, setInputValue] = useState(searchQuery);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Sync internal input value when external searchQuery changes (e.g. reset/cleared)
   useEffect(() => {
@@ -159,6 +164,37 @@ export function PosCatalogToolbar({
             >
               <i className="ri-qr-scan-2-line fs-14"></i>
               <span className="fs-12">{t("scan")}</span>
+            </button>
+
+            {/* Image Search Button */}
+            <input
+              type="file"
+              accept="image/*"
+              className="d-none"
+              ref={fileInputRef}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file && onImageSearch) {
+                  onImageSearch(file);
+                }
+                if (e.target) {
+                  e.target.value = "";
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary rounded-2 px-2.5 py-1 d-flex align-items-center gap-1 ms-1"
+              onClick={() => fileInputRef.current?.click()}
+              title="Search by Image"
+              disabled={isImageSearching}
+            >
+              {isImageSearching ? (
+                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+              ) : (
+                <i className="ri-image-add-line fs-14"></i>
+              )}
+              <span className="fs-12">Visual Search</span>
             </button>
           </div>
         </div>

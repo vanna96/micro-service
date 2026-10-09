@@ -193,6 +193,7 @@ return [
         App\Providers\AuthServiceProvider::class,
         App\Providers\BroadcastServiceProvider::class,
         App\Providers\EventServiceProvider::class,
+        App\Providers\MonitoringServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
         env('TELESCOPE_ENABLED', true) ? App\Providers\TelescopeServiceProvider::class : null,
 

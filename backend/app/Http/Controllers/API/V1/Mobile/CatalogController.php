@@ -115,7 +115,12 @@ class CatalogController extends Controller
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($innerQuery) use ($search) {
                     $innerQuery->where('name', 'like', "%{$search}%")
-                        ->orWhere('foreign_name', 'like', "%{$search}%");
+                        ->orWhere('foreign_name', 'like', "%{$search}%")
+                        ->orWhereHas('items', function ($itemQuery) use ($search) {
+                            $itemQuery->where('name', 'like', "%{$search}%")
+                                ->orWhere('foreign_name', 'like', "%{$search}%")
+                                ->orWhere('sku', 'like', "%{$search}%");
+                        });
                 });
             })
             ->orderByDesc('id')

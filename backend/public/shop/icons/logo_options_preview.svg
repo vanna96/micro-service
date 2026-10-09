@@ -1,0 +1,148 @@
+<svg width="1200" height="820" viewBox="0 0 1200 820" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="820" fill="#EEF5ED"/>
+  <text x="70" y="88" fill="#213A2D" font-size="36" font-family="Arial, sans-serif" font-weight="700">Grocery Logo Concepts</text>
+  <text x="70" y="122" fill="#5B6B61" font-size="18" font-family="Arial, sans-serif">Choose any option number and I will apply that logo to the app.</text>
+
+  <g transform="translate(60 170)">
+    <rect width="190" height="260" rx="28" fill="white"/>
+    <rect x="35" y="24" width="120" height="120" rx="28" fill="#F5FAF3"/>
+    <path d="M78 67C78 57.6112 85.6112 50 95 50C104.389 50 112 57.6112 112 67" stroke="#F39A3E" stroke-width="7" stroke-linecap="round"/>
+    <path d="M66 72C66 68.6863 68.6863 66 72 66H118C121.314 66 124 68.6863 124 72V91C124 106.464 111.464 119 96 119H94C78.536 119 66 106.464 66 91V72Z" fill="#53B175"/>
+    <path d="M95 78C85.948 78 80 84.6097 80 93.0986C80 101.571 86.8472 107.203 95 110C103.153 107.203 110 101.571 110 93.0986C110 84.6097 104.052 78 95 78Z" fill="white"/>
+    <path d="M94.6 85C94.6 91.6 91.9 97.1 86.8 101" stroke="#53B175" stroke-width="3" stroke-linecap="round"/>
+    <text x="28" y="182" fill="#213A2D" font-size="22" font-family="Arial, sans-serif" font-weight="700">01</text>
+    <text x="28" y="214" fill="#213A2D" font-size="20" font-family="Arial, sans-serif" font-weight="700">Fresh Bag</text>
+    <text x="28" y="242" fill="#5B6B61" font-size="16" font-family="Arial, sans-serif">Simple bag + leaf.</text>
+  </g>
+
+  <g transform="translate(285 170)">
+    <rect width="190" height="260" rx="28" fill="white"/>
+    <rect x="35" y="24" width="120" height="120" rx="28" fill="#FFF8F1"/>
+    <path d="M73 71H117L112.5 103C111.5 109.8 105.6 115 98.7 115H91.3C84.4 115 78.5 109.8 77.5 103L73 71Z" fill="#53B175"/>
+    <path d="M80 71C80 63.268 86.268 57 94 57H96C103.732 57 110 63.268 110 71" stroke="#213A2D" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="84" cy="81" r="5" fill="#F39A3E"/>
+    <circle cx="95" cy="77" r="5" fill="white"/>
+    <circle cx="106" cy="82" r="5" fill="#F39A3E"/>
+    <path d="M92 91C92 85.4772 96.4772 81 102 81C102 86.5228 97.5228 91 92 91Z" fill="white"/>
+    <path d="M102 81C107.523 81 112 85.4772 112 91C106.477 91 102 86.5228 102 81Z" fill="#DDEED9"/>
+    <text x="28" y="182" fill="#213A2D" font-size="22" font-family="Arial, sans-serif" font-weight="700">02</text>
+    <text x="28" y="214" fill="#213A2D" font-size="20" font-family="Arial, sans-serif" font-weight="700">Basket</text>
+    <text x="28" y="242" fill="#5B6B61" font-size="16" font-family="Arial, sans-serif">Feels local and friendly.</text>
+  </g>
+
+  <g transform="translate(510 170)">
+    <rect width="190" height="260" rx="28" fill="white"/>
+    <rect x="35" y="24" width="120" height="120" rx="28" fill="#F4FBF7"/>
+    <path d="M95 44C77.8792 44 64 57.8792 64 75C64 96 95 124 95 124C95 124 126 96 126 75C126 57.8792 112.121 44 95 44Z" fill="#53B175"/>
+    <path d="M82 73.5C82 67.701 86.701 63 92.5 63H97.5C103.299 63 108 67.701 108 73.5" stroke="white" stroke-width="5.5" stroke-linecap="round"/>
+    <path d="M78 78.5C78 76.0147 80.0147 74 82.5 74H107.5C109.985 74 112 76.0147 112 78.5V87C112 96.3888 104.389 104 95 104C85.6112 104 78 96.3888 78 87V78.5Z" fill="white"/>
+    <path d="M94.8 81.8C89.251 81.8 85.6 85.8471 85.6 91.0443C85.6 96.2314 89.8071 99.679 94.8 101.4C99.7929 99.679 104 96.2314 104 91.0443C104 85.8471 100.349 81.8 94.8 81.8Z" fill="#53B175"/>
+    <text x="28" y="182" fill="#213A2D" font-size="22" font-family="Arial, sans-serif" font-weight="700">03</text>
+    <text x="28" y="214" fill="#213A2D" font-size="20" font-family="Arial, sans-serif" font-weight="700">Map Pin</text>
+    <text x="28" y="242" fill="#5B6B61" font-size="16" font-family="Arial, sans-serif">Good for delivery feel.</text>
+  </g>
+
+  <g transform="translate(735 170)">
+    <rect width="190" height="260" rx="28" fill="white"/>
+    <rect x="35" y="24" width="120" height="120" rx="28" fill="#FFF9F3"/>
+    <path d="M69 71L77 59H113L121 71H69Z" fill="#F39A3E"/>
+    <path d="M73 71H117V107C117 111.418 113.418 115 109 115H81C76.5817 115 73 111.418 73 107V71Z" fill="#53B175"/>
+    <path d="M77 71H85V81C85 83.2091 83.2091 85 81 85C78.7909 85 77 83.2091 77 81V71Z" fill="white"/>
+    <path d="M85 71H93V81C93 83.2091 91.2091 85 89 85C86.7909 85 85 83.2091 85 81V71Z" fill="#E6F4E2"/>
+    <path d="M93 71H101V81C101 83.2091 99.2091 85 97 85C94.7909 85 93 83.2091 93 81V71Z" fill="white"/>
+    <path d="M101 71H109V81C109 83.2091 107.209 85 105 85C102.791 85 101 83.2091 101 81V71Z" fill="#E6F4E2"/>
+    <path d="M109 71H117V81C117 83.2091 115.209 85 113 85C110.791 85 109 83.2091 109 81V71Z" fill="white"/>
+    <path d="M95 88C89.4772 88 85 92.4772 85 98C90.5228 98 95 93.5228 95 88Z" fill="white"/>
+    <path d="M95 88C100.523 88 105 92.4772 105 98C99.4772 98 95 93.5228 95 88Z" fill="#DDEED9"/>
+    <text x="28" y="182" fill="#213A2D" font-size="22" font-family="Arial, sans-serif" font-weight="700">04</text>
+    <text x="28" y="214" fill="#213A2D" font-size="20" font-family="Arial, sans-serif" font-weight="700">Storefront</text>
+    <text x="28" y="242" fill="#5B6B61" font-size="16" font-family="Arial, sans-serif">Looks like a real shop.</text>
+  </g>
+
+  <g transform="translate(960 170)">
+    <rect width="190" height="260" rx="28" fill="white"/>
+    <rect x="35" y="24" width="120" height="120" rx="28" fill="#F3FAF4"/>
+    <rect x="63" y="68" width="64" height="42" rx="14" fill="#53B175"/>
+    <path d="M75 68L83 56H107L115 68" stroke="#213A2D" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="83" cy="87" r="8" fill="white"/>
+    <path d="M80 80C80 76.6863 82.6863 74 86 74C86 77.3137 83.3137 80 80 80Z" fill="#F39A3E"/>
+    <rect x="94" y="80" width="18" height="18" rx="4" fill="white"/>
+    <path d="M98 84H108" stroke="#53B175" stroke-width="3" stroke-linecap="round"/>
+    <path d="M98 90H108" stroke="#53B175" stroke-width="3" stroke-linecap="round"/>
+    <path d="M66 77H124" stroke="#DDEED9" stroke-width="3"/>
+    <text x="28" y="182" fill="#213A2D" font-size="22" font-family="Arial, sans-serif" font-weight="700">05</text>
+    <text x="28" y="214" fill="#213A2D" font-size="20" font-family="Arial, sans-serif" font-weight="700">Crate</text>
+    <text x="28" y="242" fill="#5B6B61" font-size="16" font-family="Arial, sans-serif">Fresh produce angle.</text>
+  </g>
+
+  <g transform="translate(60 470)">
+    <rect width="190" height="260" rx="28" fill="white"/>
+    <rect x="35" y="24" width="120" height="120" rx="28" fill="#FFF8F1"/>
+    <path d="M74 70H114L109 97C107.9 103.1 102.6 107.5 96.4 107.5H87.6C81.4 107.5 76.1 103.1 75 97L74 70Z" fill="#53B175"/>
+    <path d="M67 63H79" stroke="#213A2D" stroke-width="6" stroke-linecap="round"/>
+    <path d="M79 63L83 81H114" stroke="#213A2D" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="85" cy="112" r="6" fill="#213A2D"/>
+    <circle cx="109" cy="112" r="6" fill="#213A2D"/>
+    <path d="M95 76C89.4772 76 85 80.4772 85 86C90.5228 86 95 81.5228 95 76Z" fill="white"/>
+    <path d="M95 76C100.523 76 105 80.4772 105 86C99.4772 86 95 81.5228 95 76Z" fill="#DDEED9"/>
+    <text x="28" y="182" fill="#213A2D" font-size="22" font-family="Arial, sans-serif" font-weight="700">06</text>
+    <text x="28" y="214" fill="#213A2D" font-size="20" font-family="Arial, sans-serif" font-weight="700">Cart</text>
+    <text x="28" y="242" fill="#5B6B61" font-size="16" font-family="Arial, sans-serif">Strong ecommerce feel.</text>
+  </g>
+
+  <g transform="translate(285 470)">
+    <rect width="190" height="260" rx="28" fill="white"/>
+    <rect x="35" y="24" width="120" height="120" rx="28" fill="#F4FBF7"/>
+    <circle cx="95" cy="84" r="34" fill="#53B175"/>
+    <circle cx="95" cy="84" r="25" fill="white"/>
+    <path d="M95 66C88.9249 66 84 70.9249 84 77V77.5C84 83.5751 88.9249 88.5 95 88.5C101.075 88.5 106 83.5751 106 77.5V77C106 70.9249 101.075 66 95 66Z" fill="#53B175"/>
+    <path d="M95 66C95 62.6863 97.6863 60 101 60" stroke="#F39A3E" stroke-width="4" stroke-linecap="round"/>
+    <path d="M82 96H108" stroke="#53B175" stroke-width="5" stroke-linecap="round"/>
+    <path d="M85 102H105" stroke="#53B175" stroke-width="5" stroke-linecap="round"/>
+    <text x="28" y="182" fill="#213A2D" font-size="22" font-family="Arial, sans-serif" font-weight="700">07</text>
+    <text x="28" y="214" fill="#213A2D" font-size="20" font-family="Arial, sans-serif" font-weight="700">Badge</text>
+    <text x="28" y="242" fill="#5B6B61" font-size="16" font-family="Arial, sans-serif">Best for app icon shape.</text>
+  </g>
+
+  <g transform="translate(510 470)">
+    <rect width="190" height="260" rx="28" fill="white"/>
+    <rect x="35" y="24" width="120" height="120" rx="28" fill="#FFF9F3"/>
+    <path d="M95 47C110.464 47 123 59.536 123 75V89C123 101.703 112.703 112 100 112H90C77.2975 112 67 101.703 67 89V75C67 59.536 79.536 47 95 47Z" fill="#53B175"/>
+    <path d="M95 63C95 57.4772 99.4772 53 105 53" stroke="#F39A3E" stroke-width="6" stroke-linecap="round"/>
+    <path d="M95 73C88.9249 73 84 77.9249 84 84V95H106V84C106 77.9249 101.075 73 95 73Z" fill="white"/>
+    <path d="M89 95V101" stroke="white" stroke-width="5" stroke-linecap="round"/>
+    <path d="M101 95V101" stroke="white" stroke-width="5" stroke-linecap="round"/>
+    <path d="M95 80C90.5817 80 87 83.5817 87 88H103C103 83.5817 99.4183 80 95 80Z" fill="#DDEED9"/>
+    <text x="28" y="182" fill="#213A2D" font-size="22" font-family="Arial, sans-serif" font-weight="700">08</text>
+    <text x="28" y="214" fill="#213A2D" font-size="20" font-family="Arial, sans-serif" font-weight="700">Produce Jar</text>
+    <text x="28" y="242" fill="#5B6B61" font-size="16" font-family="Arial, sans-serif">More unique packaging feel.</text>
+  </g>
+
+  <g transform="translate(735 470)">
+    <rect width="190" height="260" rx="28" fill="white"/>
+    <rect x="35" y="24" width="120" height="120" rx="28" fill="#F3FAF4"/>
+    <path d="M74 104C74 92.402 83.402 83 95 83C106.598 83 116 92.402 116 104" stroke="#53B175" stroke-width="8" stroke-linecap="round"/>
+    <path d="M71 102C71 96.4772 75.4772 92 81 92H109C114.523 92 119 96.4772 119 102V103C119 107.418 115.418 111 111 111H79C74.5817 111 71 107.418 71 103V102Z" fill="#53B175"/>
+    <path d="M95 54C85.6112 54 78 61.6112 78 71C78 82.5 95 95 95 95C95 95 112 82.5 112 71C112 61.6112 104.389 54 95 54Z" fill="#F39A3E"/>
+    <path d="M95 64C90.0294 64 86 68.0294 86 73C86 78.2 90.1 81.8 95 83.6C99.9 81.8 104 78.2 104 73C104 68.0294 99.9706 64 95 64Z" fill="white"/>
+    <text x="28" y="182" fill="#213A2D" font-size="22" font-family="Arial, sans-serif" font-weight="700">09</text>
+    <text x="28" y="214" fill="#213A2D" font-size="20" font-family="Arial, sans-serif" font-weight="700">Bag + Pin</text>
+    <text x="28" y="242" fill="#5B6B61" font-size="16" font-family="Arial, sans-serif">Great for local delivery.</text>
+  </g>
+
+  <g transform="translate(960 470)">
+    <rect width="190" height="260" rx="28" fill="white"/>
+    <rect x="35" y="24" width="120" height="120" rx="28" fill="#FFF8F1"/>
+    <path d="M95 49C76.7746 49 62 63.7746 62 82C62 100.225 76.7746 115 95 115C113.225 115 128 100.225 128 82C128 63.7746 113.225 49 95 49Z" fill="#53B175"/>
+    <path d="M85 74C85 68.4772 89.4772 64 95 64C100.523 64 105 68.4772 105 74" stroke="white" stroke-width="6" stroke-linecap="round"/>
+    <path d="M79 78C79 75.7909 80.7909 74 83 74H107C109.209 74 111 75.7909 111 78V89C111 97.8366 103.837 105 95 105C86.1634 105 79 97.8366 79 89V78Z" fill="white"/>
+    <path d="M95 82C89.4772 82 85 86.4772 85 92C90.5228 92 95 87.5228 95 82Z" fill="#F39A3E"/>
+    <path d="M95 82C100.523 82 105 86.4772 105 92C99.4772 92 95 87.5228 95 82Z" fill="#53B175"/>
+    <circle cx="113" cy="62" r="9" fill="#F39A3E"/>
+    <path d="M113 57V67" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+    <path d="M108 62H118" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+    <text x="28" y="182" fill="#213A2D" font-size="22" font-family="Arial, sans-serif" font-weight="700">10</text>
+    <text x="28" y="214" fill="#213A2D" font-size="20" font-family="Arial, sans-serif" font-weight="700">Promo Bag</text>
+    <text x="28" y="242" fill="#5B6B61" font-size="16" font-family="Arial, sans-serif">Good for discounts/offers.</text>
+  </g>
+</svg>

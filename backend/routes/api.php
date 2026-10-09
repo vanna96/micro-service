@@ -3,6 +3,8 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/stores', [\App\Http\Controllers\API\V1\PublicStoreController::class, 'index']);
+
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -32,6 +34,7 @@ Route::get('/tenant-host', function () {
         'data' => [
                 'domain' => $domain?->domain,
                 'alias' => $tenant?->alias,
+                'base_url' => config('app.url')
         ],
     ]);
 });
@@ -199,6 +202,9 @@ Route::get('/storefront', function () {
         ],
     ]);
 });
+
+// Search products by image (pHash-based visual similarity)
+Route::post('/products/search-by-image', [\App\Http\Controllers\API\V1\ImageSearchController::class, 'search']);
 
 Route::post('/orders', function (Request $request) {
     $data = $request->validate([

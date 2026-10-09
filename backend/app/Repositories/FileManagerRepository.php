@@ -11,8 +11,11 @@ use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+use League\Flysystem\FilesystemException;
 
 class FileManagerRepository extends RepositoryBase
 {
@@ -22,10 +25,31 @@ class FileManagerRepository extends RepositoryBase
     {
         $normalizedDirectory = $this->normalizeDirectory($directory);
         $location = $this->resolveLocation($normalizedDirectory);
-        $currentFiles = $this->filesForLocation($location['source'], $location['path']);
-        $allFiles = $normalizedDirectory === ''
-            ? $this->allRootFiles()
-            : $this->allFilesForLocation($location['source'], $location['path']);
+
+        try {
+            $currentFiles = $this->filesForLocation($location['source'], $location['path']);
+            $allFiles = $normalizedDirectory === ''
+                ? $this->allRootFiles()
+                : $this->allFilesForLocation($location['source'], $location['path']);
+
+            $directories = $this->directoriesForLocation($location['source'], $location['path'], $normalizedDirectory);
+            $replacementSources = $this->allFilesForLocation('uploads', '')
+                ->where('is_image', true)
+                ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+                ->values();
+            $storageError = null;
+        } catch (FilesystemException $exception) {
+            Log::warning('File manager storage is unavailable.', [
+                'disk' => $this->sourceDefinition($location['source'])['disk'],
+                'exception' => get_class($exception),
+            ]);
+
+            $currentFiles = collect();
+            $allFiles = collect();
+            $directories = collect();
+            $replacementSources = collect();
+            $storageError = 'File storage is temporarily unavailable. Please try again shortly.';
+        }
 
         return [
             'current_directory' => $normalizedDirectory,
@@ -35,11 +59,11 @@ class FileManagerRepository extends RepositoryBase
             'current_source_uploadable' => $this->sourceDefinition($location['source'])['uploadable'] ?? false,
             'current_source_supports_folders' => $this->sourceDefinition($location['source'])['supports_folders'] ?? false,
             'breadcrumbs' => $this->breadcrumbsFor($normalizedDirectory),
-            'directories' => $this->directoriesForLocation($location['source'], $location['path'], $normalizedDirectory),
+            'directories' => $directories,
             'files' => $currentFiles,
-            'recent_files' => $allFiles
+            'replacement_sources' => $replacementSources,
+            'all_files' => $allFiles
                 ->sortByDesc('updated_timestamp')
-                ->take(6)
                 ->values(),
             'summary_cards' => $this->summaryCards($allFiles),
             'activity_chart' => $this->activityChart($allFiles),
@@ -47,10 +71,11 @@ class FileManagerRepository extends RepositoryBase
             'total_files_count' => $allFiles->count(),
             'total_storage_label' => $this->humanFileSize((int) $allFiles->sum('size_bytes')),
             'parent_directory' => $this->parentDirectory($normalizedDirectory),
+            'storage_error' => $storageError,
         ];
     }
 
-    public function uploadFiles(array $files, string $directory = ''): void
+    public function uploadFiles(array $files, string $directory = ''): array
     {
         $normalizedDirectory = $this->normalizeDirectory($directory);
         $location = $this->resolveLocation($normalizedDirectory);
@@ -58,25 +83,29 @@ class FileManagerRepository extends RepositoryBase
 
         abort_if(! ($definition['uploadable'] ?? false), 403);
 
+        $uploadedCount = 0;
+        $restoredRecords = 0;
+
         foreach ($files as $file) {
             if (! $file instanceof UploadedFile) {
                 continue;
             }
 
-            if (($definition['gallery_model'] ?? null) !== null) {
-                $this->storeGalleryBackedUpload($location['source'], $file);
-
-                continue;
-            }
-
-            $name = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-            $extension = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'bin');
-            $safeName = Str::slug($name);
-            $safeName = $safeName !== '' ? $safeName : 'file';
-            $fileName = $safeName . '-' . Str::lower(Str::random(8)) . '.' . $extension;
+            $fileName = $this->originalUploadName($file, 'file');
+            $storedPath = $location['path'] === '' ? $fileName : $location['path'] . '/' . $fileName;
 
             $this->disk($location['source'])->putFileAs($this->qualifyPath($location['source'], $location['path']), $file, $fileName);
+            $uploadedCount++;
+
+            if ($location['source'] === 'uploads') {
+                $restoredRecords += $this->restoreMatchingGalleryAssets($storedPath);
+            }
         }
+
+        return [
+            'uploaded_count' => $uploadedCount,
+            'restored_records' => $restoredRecords,
+        ];
     }
 
     public function createFolder(string $folderName, string $directory = ''): void
@@ -126,6 +155,123 @@ class FileManagerRepository extends RepositoryBase
         abort_if(! $this->sourceDefinition($location['source'])['writable'], 403);
 
         $this->disk($location['source'])->deleteDirectory($this->qualifyPath($location['source'], $location['path']));
+    }
+
+    public function deleteFiles(array $paths): int
+    {
+        $normalizedPaths = collect($paths)
+            ->map(function ($path): string {
+                abort_unless(is_string($path), 422);
+
+                $normalizedPath = $this->normalizeDirectory($path);
+                abort_if($normalizedPath === '', 422);
+
+                $location = $this->resolveLocation($normalizedPath, true);
+                $definition = $this->sourceDefinition($location['source']);
+                abort_if(! ($definition['writable'] || ($definition['deletable'] ?? false)), 403);
+
+                return $normalizedPath;
+            })
+            ->unique()
+            ->values();
+
+        foreach ($normalizedPaths as $normalizedPath) {
+            $this->deleteFile($normalizedPath);
+        }
+
+        return $normalizedPaths->count();
+    }
+
+    public function renameFile(string $path, string $newName): int
+    {
+        $normalizedPath = $this->normalizeDirectory($path);
+        abort_if($normalizedPath === '', 404);
+
+        $location = $this->resolveLocation($normalizedPath, true);
+        $definition = $this->sourceDefinition($location['source']);
+        abort_if(! ($definition['writable'] || ($definition['deletable'] ?? false)), 403);
+
+        $sourcePath = $location['path'];
+        $currentName = basename($sourcePath);
+        $renamedFile = $this->validatedRenamedFileName($newName, $currentName);
+        $parentPath = dirname($sourcePath);
+        $destinationPath = $parentPath === '.' ? $renamedFile : $parentPath . '/' . $renamedFile;
+
+        if ($sourcePath === $destinationPath) {
+            return $location['source'] === 'uploads'
+                ? $this->restoreMatchingGalleryAssets($destinationPath)
+                : 0;
+        }
+
+        $disk = $this->disk($location['source']);
+        $qualifiedSource = $this->qualifyPath($location['source'], $sourcePath);
+        $qualifiedDestination = $this->qualifyPath($location['source'], $destinationPath);
+
+        abort_unless($disk->exists($qualifiedSource), 404);
+
+        if ($disk->exists($qualifiedDestination)) {
+            throw ValidationException::withMessages([
+                'new_name' => 'A file with this name already exists in the same location.',
+            ]);
+        }
+
+        if (($definition['gallery_model'] ?? null) !== null) {
+            $this->renameGalleryBackedFile(
+                $location['source'],
+                $sourcePath,
+                $destinationPath,
+                $qualifiedSource,
+                $qualifiedDestination
+            );
+
+            return 0;
+        }
+
+        if (! $disk->move($qualifiedSource, $qualifiedDestination)) {
+            throw ValidationException::withMessages([
+                'new_name' => 'The file could not be renamed. Please try again.',
+            ]);
+        }
+
+        return $location['source'] === 'uploads'
+            ? $this->restoreMatchingGalleryAssets($destinationPath)
+            : 0;
+    }
+
+    public function replaceGalleryAssetFromUploads(string $targetPath, string $sourcePath): int
+    {
+        $normalizedTarget = $this->normalizeDirectory($targetPath);
+        $normalizedSource = $this->normalizeDirectory($sourcePath);
+        abort_if($normalizedTarget === '' || $normalizedSource === '', 404);
+
+        $targetLocation = $this->resolveLocation($normalizedTarget, true);
+        $targetDefinition = $this->sourceDefinition($targetLocation['source']);
+        abort_if($targetLocation['source'] === 'uploads' || ! isset($targetDefinition['gallery_model']), 403);
+
+        $sourceLocation = $this->resolveLocation($normalizedSource, true);
+        abort_if($sourceLocation['source'] !== 'uploads', 422);
+
+        if (! $this->attachedGalleryForPath($targetLocation['source'], $targetLocation['path'])) {
+            throw ValidationException::withMessages([
+                'target_path' => 'This library image is not attached to a database record.',
+            ]);
+        }
+
+        $this->assertMatchingFileExtensions($sourceLocation['path'], $targetLocation['path']);
+        $this->copyUploadToGallerySource(
+            $sourceLocation['path'],
+            $targetLocation['source'],
+            $targetLocation['path']
+        );
+        $this->touchGalleryRecords($targetLocation['source'], $targetLocation['path']);
+
+        if (! $this->disk('uploads')->delete($this->qualifyPath('uploads', $sourceLocation['path']))) {
+            throw ValidationException::withMessages([
+                'source_path' => 'The item image was restored, but the My Files staging copy could not be removed.',
+            ]);
+        }
+
+        return 1;
     }
 
     public function normalizeDirectory(string $directory): string
@@ -208,6 +354,7 @@ class FileManagerRepository extends RepositoryBase
             'source' => $source,
             'source_label' => $this->sourceDefinition($source)['label'],
             'deletable' => $this->sourceDefinition($source)['writable'] || ($this->sourceDefinition($source)['deletable'] ?? false),
+            'renameable' => $this->sourceDefinition($source)['writable'] || ($this->sourceDefinition($source)['deletable'] ?? false),
         ];
     }
 
@@ -426,7 +573,7 @@ class FileManagerRepository extends RepositoryBase
                 'disk' => 'item',
                 'tenant_scoped' => false,
                 'writable' => false,
-                'uploadable' => true,
+                'uploadable' => false,
                 'supports_folders' => false,
                 'gallery_model' => Item::class,
                 'owner_key' => 'image_id',
@@ -437,7 +584,7 @@ class FileManagerRepository extends RepositoryBase
                 'disk' => 'category',
                 'tenant_scoped' => false,
                 'writable' => false,
-                'uploadable' => true,
+                'uploadable' => false,
                 'supports_folders' => false,
                 'gallery_model' => Category::class,
                 'owner_key' => 'image_id',
@@ -448,7 +595,7 @@ class FileManagerRepository extends RepositoryBase
                 'disk' => 'slider',
                 'tenant_scoped' => false,
                 'writable' => false,
-                'uploadable' => true,
+                'uploadable' => false,
                 'supports_folders' => false,
                 'gallery_model' => Slider::class,
                 'owner_key' => 'image_id',
@@ -459,7 +606,7 @@ class FileManagerRepository extends RepositoryBase
                 'disk' => 'promotion',
                 'tenant_scoped' => false,
                 'writable' => false,
-                'uploadable' => true,
+                'uploadable' => false,
                 'supports_folders' => false,
                 'gallery_model' => Promotion::class,
                 'owner_key' => 'image_id',
@@ -470,7 +617,7 @@ class FileManagerRepository extends RepositoryBase
                 'disk' => 'user',
                 'tenant_scoped' => false,
                 'writable' => false,
-                'uploadable' => true,
+                'uploadable' => false,
                 'supports_folders' => false,
                 'gallery_model' => User::class,
                 'owner_key' => 'profile_id',
@@ -593,12 +740,20 @@ class FileManagerRepository extends RepositoryBase
             ->orderByDesc('updated_at')
             ->get();
 
+        $ownerModel = new $definition['gallery_model']();
+        $ownerModel->setConnection($connection);
+        $owners = $ownerModel->newQuery()
+            ->whereKey($galleries->pluck('gallarieable_id')->filter()->unique()->values())
+            ->get()
+            ->keyBy(fn ($owner) => (string) $owner->getKey());
+
         $disk = $this->disk($source);
 
         return $galleries
             ->unique('name')
-            ->map(function (Gallery $gallery) use ($source, $disk) {
+            ->map(function (Gallery $gallery) use ($source, $disk, $owners) {
                 $fileName = (string) $gallery->name;
+                $owner = $owners->get((string) $gallery->gallarieable_id);
                 $mimeType = '';
                 $sizeBytes = 0;
                 $isImage = false;
@@ -638,8 +793,280 @@ class FileManagerRepository extends RepositoryBase
                     'source' => $source,
                     'source_label' => $this->sourceDefinition($source)['label'],
                     'deletable' => (bool) ($this->sourceDefinition($source)['deletable'] ?? false),
+                    'renameable' => (bool) ($this->sourceDefinition($source)['deletable'] ?? false),
+                    'attached' => $owner !== null,
+                    'owner_label' => $owner ? $this->galleryOwnerLabel($owner) : null,
+                    'replaceable' => $owner !== null,
                 ];
             });
+    }
+
+    protected function restoreMatchingGalleryAssets(string $uploadPath): int
+    {
+        $fileName = basename($uploadPath);
+        $matchesBySource = $this->sourceDefinitions()
+            ->reject(fn (array $definition, string $source) => $source === 'uploads' || ! isset($definition['gallery_model']))
+            ->mapWithKeys(fn (array $definition, string $source) => [
+                $source => $this->attachedGalleriesForPath($source, $fileName),
+            ])
+            ->filter(fn (Collection $galleries) => $galleries->isNotEmpty());
+
+        if ($matchesBySource->isEmpty()) {
+            return 0;
+        }
+
+        $restoredRecords = 0;
+
+        foreach ($matchesBySource as $source => $galleries) {
+            $this->assertMatchingFileExtensions($uploadPath, $fileName);
+            $this->copyUploadToGallerySource($uploadPath, $source, $fileName);
+            $this->touchGalleryRecords($source, $fileName);
+            $restoredRecords += $galleries->count();
+        }
+
+        if (! $this->disk('uploads')->delete($this->qualifyPath('uploads', $uploadPath))) {
+            throw ValidationException::withMessages([
+                'files' => 'The linked images were restored, but the My Files staging copy could not be removed.',
+            ]);
+        }
+
+        return $restoredRecords;
+    }
+
+    protected function attachedGalleryForPath(string $source, string $path): ?Gallery
+    {
+        return $this->attachedGalleriesForPath($source, $path)->first();
+    }
+
+    protected function attachedGalleriesForPath(string $source, string $path): Collection
+    {
+        $definition = $this->sourceDefinition($source);
+        $connection = tenant() && filled(tenant()->database_connection_name)
+            ? tenant()->database_connection_name
+            : 'tenant';
+        $galleries = (new Gallery())
+            ->setConnection($connection)
+            ->newQuery()
+            ->where('gallarieable_type', $definition['gallery_model'])
+            ->where('name', $path)
+            ->whereNotNull('gallarieable_id')
+            ->get();
+
+        if ($galleries->isEmpty()) {
+            return collect();
+        }
+
+        $ownerModel = new $definition['gallery_model']();
+        $ownerModel->setConnection($connection);
+        $ownerIds = $ownerModel->newQuery()
+            ->whereKey($galleries->pluck('gallarieable_id')->unique()->values())
+            ->pluck($ownerModel->getKeyName())
+            ->map(fn ($id) => (string) $id)
+            ->all();
+
+        return $galleries
+            ->filter(fn (Gallery $gallery) => in_array((string) $gallery->gallarieable_id, $ownerIds, true))
+            ->values();
+    }
+
+    protected function copyUploadToGallerySource(string $uploadPath, string $targetSource, string $targetPath): void
+    {
+        $sourceDisk = $this->disk('uploads');
+        $qualifiedSource = $this->qualifyPath('uploads', $uploadPath);
+        abort_unless($sourceDisk->exists($qualifiedSource), 404);
+
+        $mimeType = (string) ($sourceDisk->mimeType($qualifiedSource) ?? '');
+
+        if (! str_starts_with($mimeType, 'image/')) {
+            throw ValidationException::withMessages([
+                'source_path' => 'Only valid image files can replace a gallery image.',
+            ]);
+        }
+
+        $targetDisk = $this->disk($targetSource);
+        $qualifiedTarget = $this->qualifyPath($targetSource, $targetPath);
+        $targetExisted = $targetDisk->exists($qualifiedTarget);
+        $backupPath = '.file-manager-backups/' . Str::uuid() . '-' . basename($targetPath);
+
+        if ($targetExisted && ! $targetDisk->copy($qualifiedTarget, $backupPath)) {
+            throw ValidationException::withMessages([
+                'source_path' => 'The existing library image could not be backed up before replacement.',
+            ]);
+        }
+
+        $stream = $sourceDisk->readStream($qualifiedSource);
+
+        if (! is_resource($stream)) {
+            if ($targetExisted) {
+                $targetDisk->delete($backupPath);
+            }
+
+            throw ValidationException::withMessages([
+                'source_path' => 'The My Files image could not be read.',
+            ]);
+        }
+
+        try {
+            $written = $targetDisk->writeStream($qualifiedTarget, $stream, ['visibility' => 'public']);
+            $sourceSize = (int) $sourceDisk->size($qualifiedSource);
+            $targetSize = $targetDisk->exists($qualifiedTarget) ? (int) $targetDisk->size($qualifiedTarget) : -1;
+
+            if (! $written || $targetSize !== $sourceSize) {
+                throw ValidationException::withMessages([
+                    'source_path' => 'The replacement image could not be verified in storage.',
+                ]);
+            }
+        } catch (\Throwable $exception) {
+            if ($targetExisted && $targetDisk->exists($backupPath)) {
+                $targetDisk->copy($backupPath, $qualifiedTarget);
+            } elseif (! $targetExisted) {
+                $targetDisk->delete($qualifiedTarget);
+            }
+
+            throw $exception;
+        } finally {
+            fclose($stream);
+        }
+
+        if ($targetExisted) {
+            $targetDisk->delete($backupPath);
+        }
+    }
+
+    protected function touchGalleryRecords(string $source, string $path): void
+    {
+        $definition = $this->sourceDefinition($source);
+        $connection = tenant() && filled(tenant()->database_connection_name)
+            ? tenant()->database_connection_name
+            : 'tenant';
+
+        (new Gallery())
+            ->setConnection($connection)
+            ->newQuery()
+            ->where('gallarieable_type', $definition['gallery_model'])
+            ->where('name', $path)
+            ->update(['updated_at' => now()]);
+
+        $galleryModel = $definition['gallery_model'];
+
+        if (method_exists($galleryModel, 'flushQueryCache')) {
+            $galleryModel::flushQueryCache();
+        }
+    }
+
+    protected function assertMatchingFileExtensions(string $sourcePath, string $targetPath): void
+    {
+        $sourceExtension = strtolower(pathinfo($sourcePath, PATHINFO_EXTENSION));
+        $targetExtension = strtolower(pathinfo($targetPath, PATHINFO_EXTENSION));
+
+        if ($sourceExtension === '' || $sourceExtension !== $targetExtension) {
+            throw ValidationException::withMessages([
+                'source_path' => 'The staging image must use the same file extension as the target image.',
+            ]);
+        }
+    }
+
+    protected function galleryOwnerLabel($owner): string
+    {
+        $identifier = $owner->sku ?? $owner->code ?? $owner->email ?? null;
+        $name = $owner->name ?? $owner->title ?? null;
+
+        if (filled($identifier) && filled($name)) {
+            return $identifier . ' — ' . $name;
+        }
+
+        return (string) ($name ?: $identifier ?: ('Record #' . $owner->getKey()));
+    }
+
+    protected function renameGalleryBackedFile(
+        string $source,
+        string $sourcePath,
+        string $destinationPath,
+        string $qualifiedSource,
+        string $qualifiedDestination
+    ): void {
+        $definition = $this->sourceDefinition($source);
+        $connection = tenant() && filled(tenant()->database_connection_name)
+            ? tenant()->database_connection_name
+            : 'tenant';
+        $galleryQuery = (new Gallery())
+            ->setConnection($connection)
+            ->newQuery()
+            ->where('gallarieable_type', $definition['gallery_model']);
+
+        if ((clone $galleryQuery)->where('name', $destinationPath)->exists()) {
+            throw ValidationException::withMessages([
+                'new_name' => 'A file with this name already exists in the same library.',
+            ]);
+        }
+
+        $disk = $this->disk($source);
+
+        if (! $disk->move($qualifiedSource, $qualifiedDestination)) {
+            throw ValidationException::withMessages([
+                'new_name' => 'The file could not be renamed. Please try again.',
+            ]);
+        }
+
+        try {
+            (clone $galleryQuery)
+                ->where('name', $sourcePath)
+                ->update([
+                    'name' => $destinationPath,
+                    'updated_at' => now(),
+                ]);
+        } catch (\Throwable $exception) {
+            $disk->move($qualifiedDestination, $qualifiedSource);
+
+            throw $exception;
+        }
+
+        $galleryModel = $definition['gallery_model'];
+
+        if (method_exists($galleryModel, 'flushQueryCache')) {
+            $galleryModel::flushQueryCache();
+        }
+    }
+
+    protected function validatedRenamedFileName(string $newName, string $currentName): string
+    {
+        $cleanName = basename(str_replace('\\', '/', $newName));
+        $cleanName = preg_replace('/[\x00-\x1F\x7F]/u', '', $cleanName) ?? '';
+        $cleanName = trim($cleanName, " .\t\n\r\0\x0B");
+
+        if ($cleanName === '' || in_array($cleanName, ['.', '..'], true)) {
+            throw ValidationException::withMessages([
+                'new_name' => 'Enter a valid file name.',
+            ]);
+        }
+
+        $currentExtension = pathinfo($currentName, PATHINFO_EXTENSION);
+
+        if ($currentExtension === '') {
+            return mb_substr($cleanName, 0, 180);
+        }
+
+        $submittedExtension = pathinfo($cleanName, PATHINFO_EXTENSION);
+
+        if ($submittedExtension === '') {
+            $stem = $cleanName;
+        } elseif (strcasecmp($submittedExtension, $currentExtension) === 0) {
+            $stem = pathinfo($cleanName, PATHINFO_FILENAME);
+        } else {
+            throw ValidationException::withMessages([
+                'new_name' => "The file extension must remain .{$currentExtension}.",
+            ]);
+        }
+
+        $stem = trim(mb_substr($stem, 0, 180), " .\t\n\r\0\x0B");
+
+        if ($stem === '') {
+            throw ValidationException::withMessages([
+                'new_name' => 'Enter a valid file name.',
+            ]);
+        }
+
+        return $stem . '.' . $currentExtension;
     }
 
     protected function deleteGalleryBackedFile(string $source, string $path): void
@@ -675,11 +1102,7 @@ class FileManagerRepository extends RepositoryBase
     protected function storeGalleryBackedUpload(string $source, UploadedFile $file): void
     {
         $definition = $this->sourceDefinition($source);
-        $name = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-        $extension = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'bin');
-        $safeName = Str::slug($name);
-        $safeName = $safeName !== '' ? $safeName : Str::singular($source);
-        $fileName = $safeName . '-' . Str::lower(Str::random(8)) . '.' . $extension;
+        $fileName = $this->originalUploadName($file, Str::singular($source));
 
         $this->disk($source)->putFileAs('', $file, $fileName);
 
@@ -687,21 +1110,52 @@ class FileManagerRepository extends RepositoryBase
             ? tenant()->database_connection_name
             : 'tenant';
 
-        $gallery = new Gallery();
-        $gallery->setConnection($connection);
-        $gallery->forceFill([
-            'gallarieable_type' => $definition['gallery_model'],
-            'gallarieable_id' => null,
-            'type' => 'other',
-            'status' => 'Active',
-            'name' => $fileName,
-        ])->save();
+        $galleryQuery = (new Gallery())
+            ->setConnection($connection)
+            ->newQuery()
+            ->where('gallarieable_type', $definition['gallery_model'])
+            ->where('name', $fileName);
+
+        if ($galleryQuery->exists()) {
+            $galleryQuery->update(['updated_at' => now()]);
+        } else {
+            $gallery = new Gallery();
+            $gallery->setConnection($connection);
+            $gallery->forceFill([
+                'gallarieable_type' => $definition['gallery_model'],
+                'gallarieable_id' => null,
+                'type' => 'other',
+                'status' => 'Active',
+                'name' => $fileName,
+            ])->save();
+        }
 
         $galleryModel = $definition['gallery_model'];
 
         if (method_exists($galleryModel, 'flushQueryCache')) {
             $galleryModel::flushQueryCache();
         }
+    }
+
+    protected function originalUploadName(UploadedFile $file, string $fallback): string
+    {
+        $originalName = basename(str_replace('\\', '/', $file->getClientOriginalName()));
+        $originalName = preg_replace('/[\x00-\x1F\x7F]/u', '', $originalName) ?? '';
+        $originalName = trim($originalName, " .\t\n\r\0\x0B");
+
+        if ($originalName !== '') {
+            $extension = pathinfo($originalName, PATHINFO_EXTENSION);
+            $stem = pathinfo($originalName, PATHINFO_FILENAME);
+            $stem = mb_substr($stem, 0, 180);
+
+            if ($stem !== '') {
+                return $extension !== '' ? $stem.'.'.mb_substr($extension, 0, 20) : $stem;
+            }
+        }
+
+        $extension = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'bin');
+
+        return Str::slug($fallback) . '.' . $extension;
     }
 
     protected function detachGalleryFromOwner(Gallery $gallery, array $definition): void

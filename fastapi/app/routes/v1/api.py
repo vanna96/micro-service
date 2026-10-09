@@ -2,8 +2,10 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Any
 from utils.translate import translate_recursive_deep_translator
+from routes.v1.vision import router as vision_router
 
 router = APIRouter()
+router.include_router(vision_router)
 
 class NestedJSON(BaseModel):
     data: Any

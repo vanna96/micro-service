@@ -86,6 +86,7 @@ Route::middleware([
             Route::get('edit/{item}', [ItemController::class, 'edit']);
             Route::match(['put', 'patch'], 'update/{item}', [ItemController::class, 'update']);
             Route::delete('delete/{item}', [ItemController::class, 'delete']);
+            Route::post('search-by-image', [\App\Http\Controllers\API\V1\ImageSearchController::class, 'search']);
         });
 
     $r->prefix('cart')

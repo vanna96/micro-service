@@ -194,6 +194,24 @@ export function VPosDashboard({ centralUrl }: { centralUrl?: string } = {}) {
   const [totalProductsCount, setTotalProductsCount] = useState<number | null>(null);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [catalogVersion, setCatalogVersion] = useState(0);
+  const [isImageSearching, setIsImageSearching] = useState(false);
+
+  const handleImageSearch = useCallback(async (file: File) => {
+    setIsImageSearching(true);
+    setCatalogError(null);
+    try {
+      const { searchPosProductsByImage } = await import("@/lib/pos-api");
+      const result = await searchPosProductsByImage(file);
+      setProducts(result.products);
+      setCurrentPage(1);
+      setHasMoreProducts(false); // Disable infinite scroll for search-by-image results
+      setTotalProductsCount(result.products.length);
+    } catch (e: unknown) {
+      setCatalogError(e instanceof Error ? e.message : "Failed to search by image");
+    } finally {
+      setIsImageSearching(false);
+    }
+  }, []);
 
   const prevCatalogFilterRef = useRef({
     activeCategory,
@@ -1583,7 +1601,7 @@ export function VPosDashboard({ centralUrl }: { centralUrl?: string } = {}) {
           }
           switchTenantUrl={centralUrl}
           onOpenDisplayModal={() => setIsDisplayModalOpen(true)}
-          customerDisplayUrl={posClientToken ? `/pos/display?token=${encodeURIComponent(posClientToken)}` : undefined}
+          customerDisplayUrl={posClientToken ? `/admin/display?token=${encodeURIComponent(posClientToken)}` : undefined}
         />
 
         <div className="d-flex flex-column flex-lg-row flex-grow-1 overflow-hidden">
@@ -1606,6 +1624,8 @@ export function VPosDashboard({ centralUrl }: { centralUrl?: string } = {}) {
               stockFilter={stockFilter}
               onStockFilterChange={(f) => dispatch(setStockFilter(f))}
               onOpenScanModal={() => dispatch(setActiveModal("upi"))}
+              onImageSearch={handleImageSearch}
+              isImageSearching={isImageSearching}
             />
 
             {isCatalogLoading && products.length === 0 ? (

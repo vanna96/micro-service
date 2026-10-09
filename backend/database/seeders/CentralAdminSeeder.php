@@ -21,7 +21,7 @@ class CentralAdminSeeder extends Seeder
         }
 
         $username = env('CENTRAL_ADMIN_USERNAME', 'admin');
-        $password = env('CENTRAL_ADMIN_PASSWORD', 'admin123');
+        $password = env('CENTRAL_ADMIN_PASSWORD', '@123');
 
         $admin = User::query()->updateOrCreate(
             ['username' => $username],

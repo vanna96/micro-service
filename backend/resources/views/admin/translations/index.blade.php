@@ -70,6 +70,17 @@
     </div>
 @endif
 
+@if ($errors->any())
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <ul class="mb-0">
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+@endif
+
 <!-- Overview Cards -->
 <div class="row mb-4">
     <div class="col-md-4">
@@ -214,11 +225,20 @@
                             <td>
                                 <span class="text-primary fw-medium font-size-14">{{ $val }}</span>
                             </td>
-                            <td class="text-end">
+                            <td class="text-end text-nowrap">
                                 <button type="button" class="btn btn-sm btn-light border py-1 px-2 js-edit-btn"
                                     data-key="{{ $key }}" data-val="{{ $val }}" title="{{ __('Edit') }}">
                                     <i class="uil uil-edit font-size-14 text-muted"></i>
                                 </button>
+                                <form action="{{ route('admin.translations.destroy') }}" method="POST" class="d-inline js-delete-translation"
+                                    data-confirm="{{ __('Delete this translation?') }}">
+                                    @csrf
+                                    @method('DELETE')
+                                    <input type="hidden" name="key" value="{{ $key }}">
+                                    <button type="submit" class="btn btn-sm btn-light border py-1 px-2" title="{{ __('Delete') }}" aria-label="{{ __('Delete') }}">
+                                        <i class="uil uil-trash-alt font-size-14 text-danger"></i>
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                     @empty
@@ -267,6 +287,14 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.js-delete-translation').forEach(form => {
+        form.addEventListener('submit', function (event) {
+            if (!window.confirm(this.dataset.confirm)) {
+                event.preventDefault();
+            }
+        });
+    });
+
     // Edit Modal Trigger
     const editBtns = document.querySelectorAll('.js-edit-btn');
     const modalKey = document.getElementById('modal-key');

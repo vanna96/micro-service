@@ -4,6 +4,8 @@
 @section('page_title', 'File Manager')
 
 @push('styles')
+<link href="{{ global_asset('minible/assets/libs/datatables.net-bs4/css/dataTables.bootstrap4.min.css') }}" rel="stylesheet" type="text/css" />
+<link href="{{ global_asset('minible/assets/libs/datatables.net-responsive-bs4/css/responsive.bootstrap4.min.css') }}" rel="stylesheet" type="text/css" />
 <style>
     .file-manager-shell {
         display: grid;
@@ -318,9 +320,11 @@
 
 @section('content')
 @php($canCreateFiles = admin_has_permission('file_manager.create'))
+@php($canEditFiles = admin_has_permission('file_manager.edit'))
 @php($canDeleteFiles = admin_has_permission('file_manager.delete'))
 @php($canUploadCurrentSource = $canCreateFiles && $listing['current_source_uploadable'])
 @php($canCreateFolders = $canCreateFiles && $listing['current_source_supports_folders'])
+@php($canReplaceFromMyFiles = $canEditFiles && $canDeleteFiles && $listing['replacement_sources']->isNotEmpty())
 <div class="file-manager-shell">
     <aside class="file-manager-panel file-manager-sidebar">
         @if ($canUploadCurrentSource || $canCreateFolders)
@@ -398,7 +402,7 @@
                 </div>
                 <h3 class="mb-2">My Files</h3>
                 <p class="text-muted mb-0">
-                    Browse folders, recent uploads, and tenant-scoped public file links in one place.
+                    Browse folders, all files, and tenant-scoped public file links in one place.
                     @if (! $listing['current_source_supports_folders'])
                         This library does not use folders, but you can still manage its files here.
                     @endif
@@ -427,6 +431,13 @@
         @if (session('status'))
             <div class="alert alert-success alert-border-left alert-dismissible fade show mb-4" role="alert">
                 <i class="mdi mdi-check-all me-2"></i>{{ __(session('status')) }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endif
+
+        @if (session('error') || ($listing['storage_error'] ?? null))
+            <div class="alert alert-danger alert-border-left alert-dismissible fade show mb-4" role="alert">
+                <i class="mdi mdi-alert-circle-outline me-2"></i>{{ __(session('error') ?: $listing['storage_error']) }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         @endif
@@ -520,11 +531,29 @@
         </section>
 
         <section>
-            <h4 class="file-manager-section-title">Recent Files</h4>
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <h4 class="file-manager-section-title mb-0">All Files</h4>
+                @if ($canDeleteFiles)
+                    <form id="bulkDeleteFilesForm" method="POST" action="{{ route('admin.file-manager.bulk-destroy') }}">
+                        @csrf
+                        @method('DELETE')
+                        <input type="hidden" name="current_directory" value="{{ $listing['current_directory'] }}">
+                        <div id="bulkDeleteFilePaths"></div>
+                        <button type="submit" id="bulkDeleteFilesButton" class="btn btn-sm btn-danger" disabled>
+                            <i class="uil-trash-alt me-1"></i>Delete Selected (<span id="bulkDeleteFilesCount">0</span>)
+                        </button>
+                    </form>
+                @endif
+            </div>
             <div class="table-responsive">
-                <table class="table file-manager-recent-table align-middle">
+                <table id="datatable-file-manager" class="table file-manager-recent-table align-middle dt-responsive nowrap w-100">
                     <thead>
                         <tr>
+                            <th>
+                                @if ($canDeleteFiles)
+                                    <input type="checkbox" id="selectAllFiles" class="form-check-input" aria-label="Select all filtered files">
+                                @endif
+                            </th>
                             <th>Name</th>
                             <th>Date Modified</th>
                             <th>Size</th>
@@ -533,8 +562,21 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse ($listing['recent_files'] as $file)
+                        @foreach ($listing['all_files'] as $file)
                             <tr>
+                                <td>
+                                    @if ($canDeleteFiles && $file['deletable'])
+                                        <input
+                                            type="checkbox"
+                                            class="form-check-input"
+                                            data-file-select
+                                            value="{{ $file['path'] }}"
+                                            aria-label="Select {{ $file['name'] }}"
+                                        >
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
                                 <td>
                                     <div class="d-flex align-items-center gap-3">
                                         <div class="file-manager-file-preview">
@@ -547,15 +589,44 @@
                                         <div>
                                             <div class="fw-semibold">{{ $file['name'] }}</div>
                                             <div class="text-muted font-size-12">{{ $file['source_label'] }} · {{ $file['mime_type'] }}</div>
+                                            @if (($file['source'] ?? 'uploads') !== 'uploads')
+                                                @if ($file['attached'] ?? false)
+                                                    <div class="text-success font-size-12">Linked: {{ $file['owner_label'] }}</div>
+                                                @else
+                                                    <div class="text-danger font-size-12">Unassigned database image</div>
+                                                @endif
+                                            @endif
                                         </div>
                                     </div>
                                 </td>
-                                <td>{{ $file['updated_label'] }}</td>
+                                <td data-order="{{ $file['updated_timestamp'] }}">{{ $file['updated_label'] }}</td>
                                 <td>{{ $file['size_label'] }}</td>
                                 <td>{{ str_contains($file['path'], '/') ? dirname($file['path']) : $file['source_label'] }}</td>
                                 <td class="text-nowrap">
                                     <a href="{{ $file['url'] }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary me-2">Open</a>
                                     <button type="button" class="btn btn-sm btn-outline-secondary me-2" data-copy-url="{{ $file['url'] }}">Copy Link</button>
+                                    @if ($canEditFiles && ($file['renameable'] ?? false))
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-info me-2"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#renameFileModal"
+                                            data-rename-path="{{ $file['path'] }}"
+                                            data-rename-name="{{ $file['name'] }}"
+                                        >Rename</button>
+                                    @endif
+                                    @if ($canReplaceFromMyFiles && ($file['replaceable'] ?? false))
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-success me-2"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#replaceFileModal"
+                                            data-replace-path="{{ $file['path'] }}"
+                                            data-replace-name="{{ $file['name'] }}"
+                                            data-replace-owner="{{ $file['owner_label'] }}"
+                                            data-replace-extension="{{ strtolower($file['extension']) }}"
+                                        >Replace</button>
+                                    @endif
                                     @if ($canDeleteFiles && $file['deletable'])
                                         <form method="POST" action="{{ route('admin.file-manager.destroy') }}" class="d-inline" onsubmit="return confirm('Delete this file?');">
                                             @csrf
@@ -568,11 +639,7 @@
                                     @endif
                                 </td>
                             </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5" class="text-center text-muted py-5">No files yet in this directory.</td>
-                            </tr>
-                        @endforelse
+                        @endforeach
                     </tbody>
                 </table>
             </div>
@@ -594,7 +661,7 @@
         </section>
 
         <section class="mb-4">
-            <h5 class="fw-semibold mb-3">Recent Files</h5>
+            <h5 class="fw-semibold mb-3">File Types</h5>
             <div class="file-manager-type-list">
                 @forelse ($listing['recent_types'] as $type)
                     <div class="file-manager-type-item">
@@ -630,16 +697,226 @@
                     <button type="submit" class="btn btn-primary w-100">Import Files</button>
                 </form>
             @else
-                <button type="button" class="btn btn-light w-100" disabled>Manage Permission Required</button>
+                @if ($listing['current_source'] === 'uploads')
+                    <button type="button" class="btn btn-light w-100" disabled>Manage Permission Required</button>
+                @else
+                    <a href="{{ route('admin.file-manager.index') }}" class="btn btn-outline-primary w-100">Upload in My Files</a>
+                    <div class="text-muted font-size-12 mt-2">Upload to My Files, then use Replace on a linked image.</div>
+                @endif
             @endif
         </section>
     </aside>
 </div>
+
+@if ($canEditFiles)
+    <div class="modal fade" id="renameFileModal" tabindex="-1" aria-labelledby="renameFileModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form method="POST" action="{{ route('admin.file-manager.rename') }}">
+                    @csrf
+                    @method('PATCH')
+                    <input type="hidden" name="current_directory" value="{{ $listing['current_directory'] }}">
+                    <input type="hidden" name="path" id="renameFilePath" value="{{ old('path') }}">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="renameFileModalLabel">Rename File</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <label for="renameFileName" class="form-label">File name</label>
+                        <input type="text" name="new_name" id="renameFileName" class="form-control @error('new_name') is-invalid @enderror" value="{{ old('new_name') }}" maxlength="201" required>
+                        <div class="form-text">The file extension must stay the same.</div>
+                        @error('new_name')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Name</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+@endif
+
+@if ($canReplaceFromMyFiles)
+    <div class="modal fade" id="replaceFileModal" tabindex="-1" aria-labelledby="replaceFileModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form method="POST" action="{{ route('admin.file-manager.replace-from-my-files') }}">
+                    @csrf
+                    @method('PATCH')
+                    <input type="hidden" name="current_directory" value="{{ $listing['current_directory'] }}">
+                    <input type="hidden" name="target_path" id="replaceFileTargetPath" value="{{ old('target_path') }}">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="replaceFileModalLabel">Replace Linked Image</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-light border mb-3">
+                            <div class="fw-semibold" id="replaceFileTargetName">Target image</div>
+                            <div class="text-muted font-size-12" id="replaceFileTargetOwner"></div>
+                        </div>
+                        <label for="replaceFileSourcePath" class="form-label">Image from My Files</label>
+                        <select name="source_path" id="replaceFileSourcePath" class="form-select @error('source_path') is-invalid @enderror" required>
+                            <option value="">Choose an image</option>
+                            @foreach ($listing['replacement_sources'] as $sourceFile)
+                                <option
+                                    value="{{ $sourceFile['path'] }}"
+                                    data-extension="{{ strtolower($sourceFile['extension']) }}"
+                                    @selected(old('source_path') === $sourceFile['path'])
+                                >{{ $sourceFile['name'] }} ({{ $sourceFile['size_label'] }})</option>
+                            @endforeach
+                        </select>
+                        @error('source_path')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                        @error('target_path')
+                            <div class="text-danger font-size-12 mt-2">{{ $message }}</div>
+                        @enderror
+                        <div class="alert alert-warning mt-3 mb-0 font-size-13">
+                            The selected My Files image will replace this linked image and its staging copy will be removed.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" id="replaceFileSubmit" class="btn btn-success">Replace Image</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+@endif
 @endsection
 
 @push('scripts')
+<script src="{{ global_asset('minible/assets/libs/datatables.net/js/jquery.dataTables.min.js') }}"></script>
+<script src="{{ global_asset('minible/assets/libs/datatables.net-bs4/js/dataTables.bootstrap4.min.js') }}"></script>
+<script src="{{ global_asset('minible/assets/libs/datatables.net-responsive/js/dataTables.responsive.min.js') }}"></script>
+<script src="{{ global_asset('minible/assets/libs/datatables.net-responsive-bs4/js/responsive.bootstrap4.min.js') }}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        const fileTable = document.getElementById('datatable-file-manager');
+        const selectAllFiles = document.getElementById('selectAllFiles');
+        const bulkDeleteForm = document.getElementById('bulkDeleteFilesForm');
+        const bulkDeleteButton = document.getElementById('bulkDeleteFilesButton');
+        const bulkDeleteCount = document.getElementById('bulkDeleteFilesCount');
+        const bulkDeletePaths = document.getElementById('bulkDeleteFilePaths');
+        const selectedFilePaths = new Set();
+        let fileDataTable = null;
+
+        const filteredCheckboxes = function () {
+            if (!fileDataTable) {
+                return Array.from(document.querySelectorAll('[data-file-select]'));
+            }
+
+            return fileDataTable
+                .rows({ search: 'applied' })
+                .nodes()
+                .toArray()
+                .map(function (row) { return row.querySelector('[data-file-select]'); })
+                .filter(Boolean);
+        };
+
+        const syncFileSelection = function () {
+            document.querySelectorAll('[data-file-select]').forEach(function (checkbox) {
+                checkbox.checked = selectedFilePaths.has(checkbox.value);
+            });
+
+            const filtered = filteredCheckboxes();
+            const selectedFilteredCount = filtered.filter(function (checkbox) {
+                return selectedFilePaths.has(checkbox.value);
+            }).length;
+
+            if (selectAllFiles) {
+                selectAllFiles.disabled = filtered.length === 0;
+                selectAllFiles.checked = filtered.length > 0 && selectedFilteredCount === filtered.length;
+                selectAllFiles.indeterminate = selectedFilteredCount > 0 && selectedFilteredCount < filtered.length;
+            }
+
+            if (bulkDeleteButton && bulkDeleteCount) {
+                bulkDeleteButton.disabled = selectedFilePaths.size === 0;
+                bulkDeleteCount.textContent = String(selectedFilePaths.size);
+            }
+        };
+
+        if (window.jQuery && jQuery.fn.DataTable) {
+            fileDataTable = jQuery('#datatable-file-manager').DataTable({
+                responsive: true,
+                pageLength: 25,
+                lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
+                order: [[2, 'desc']],
+                columnDefs: [
+                    { targets: [0, 5], orderable: false, searchable: false },
+                    { targets: 0, responsivePriority: 1 },
+                    { targets: 1, responsivePriority: 2 },
+                    { targets: 5, responsivePriority: 3 }
+                ],
+                language: {
+                    emptyTable: 'No files found in this location.'
+                }
+            });
+            fileDataTable.on('draw', syncFileSelection);
+            jQuery('.dataTables_length select').addClass('form-select form-select-sm');
+        }
+
+        if (fileTable) {
+            fileTable.addEventListener('change', function (event) {
+                const checkbox = event.target.closest('[data-file-select]');
+
+                if (!checkbox) {
+                    return;
+                }
+
+                if (checkbox.checked) {
+                    selectedFilePaths.add(checkbox.value);
+                } else {
+                    selectedFilePaths.delete(checkbox.value);
+                }
+
+                syncFileSelection();
+            });
+        }
+
+        if (selectAllFiles) {
+            selectAllFiles.addEventListener('change', function () {
+                filteredCheckboxes().forEach(function (checkbox) {
+                    if (selectAllFiles.checked) {
+                        selectedFilePaths.add(checkbox.value);
+                    } else {
+                        selectedFilePaths.delete(checkbox.value);
+                    }
+                });
+
+                syncFileSelection();
+            });
+        }
+
+        if (bulkDeleteForm && bulkDeletePaths) {
+            bulkDeleteForm.addEventListener('submit', function (event) {
+                if (selectedFilePaths.size === 0) {
+                    event.preventDefault();
+                    return;
+                }
+
+                if (!window.confirm('Delete ' + selectedFilePaths.size + ' selected file(s)? This cannot be undone.')) {
+                    event.preventDefault();
+                    return;
+                }
+
+                bulkDeletePaths.innerHTML = '';
+                selectedFilePaths.forEach(function (path) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'paths[]';
+                    input.value = path;
+                    bulkDeletePaths.appendChild(input);
+                });
+            });
+        }
+
+        syncFileSelection();
+
         document.querySelectorAll('[data-copy-url]').forEach(function (button) {
             button.addEventListener('click', async function () {
                 const url = button.getAttribute('data-copy-url');
@@ -661,6 +938,66 @@
                 }
             });
         });
+
+        const renameModal = document.getElementById('renameFileModal');
+
+        if (renameModal) {
+            renameModal.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+
+                if (!button) {
+                    return;
+                }
+
+                document.getElementById('renameFilePath').value = button.getAttribute('data-rename-path') || '';
+                document.getElementById('renameFileName').value = button.getAttribute('data-rename-name') || '';
+            });
+
+            @if ($errors->has('new_name'))
+                bootstrap.Modal.getOrCreateInstance(renameModal).show();
+            @endif
+        }
+
+        const replaceModal = document.getElementById('replaceFileModal');
+
+        if (replaceModal) {
+            replaceModal.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+
+                if (!button) {
+                    return;
+                }
+
+                const targetExtension = (button.getAttribute('data-replace-extension') || '').toLowerCase();
+                const sourceSelect = document.getElementById('replaceFileSourcePath');
+                let firstMatchingValue = '';
+
+                document.getElementById('replaceFileTargetPath').value = button.getAttribute('data-replace-path') || '';
+                document.getElementById('replaceFileTargetName').textContent = button.getAttribute('data-replace-name') || 'Target image';
+                document.getElementById('replaceFileTargetOwner').textContent = button.getAttribute('data-replace-owner') || '';
+
+                Array.from(sourceSelect.options).forEach(function (option) {
+                    if (!option.value) {
+                        return;
+                    }
+
+                    const matches = (option.getAttribute('data-extension') || '').toLowerCase() === targetExtension;
+                    option.hidden = !matches;
+                    option.disabled = !matches;
+
+                    if (matches && !firstMatchingValue) {
+                        firstMatchingValue = option.value;
+                    }
+                });
+
+                sourceSelect.value = firstMatchingValue;
+                document.getElementById('replaceFileSubmit').disabled = !firstMatchingValue;
+            });
+
+            @if ($errors->has('source_path') || $errors->has('target_path'))
+                bootstrap.Modal.getOrCreateInstance(replaceModal).show();
+            @endif
+        }
     });
 </script>
 @endpush

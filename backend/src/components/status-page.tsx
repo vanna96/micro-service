@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, CircleAlert, Compass, Home, RotateCcw, ServerCrash, ShieldAlert, Timer } from "lucide-react";
+import { ArrowLeft, CircleAlert, Compass, Home, RotateCcw, ServerCrash, ShieldAlert, Timer, Wrench } from "lucide-react";
 import styles from "@/styles/not-found.module.css";
 
 type StatusPageProps = { statusCode: number; onRetry?: () => void };
@@ -39,15 +39,16 @@ const messages: Record<number, { title: string; description: string; footer: str
     tone: "purple",
   },
   503: {
-    title: "Service Unavailable",
-    description: "The service is temporarily unavailable. Please try again shortly.",
-    footer: "If the problem continues, contact support.",
-    tone: "purple",
+    title: "Service Temporarily Unavailable",
+    description: "Our systems are currently undergoing scheduled maintenance or experiencing high demand. We are working hard to restore full service shortly.",
+    footer: "Automated health monitoring is active. Please try refreshing in a moment.",
+    tone: "amber",
   },
 };
 
 function StatusIcon({ statusCode }: { statusCode: number }) {
   const props = { size: 42, strokeWidth: 2, "aria-hidden": true as const };
+  if (statusCode === 503) return <Wrench {...props} />;
   if (statusCode === 404) return <Compass {...props} />;
   if (statusCode === 403) return <ShieldAlert {...props} />;
   if (statusCode === 429) return <Timer {...props} />;
@@ -68,19 +69,27 @@ export default function StatusPage({ statusCode, onRetry }: StatusPageProps) {
     <main className={styles.page} data-tone={message.tone}>
       <section className={styles.card} aria-labelledby="error-title">
         <div className={styles.icon}><StatusIcon statusCode={statusCode} /></div>
-        <div className={styles.badge}>Error {statusCode}</div>
+        <div className={styles.badge}>
+          <span className={styles.pulseDot} aria-hidden="true" />
+          {statusCode === 503 ? "Status 503 • Maintenance" : `Error ${statusCode}`}
+        </div>
         <h1 id="error-title">{message.title}</h1>
         <p className={styles.description}>{message.description}</p>
         <div className={styles.actions}>
-          <Link href="/" className={`${styles.button} ${styles.primary}`}><Home size={16} aria-hidden="true" /> Home</Link>
           {retry ? (
-            <button type="button" className={`${styles.button} ${styles.secondary}`} onClick={onRetry ?? (() => window.location.reload())}>
-              <RotateCcw size={16} aria-hidden="true" /> Try Again
-            </button>
+            <>
+              <button type="button" className={`${styles.button} ${styles.primary}`} onClick={onRetry ?? (() => window.location.reload())}>
+                <RotateCcw size={16} aria-hidden="true" /> {statusCode === 503 ? "Refresh Page" : "Try Again"}
+              </button>
+              <Link href="/" className={`${styles.button} ${styles.secondary}`}><Home size={16} aria-hidden="true" /> Home</Link>
+            </>
           ) : (
-            <button type="button" className={`${styles.button} ${styles.secondary}`} onClick={() => window.history.back()}>
-              <ArrowLeft size={16} aria-hidden="true" /> Go Back
-            </button>
+            <>
+              <Link href="/" className={`${styles.button} ${styles.primary}`}><Home size={16} aria-hidden="true" /> Home</Link>
+              <button type="button" className={`${styles.button} ${styles.secondary}`} onClick={() => window.history.back()}>
+                <ArrowLeft size={16} aria-hidden="true" /> Go Back
+              </button>
+            </>
           )}
         </div>
         <p className={styles.footer}>{message.footer}</p>

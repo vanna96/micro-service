@@ -22,8 +22,7 @@ class CartController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $centralUser = $this->currentCentralUser($request);
-        $this->ensureTenantAccess($centralUser);
+        $customer = $this->currentCustomer($request);
 
         $cartItems = CartItem::query()
             ->with([
@@ -40,7 +39,7 @@ class CartController extends Controller
                 'item.variants' => fn ($q) => $q->where('status', 'Active'),
                 'item.variants.optionValues',
             ])
-            ->where('user_id', $centralUser->id)
+            ->where('customer_id', $customer->id)
             ->get();
 
         return response()->json([
@@ -63,8 +62,7 @@ class CartController extends Controller
      */
     public function sync(Request $request): JsonResponse
     {
-        $centralUser = $this->currentCentralUser($request);
-        $this->ensureTenantAccess($centralUser);
+        $customer = $this->currentCustomer($request);
 
         $validated = $request->validate([
             'items' => ['present', 'array'],
@@ -85,8 +83,8 @@ class CartController extends Controller
         ]);
 
         $connection = (new CartItem())->getConnection();
-        $savedCount = $connection->transaction(function () use ($centralUser, $validated): int {
-            CartItem::query()->where('user_id', $centralUser->id)->delete();
+        $savedCount = $connection->transaction(function () use ($customer, $validated): int {
+            CartItem::query()->where('customer_id', $customer->id)->delete();
 
             $savedCount = 0;
             foreach ($validated['items'] as $line) {
@@ -96,7 +94,7 @@ class CartController extends Controller
                 }
 
                 CartItem::query()->create([
-                    'user_id' => $centralUser->id,
+                    'customer_id' => $customer->id,
                     'item_id' => (int) $line['item_id'],
                     'quantity' => $quantity,
                     'variant_id' => isset($line['variant_id']) ? (int) $line['variant_id'] : null,
@@ -124,10 +122,9 @@ class CartController extends Controller
      */
     public function clear(Request $request): JsonResponse
     {
-        $centralUser = $this->currentCentralUser($request);
-        $this->ensureTenantAccess($centralUser);
+        $customer = $this->currentCustomer($request);
 
-        CartItem::query()->where('user_id', $centralUser->id)->delete();
+        CartItem::query()->where('customer_id', $customer->id)->delete();
 
         return response()->json([
             'success' => true,

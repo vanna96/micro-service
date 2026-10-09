@@ -101,7 +101,8 @@ if (! function_exists('translate')) {
 
         // 3. Level 2: Cached dynamic translation
         $cacheKey = 'vpos_trans_' . $targetLng . '_' . md5($trimmed);
-        $cached = Cache::get($cacheKey);
+        $translationCache = Cache::store('translations');
+        $cached = $translationCache->get($cacheKey);
         if ($cached !== null) {
             return $cached;
         }
@@ -124,7 +125,7 @@ if (! function_exists('translate')) {
             if ($response->successful()) {
                 $result = $response->json();
                 if (is_string($result) && !empty($result) && $result !== $trimmed) {
-                    Cache::put($cacheKey, $result, now()->addDays(7));
+                    $translationCache->put($cacheKey, $result, now()->addDays(7));
                     return $result;
                 }
             }

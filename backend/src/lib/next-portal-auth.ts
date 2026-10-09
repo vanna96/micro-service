@@ -76,11 +76,27 @@ export async function portalSession(headers: IncomingHttpHeaders): Promise<Porta
   }
 }
 
-export function isCentralHost(host: string): boolean {
+function centralPortalHost(): string {
   const configuredHost = process.env.CENTRAL_PORTAL_HOST?.trim().toLowerCase();
 
+  if (configuredHost) {
+    return configuredHost;
+  }
+
+  try {
+    const appUrl = process.env.APP_URL?.trim();
+
+    return appUrl ? new URL(appUrl).hostname.toLowerCase() : "localhost";
+  } catch {
+    return "localhost";
+  }
+}
+
+export function isCentralHost(host: string): boolean {
+  const configuredHost = centralPortalHost();
+
   return (
-    (configuredHost ? host === configuredHost : false) ||
+    host === configuredHost ||
     host === "localhost" ||
     host === "127.0.0.1" ||
     /^192\.168\./.test(host) ||
@@ -94,9 +110,9 @@ export function requestHost(headers: IncomingHttpHeaders): string {
 }
 
 export function centralPortalUrl(headers: IncomingHttpHeaders): string {
-  const configuredHost = process.env.CENTRAL_PORTAL_HOST?.trim() || "localhost";
+  const configuredHost = centralPortalHost();
   const port = (headers.host || "").split(":")[1];
   const proto = String(headers["x-forwarded-proto"] || "http").split(",")[0];
 
-  return `${proto}://${configuredHost}${port ? `:${port}` : ""}/`;
+  return `${proto}://${configuredHost}${port ? `:${port}` : ""}/admin`;
 }

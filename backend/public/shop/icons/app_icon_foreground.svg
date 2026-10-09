@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="v-pos-gradient" x1="200" y1="200" x2="820" y2="820" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FF8A4C"/>
+      <stop offset="100%" stop-color="#FF5F1F"/>
+    </linearGradient>
+  </defs>
+  <!-- Transparent background for Android Adaptive Icon Foreground -->
+  <g transform="translate(512, 512) scale(18.5) translate(-27, -27)">
+    <path d="M11 13h9l7 20 7-20h9L31.5 41h-9z" fill="url(#v-pos-gradient)"/>
+    <path d="M27 13h16v8H32.5z" fill="#123B69"/>
+  </g>
+</svg>

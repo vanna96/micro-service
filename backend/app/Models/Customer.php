@@ -6,14 +6,16 @@ use App\Models\Concerns\LogsTenantActivity;
 use App\Models\Concerns\UsesQueryCache;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Sanctum\HasApiTokens;
 use Rennokki\QueryCache\Traits\QueryCacheable;
 
-class Customer extends Model
+class Customer extends Authenticatable
 {
-    use HasFactory, QueryCacheable, UsesQueryCache, LogsTenantActivity;
+    use HasApiTokens, HasFactory, Notifiable, QueryCacheable, UsesQueryCache, LogsTenantActivity;
 
     public const TYPE_CUSTOMER = 'customer';
     public const TYPE_VENDOR = 'vendor';
@@ -25,8 +27,19 @@ class Customer extends Model
         'code',
         'type',
         'name',
+        'username',
         'email',
+        'facebook_id',
+        'facebook_avatar_url',
+        'google_id',
+        'google_avatar_url',
+        'password',
+        'first_name',
+        'last_name',
+        'country_code',
         'phone',
+        'gender',
+        'dob',
         'address',
         'notes',
         'status',
@@ -35,6 +48,22 @@ class Customer extends Model
     protected $attributes = [
         'type' => self::TYPE_CUSTOMER,
         'status' => 'Active',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+        'email_verification_code_hash',
+    ];
+
+    protected $casts = [
+        'profile_id' => 'integer',
+        'price_list_id' => 'integer',
+        'dob' => 'date',
+        'email_verified_at' => 'datetime',
+        'email_verification_expires_at' => 'datetime',
+        'email_verification_sent_at' => 'datetime',
+        'email_verification_attempts' => 'integer',
     ];
 
     protected function getCacheBaseTags(): array
@@ -47,7 +76,7 @@ class Customer extends Model
         parent::__construct($attributes);
 
         if (tenant()) {
-            $this->setConnection(tenant()->database_connection_name);
+            $this->setConnection(tenant()->database_connection_name ?: 'tenant');
         } else {
             $this->setConnection('central');
         }
@@ -78,7 +107,11 @@ class Customer extends Model
             return Storage::disk('customer')->url($profile->name);
         }
 
-        return null;
+        if (filled($this->facebook_avatar_url)) {
+            return (string) $this->facebook_avatar_url;
+        }
+
+        return filled($this->google_avatar_url) ? (string) $this->google_avatar_url : null;
     }
 
     public function scopeCustomers(Builder $query): Builder

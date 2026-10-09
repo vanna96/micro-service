@@ -2,29 +2,32 @@
 
 namespace Tests\Feature;
 
+use App\Mail\CustomerVerificationCode;
+use App\Models\Address;
 use App\Models\Branch;
 use App\Models\CartItem;
 use App\Models\Category;
 use App\Models\Currency;
+use App\Models\Customer;
 use App\Models\Gallery;
 use App\Models\Item;
 use App\Models\ItemOptionGroup;
 use App\Models\Notification;
 use App\Models\PosSale;
 use App\Models\RateIndexValue;
-use App\Models\Role;
 use App\Models\Slider;
 use App\Models\Tenant;
 use App\Models\UnitOfMeasure;
 use App\Models\UomGroup;
 use App\Models\User;
 use Carbon\Carbon;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 class MobileApiSupportTest extends TestCase
@@ -63,7 +66,9 @@ class MobileApiSupportTest extends TestCase
         DB::purge('mysql');
 
         Artisan::call('migrate:fresh', ['--database' => 'central']);
+        Mail::fake();
         Storage::fake('user');
+        Storage::fake('customer');
     }
 
     protected function tearDown(): void
@@ -79,6 +84,21 @@ class MobileApiSupportTest extends TestCase
         }
 
         parent::tearDown();
+    }
+
+    public function test_public_store_directory_exposes_only_active_public_fields(): void
+    {
+        $active = $this->createTenant('public-shop');
+        $active->domains()->create(['domain' => 'public-shop.localhost']);
+        $active->forceFill(['general_settings' => ['store_name' => 'Fresh Market', 'telegram_bot_token' => 'private']])->save();
+        $inactive = $this->createTenant('closed-shop');
+        $inactive->domains()->create(['domain' => 'closed-shop.localhost']);
+        $inactive->update(['status' => 'Inactive']);
+
+        $response = $this->getJson('/v1/api/stores')->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.name', 'Fresh Market')->assertJsonPath('data.0.domain', 'public-shop.localhost');
+        $this->assertSame(['id', 'name', 'logo_url', 'domain', 'domains'], array_keys($response->json('data.0')));
+        $this->assertSame(['public-shop.localhost'], $response->json('data.0.domains'));
     }
 
     public function test_mobile_currency_rates_follow_todays_admin_rate(): void
@@ -328,7 +348,7 @@ class MobileApiSupportTest extends TestCase
         ]);
 
         $registerResponse->assertCreated();
-        $token = $registerResponse->json('data.token');
+        $token = $this->verifyRegisteredCustomer($tenant->id, 'cart@example.com')->json('data.token');
         $headers = [
             'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
@@ -545,9 +565,12 @@ class MobileApiSupportTest extends TestCase
 
         $registerResponse->assertCreated()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.user.username', 'mobile-shopper');
+            ->assertJsonPath('data.requires_verification', true);
 
-        $token = $registerResponse->json('data.token');
+        $verificationResponse = $this->verifyRegisteredCustomer($tenant->id, 'mobile@example.com');
+        $verificationResponse->assertOk()
+            ->assertJsonPath('data.user.username', 'mobile-shopper');
+        $token = $verificationResponse->json('data.token');
 
         $profileResponse = $this->withHeaders([
             'Authorization' => 'Bearer '.$token,
@@ -597,9 +620,13 @@ class MobileApiSupportTest extends TestCase
         ])->assertOk()
             ->assertJsonPath('data.user.username', 'mobile-shopper');
 
-        $centralUser = User::on('central')->where('username', 'mobile-shopper')->first();
-        $this->assertNotNull($centralUser);
-        $this->assertNotNull($centralUser->profile_id);
+        $this->assertDatabaseMissing('users', ['username' => 'mobile-shopper'], 'central');
+        tenancy()->initialize($tenant);
+        $customer = Customer::query()->where('username', 'mobile-shopper')->first();
+        $this->assertNotNull($customer);
+        $this->assertNotNull($customer->profile_id);
+        tenancy()->end();
+        DB::purge('tenant');
 
         $addressResponse = $this->withHeaders([
             'Authorization' => 'Bearer '.$token,
@@ -621,6 +648,23 @@ class MobileApiSupportTest extends TestCase
             ->assertJsonPath('data.is_default', true);
 
         $addressId = $addressResponse->json('data.id');
+
+        tenancy()->initialize($tenant);
+        $otherCustomer = Customer::query()->create([
+            'code' => 'OTHER-001', 'name' => 'Another shopper', 'username' => 'another-shopper',
+            'phone' => '87650000', 'password' => Hash::make('secret123'), 'status' => 'Active',
+        ]);
+        $otherAddress = Address::query()->create([
+            'customer_id' => $otherCustomer->id, 'label' => 'Other home', 'recipient_name' => 'Another shopper',
+            'code' => '+855', 'phone' => '87650000', 'address_line' => 'Private street', 'city' => 'Phnom Penh',
+        ]);
+        tenancy()->end();
+        DB::purge('tenant');
+        $this->withHeaders(['Authorization' => 'Bearer '.$token, 'X-Tenant' => $tenant->id])
+            ->postJson('/v1/api/mobile/orders', [
+                'address_id' => $otherAddress->id,
+                'items' => [['item_id' => $item->id, 'quantity' => 2]],
+            ])->assertUnprocessable()->assertJsonValidationErrors('address_id');
 
         $this->withHeaders([
             'Authorization' => 'Bearer '.$token,
@@ -657,11 +701,20 @@ class MobileApiSupportTest extends TestCase
         ]);
 
         $orderResponse->assertCreated()
+            ->assertJsonPath('data.delivery_address.address_line', 'Street 271, BKK')
             ->assertJsonPath('data.total_items', 2)
             ->assertJsonPath('data.items.0.name', 'Butter Bread')
             ->assertJsonPath('data.items.0.foreign_name', 'នំបុំប៊ឺមៀ៚');
 
         $orderId = $orderResponse->json('data.id');
+
+        tenancy()->initialize($tenant);
+        Address::query()->whereKey($addressId)->update(['address_line' => 'Changed street']);
+        tenancy()->end();
+        DB::purge('tenant');
+        $this->withHeaders(['Authorization' => 'Bearer '.$token, 'X-Tenant' => $tenant->id])
+            ->getJson('/v1/api/mobile/orders/'.$orderId)
+            ->assertOk()->assertJsonPath('data.delivery_address.address_line', 'Street 271, BKK');
 
         $this->withHeaders([
             'Authorization' => 'Bearer '.$token,
@@ -693,14 +746,15 @@ class MobileApiSupportTest extends TestCase
         tenancy()->initialize($tenant);
         $this->assertSame(1, PosSale::query()->count());
         $this->assertSame(2, Notification::query()->count());
-        $tenantUser = User::query()->find(1);
-        $this->assertNotNull($tenantUser);
-        $this->assertSame('mobile-shopper', $tenantUser->username);
+        $tenantCustomer = Customer::query()->find(1);
+        $this->assertNotNull($tenantCustomer);
+        $this->assertSame('mobile-shopper', $tenantCustomer->username);
+        $this->assertFalse(User::query()->where('username', 'mobile-shopper')->exists());
         tenancy()->end();
         DB::purge('tenant');
     }
 
-    public function test_mobile_login_accepts_existing_tenant_user_accounts(): void
+    public function test_mobile_login_rejects_tenant_staff_accounts(): void
     {
         $tenant = $this->createTenant('mobile-tenant-login');
 
@@ -728,29 +782,17 @@ class MobileApiSupportTest extends TestCase
             'password' => '123456',
         ]);
 
-        $loginResponse->assertOk()
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('data.user.username', 'Vanna');
+        $loginResponse->assertUnauthorized()
+            ->assertJsonPath('success', false);
 
-        $token = $loginResponse->json('data.token');
-
-        $this->withHeaders([
-            'Authorization' => 'Bearer '.$token,
-            'X-Tenant' => $tenant->id,
-            'Accept' => 'application/json',
-        ])->getJson('/v1/api/mobile/auth/me')
-            ->assertOk()
-            ->assertJsonPath('data.username', 'Vanna');
-
-        $centralUser = User::on('central')->where('username', 'Vanna')->first();
-
-        $this->assertNotNull($centralUser);
-        $this->assertTrue(
-            $centralUser->tenants()->where('tenants.id', $tenant->id)->exists()
-        );
+        $this->assertDatabaseMissing('users', ['username' => 'Vanna'], 'central');
+        tenancy()->initialize($tenant);
+        $this->assertFalse(Customer::query()->where('username', 'Vanna')->exists());
+        tenancy()->end();
+        DB::purge('tenant');
     }
 
-    public function test_tenant_user_login_does_not_overwrite_central_user_with_same_id(): void
+    public function test_tenant_staff_login_never_creates_a_customer_or_central_mirror(): void
     {
         $tenant = $this->createTenant('mobile-user-id-collision');
 
@@ -783,20 +825,20 @@ class MobileApiSupportTest extends TestCase
         ])->postJson('/v1/api/mobile/auth/login', [
             'username' => 'tenant-staff-collision',
             'password' => 'tenant-secret',
-        ])->assertOk()
-            ->assertJsonPath('data.user.username', 'tenant-staff-collision');
+        ])->assertUnauthorized();
 
         $administrator->refresh();
 
         $this->assertSame('Central Administrator', $administrator->name);
         $this->assertSame('central-admin', $administrator->username);
-        $this->assertDatabaseHas('users', [
-            'username' => 'tenant-staff-collision',
-            'name' => 'Tenant Staff',
-        ], 'central');
+        $this->assertDatabaseMissing('users', ['username' => 'tenant-staff-collision'], 'central');
+        tenancy()->initialize($tenant);
+        $this->assertFalse(Customer::query()->where('username', 'tenant-staff-collision')->exists());
+        tenancy()->end();
+        DB::purge('tenant');
     }
 
-    public function test_mobile_profile_upload_is_mirrored_to_tenant_gallery_for_file_manager_and_edit_preview(): void
+    public function test_mobile_profile_upload_is_stored_on_the_tenant_customer(): void
     {
         $tenant = $this->createTenant('mobile-profile-mirror');
 
@@ -825,7 +867,7 @@ class MobileApiSupportTest extends TestCase
         ]);
 
         $registerResponse->assertCreated();
-        $token = $registerResponse->json('data.token');
+        $token = $this->verifyRegisteredCustomer($tenant->id, 'mirror@example.com')->json('data.token');
 
         $this->withHeaders([
             'Authorization' => 'Bearer '.$token,
@@ -835,37 +877,22 @@ class MobileApiSupportTest extends TestCase
             'profile' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a8XcAAAAASUVORK5CYII=',
         ])->assertOk();
 
-        $centralUser = User::on('central')->where('username', 'mirror-shopper')->firstOrFail();
-        $centralGallery = Gallery::on('central')->findOrFail($centralUser->profile_id);
-
         tenancy()->initialize($tenant);
-        $tenantUser = User::query()->where('username', 'mirror-shopper')->firstOrFail();
+        $tenantCustomer = Customer::query()->where('username', 'mirror-shopper')->firstOrFail();
         $tenantGallery = Gallery::query()
-            ->where('gallarieable_type', User::class)
-            ->where('gallarieable_id', $tenantUser->id)
-            ->first();
+            ->where('gallarieable_type', Customer::class)
+            ->where('gallarieable_id', $tenantCustomer->id)
+            ->firstOrFail();
         $this->assertNotNull($tenantGallery);
-        $this->assertSame($centralGallery->name, $tenantGallery->name);
-        $this->assertSame($tenantGallery->id, $tenantUser->profile_id);
+        $this->assertSame($tenantGallery->id, $tenantCustomer->profile_id);
         tenancy()->end();
         DB::purge('tenant');
 
-        Storage::disk('user')->assertExists($centralGallery->name);
-
-        $this->actingAs($admin)
-            ->withSession(['admin_selected_tenant_id' => $tenant->id])
-            ->get(route('admin.file-manager.index', ['directory' => 'users']))
-            ->assertOk()
-            ->assertSee($centralGallery->name);
-
-        $this->actingAs($admin)
-            ->withSession(['admin_selected_tenant_id' => $tenant->id])
-            ->get(route('admin.tenant-users.edit', ['tenant_user' => $tenantUser->id]))
-            ->assertOk()
-            ->assertSee(Storage::disk('user')->url($centralGallery->name), false);
+        Storage::disk('customer')->assertExists($tenantGallery->name);
+        $this->assertDatabaseMissing('users', ['username' => 'mirror-shopper'], 'central');
     }
 
-    public function test_mobile_profile_repairs_stale_central_image_after_tenant_web_update(): void
+    public function test_mobile_profile_replacement_stays_on_the_tenant_customer(): void
     {
         $tenant = $this->createTenant('mobile-profile-repair');
 
@@ -895,7 +922,7 @@ class MobileApiSupportTest extends TestCase
         ]);
 
         $registerResponse->assertCreated();
-        $token = $registerResponse->json('data.token');
+        $token = $this->verifyRegisteredCustomer($tenant->id, 'repair@example.com')->json('data.token');
 
         $this->withHeaders([
             'Authorization' => 'Bearer '.$token,
@@ -905,72 +932,32 @@ class MobileApiSupportTest extends TestCase
             'profile' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a8XcAAAAASUVORK5CYII=',
         ])->assertOk();
 
-        $centralUser = User::on('central')->where('username', 'repair-shopper')->firstOrFail();
-        $oldCentralGallery = Gallery::on('central')->findOrFail($centralUser->profile_id);
-        $oldCentralFileName = $oldCentralGallery->name;
-
         tenancy()->initialize($tenant);
-        $tenantUser = User::query()->where('username', 'repair-shopper')->firstOrFail();
-        $tenantAdminRoleId = Role::query()->where('name', 'tenant-admin')->value('id');
+        $customer = Customer::query()->where('username', 'repair-shopper')->firstOrFail();
+        $oldGallery = Gallery::query()->findOrFail($customer->profile_id);
+        $oldFileName = $oldGallery->name;
         tenancy()->end();
         DB::purge('tenant');
 
-        $this->actingAs($admin)
-            ->withSession(['admin_selected_tenant_id' => $tenant->id])
-            ->post(route('admin.tenant-users.update', ['tenant_user' => $tenantUser->id]), [
-                'name' => 'Repair Shopper',
-                'username' => 'repair-shopper',
-                'email' => 'repair@example.com',
-                'phone' => '16667777',
-                'password' => '',
-                'password_confirmation' => '',
-                'first_name' => 'Repair',
-                'last_name' => 'Shopper',
-                'country_code' => '855',
-                'gender' => 'Female',
-                'status' => 'Active',
-                'profile' => UploadedFile::fake()->image('repair-shopper-updated.png'),
-                'roles' => [$tenantAdminRoleId],
-                '_method' => 'PUT',
-            ])
-            ->assertRedirect(route('admin.tenant-users.index'));
-
-        Storage::disk('user')->assertMissing($oldCentralFileName);
-
-        $loginResponse = $this->withHeaders([
+        $replacement = $this->withHeaders([
+            'Authorization' => 'Bearer '.$token,
             'X-Tenant' => $tenant->id,
             'Accept' => 'application/json',
-        ])->postJson('/v1/api/mobile/auth/login', [
-            'username' => 'repair-shopper',
-            'password' => 'secret123',
-        ]);
-
-        $loginResponse->assertOk()
-            ->assertJsonPath('success', true);
-
-        $freshToken = $loginResponse->json('data.token');
+        ])->patchJson('/v1/api/mobile/profile', [
+            'profile' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a8XcAAAAASUVORK5CYII=',
+        ])->assertOk();
 
         tenancy()->initialize($tenant);
-        $tenantUser = User::query()->findOrFail($centralUser->id);
-        $tenantGallery = Gallery::query()->findOrFail($tenantUser->profile_id);
+        $customer = Customer::query()->where('username', 'repair-shopper')->firstOrFail();
+        $newGallery = Gallery::query()->findOrFail($customer->profile_id);
         tenancy()->end();
         DB::purge('tenant');
 
-        Storage::disk('user')->assertExists($tenantGallery->name);
-
-        $profileResponse = $this->withHeaders([
-            'Authorization' => 'Bearer '.$freshToken,
-            'X-Tenant' => $tenant->id,
-            'Accept' => 'application/json',
-        ])->getJson('/v1/api/mobile/profile');
-
-        $profileResponse->assertOk()
-            ->assertJsonPath('data.profile_image_url', Storage::disk('user')->url($tenantGallery->name));
-
-        $centralUser = User::on('central')->findOrFail($centralUser->id);
-        $centralGallery = Gallery::on('central')->findOrFail($centralUser->profile_id);
-
-        $this->assertSame($tenantGallery->name, $centralGallery->name);
+        $this->assertNotSame($oldFileName, $newGallery->name);
+        Storage::disk('customer')->assertMissing($oldFileName);
+        Storage::disk('customer')->assertExists($newGallery->name);
+        $replacement->assertJsonPath('data.profile_image_url', Storage::disk('customer')->url($newGallery->name));
+        $this->assertDatabaseMissing('users', ['username' => 'repair-shopper'], 'central');
     }
 
     public function test_mobile_profile_image_url_stays_stable_after_mobile_upload_and_reload(): void
@@ -991,7 +978,7 @@ class MobileApiSupportTest extends TestCase
         ]);
 
         $registerResponse->assertCreated();
-        $token = $registerResponse->json('data.token');
+        $token = $this->verifyRegisteredCustomer($tenant->id, 'stable@example.com')->json('data.token');
 
         $updateResponse = $this->withHeaders([
             'Authorization' => 'Bearer '.$token,
@@ -1025,17 +1012,33 @@ class MobileApiSupportTest extends TestCase
         $meResponse->assertOk()
             ->assertJsonPath('data.profile_image_url', $firstImageUrl);
 
-        $centralUser = User::on('central')->where('username', 'stable-shopper')->firstOrFail();
-        $centralGallery = Gallery::on('central')->findOrFail($centralUser->profile_id);
-        Storage::disk('user')->assertExists($centralGallery->name);
-
         tenancy()->initialize($tenant);
-        $tenantUser = User::query()->findOrFail($centralUser->id);
-        $tenantGallery = Gallery::query()->findOrFail($tenantUser->profile_id);
+        $tenantCustomer = Customer::query()->where('username', 'stable-shopper')->firstOrFail();
+        $tenantGallery = Gallery::query()->findOrFail($tenantCustomer->profile_id);
         tenancy()->end();
         DB::purge('tenant');
 
-        $this->assertSame($centralGallery->name, $tenantGallery->name);
+        Storage::disk('customer')->assertExists($tenantGallery->name);
+        $this->assertSame(Storage::disk('customer')->url($tenantGallery->name), $firstImageUrl);
+        $this->assertDatabaseMissing('users', ['username' => 'stable-shopper'], 'central');
+    }
+
+    private function verifyRegisteredCustomer(string $tenantId, string $email): TestResponse
+    {
+        $mail = Mail::queued(CustomerVerificationCode::class)
+            ->first(fn (CustomerVerificationCode $message) => $message->hasTo($email))
+            ?? Mail::sent(CustomerVerificationCode::class)
+            ->first(fn (CustomerVerificationCode $message) => $message->hasTo($email));
+
+        $this->assertNotNull($mail, 'The customer verification email was not sent.');
+
+        return $this->withHeaders([
+            'X-Tenant' => $tenantId,
+            'Accept' => 'application/json',
+        ])->postJson('/v1/api/mobile/auth/verify-email', [
+            'email' => $email,
+            'code' => $mail->code,
+        ]);
     }
 
     private function createTenant(string $id): Tenant

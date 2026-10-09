@@ -30,6 +30,9 @@ class RouteServiceProvider extends ServiceProvider
         $this->configureRateLimiting();
 
         $this->routes(function () {
+            Route::get('/internal/metrics', \App\Http\Controllers\Internal\MonitoringMetricsController::class)
+                ->name('monitoring.metrics');
+
             $centralDomains = array_unique(array_filter(array_merge(
                 (array) config('tenancy.central_domains', []),
                 ['localhost', '127.0.0.1']

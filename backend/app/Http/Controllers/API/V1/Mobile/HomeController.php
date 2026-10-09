@@ -127,6 +127,7 @@ class HomeController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
+                'store' => \App\Http\Controllers\API\V1\PublicStoreController::summary($tenant),
                 'currency' => $currencyPayload,
                 'currencies' => $currenciesPayload,
                 'khr_exchange_rate' => data_get($currenciesPayload->firstWhere('code', 'KHR'), 'exchange_rate'),
@@ -158,6 +159,7 @@ class HomeController extends Controller
             'data' => [
                 'terms_conditions' => $generalSettings['terms_conditions'] ?? '',
                 'privacy_policy' => $generalSettings['privacy_policy'] ?? '',
+                'contact_email' => $generalSettings['contact_email'] ?? '',
             ]
         ]);
     }

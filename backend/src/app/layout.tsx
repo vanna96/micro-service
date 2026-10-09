@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import "@/styles/vpos-custom.css";
+import "../../public/pos/vpos-custom.css";
 import { Providers } from "./providers";
 import { AntiInspectShield } from "@/components/security/anti-inspect-shield";
 

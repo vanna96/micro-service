@@ -3,13 +3,13 @@
 namespace App\Jobs;
 
 use App\Services\TelegramNotificationService;
+use App\Services\TenantJobContext;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
-use Throwable;
+use RuntimeException;
 
 class SendTelegramMessageJob implements ShouldQueue
 {
@@ -24,6 +24,8 @@ class SendTelegramMessageJob implements ShouldQueue
      * The number of seconds the job can run before timing out.
      */
     public int $timeout = 20;
+
+    public array $backoff = [5, 30, 60];
 
     /**
      * Create a new job instance.
@@ -43,19 +45,10 @@ class SendTelegramMessageJob implements ShouldQueue
      */
     public function handle(TelegramNotificationService $telegram): void
     {
-        try {
-            $tenant = $this->tenantId ? \App\Models\Tenant::find($this->tenantId) : null;
-            if ($tenant && (! function_exists('tenant') || ! tenant() || (string) tenant('id') !== (string) $this->tenantId)) {
-                $tenant->run(function () use ($telegram) {
-                    $telegram->sendDirectMessage($this->htmlMessage, $this->botToken, $this->chatId, $this->replyMarkup);
-                });
-            } else {
-                $telegram->sendDirectMessage($this->htmlMessage, $this->botToken, $this->chatId, $this->replyMarkup);
+        TenantJobContext::run($this->tenantId, function () use ($telegram): void {
+            if (! $telegram->sendDirectMessage($this->htmlMessage, $this->botToken, $this->chatId, $this->replyMarkup)) {
+                throw new RuntimeException('Telegram message delivery failed.');
             }
-        } catch (Throwable $e) {
-            Log::error('[SendTelegramMessageJob] Failed to deliver telegram notification: ' . $e->getMessage(), [
-                'exception' => $e,
-            ]);
-        }
+        });
     }
 }

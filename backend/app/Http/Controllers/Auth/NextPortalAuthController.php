@@ -240,7 +240,7 @@ class NextPortalAuthController extends Controller
             self::SESSION_KEY => $portalKey,
         ]);
 
-        return redirect('/');
+        return redirect('/admin');
     }
 
     public function logout(Request $request): JsonResponse
@@ -409,6 +409,6 @@ class NextPortalAuthController extends Controller
         $port = $request->getPort();
 
         return $request->getScheme() . '://' . ($centralHost !== '' ? $centralHost : 'localhost')
-            . (! in_array($port, [80, 443], true) ? ':' . $port : '') . '/';
+            . (! in_array($port, [80, 443], true) ? ':' . $port : '') . '/admin';
     }
 }

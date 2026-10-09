@@ -7,6 +7,7 @@ use App\Http\Controllers\API\V1\Mobile\Concerns\BuildsMobilePayloads;
 use App\Http\Controllers\API\V1\Mobile\Concerns\InteractsWithMobileUsers;
 use App\Http\Controllers\Controller;
 use App\Jobs\SendTelegramOrderNotificationJob;
+use App\Models\Address;
 use App\Models\CartItem;
 use App\Models\Item;
 use App\Models\Notification;
@@ -32,13 +33,12 @@ class OrderController extends Controller
 
     public function index(Request $request)
     {
-        $centralUser = $this->currentCentralUser($request);
-        $this->ensureTenantAccess($centralUser);
+        $customer = $this->currentCustomer($request);
         $search = trim((string) $request->get('search', ''));
 
         $sales = PosSale::query()
             ->with(['items.item'])
-            ->where('user_id', $centralUser->id)
+            ->where('customer_id', $customer->id)
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($innerQuery) use ($search) {
                     $innerQuery->where('invoice_number', 'like', "%{$search}%")
@@ -70,12 +70,11 @@ class OrderController extends Controller
 
     public function show(Request $request, string $order)
     {
-        $centralUser = $this->currentCentralUser($request);
-        $this->ensureTenantAccess($centralUser);
+        $customer = $this->currentCustomer($request);
 
         $sale = PosSale::query()
             ->with(['items.item', 'payments'])
-            ->where('user_id', $centralUser->id)
+            ->where('customer_id', $customer->id)
             ->findOrFail((int) $order);
 
         return response()->json([
@@ -86,9 +85,7 @@ class OrderController extends Controller
 
     public function store(Request $request)
     {
-        $centralUser = $this->currentCentralUser($request);
-        $this->ensureTenantAccess($centralUser);
-        $this->ensureTenantUserMirror($centralUser);
+        $customer = $this->currentCustomer($request);
 
         $validated = $request->validate([
             'address_id' => ['nullable', 'integer'],
@@ -124,15 +121,24 @@ class OrderController extends Controller
         $normalizeToBase = ($validated['currency_mode'] ?? 'base') === 'base';
         $baseCurrency = tenant_base_currency();
         $invoiceNumber = $this->generateInvoiceNumber();
+        $addressSnapshot = null;
+        if (! empty($validated['address_id'])) {
+            $address = Address::query()->where('customer_id', $customer->id)->find($validated['address_id']);
+            if (! $address) {
+                throw ValidationException::withMessages(['address_id' => 'Choose one of your saved delivery addresses.']);
+            }
+            $addressSnapshot = $this->mobileAddressPayload($address);
+        }
 
         [$sale, $stockItemIds] = DB::transaction(function () use (
-            $centralUser,
+            $customer,
             $validated,
             $saleFrom,
             $paymentMethod,
             $baseCurrency,
             $invoiceNumber,
-            $normalizeToBase
+            $normalizeToBase,
+            $addressSnapshot
         ) {
             $pricing = $this->promotionPricing->price(
                 $validated['items'],
@@ -153,9 +159,10 @@ class OrderController extends Controller
                 'status' => 'completed',
                 'reference' => $invoiceNumber,
                 'invoice_number' => $invoiceNumber,
-                'user_id' => $centralUser->id,
+                'customer_id' => $customer->id,
+                'customer_code' => $customer->code,
                 'sale_from' => $saleFrom,
-                'customer_name' => $centralUser->name ?? 'Mobile Customer',
+                'customer_name' => $customer->name ?? 'Mobile Customer',
                 'order_type' => $validated['delivery_method'] ?? 'Home Delivery',
                 'base_currency_code' => $currencyCode,
                 'item_count' => $totalItems,
@@ -177,12 +184,14 @@ class OrderController extends Controller
                 'stock_deducted_at' => now(),
                 'notes' => $validated['note'] ?? null,
                 'snapshot' => [
+                    'delivery_address' => $addressSnapshot,
                     'invoiceNumber' => $invoiceNumber,
                     'sale_from' => $saleFrom,
-                    'user' => [
-                        'id' => $centralUser->id,
-                        'name' => $centralUser->name ?? '',
-                        'email' => $centralUser->email ?? '',
+                    'customer' => [
+                        'id' => $customer->id,
+                        'code' => $customer->code ?? '',
+                        'name' => $customer->name ?? '',
+                        'email' => $customer->email ?? '',
                     ],
                     'items' => $pricing['items'],
                 ],
@@ -220,7 +229,7 @@ class OrderController extends Controller
             ]);
 
             Notification::query()->create([
-                'user_id' => $centralUser->id,
+                'customer_id' => $customer->id,
                 'type' => 'Order',
                 'title' => 'Order placed',
                 'message' => 'Your order '.$invoiceNumber.' was placed successfully.',
@@ -231,7 +240,7 @@ class OrderController extends Controller
             ]);
 
             CartItem::query()
-                ->where('user_id', $centralUser->id)
+                ->where('customer_id', $customer->id)
                 ->delete();
 
             return [$posSale, $stockItemIds];

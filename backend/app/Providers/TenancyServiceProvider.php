@@ -64,6 +64,7 @@ class TenancyServiceProvider extends ServiceProvider
                 $this->attachTenantSentryContext(),
                 $this->useTenantQueueConnection(),
                 $this->forgetQueueConnections(),
+                $this->useTenantMailConfiguration(),
             ],
 
             Events\EndingTenancy::class => [],
@@ -74,6 +75,7 @@ class TenancyServiceProvider extends ServiceProvider
                 $this->restoreFallbackTenantConnection(),
                 $this->useCentralQueueConnection(),
                 $this->forgetQueueConnections(),
+                $this->restoreCentralMailConfiguration(),
             ],
 
             Events\BootstrappingTenancy::class => [],
@@ -217,6 +219,25 @@ class TenancyServiceProvider extends ServiceProvider
                     $ref->setValue($queue, []);
                 } catch (\Throwable) {
                 }
+            }
+        };
+    }
+
+    protected function useTenantMailConfiguration(): Closure
+    {
+        return function (Events\TenancyInitialized $event): void {
+            if ($this->app->bound(\App\Services\MailNotificationService::class)) {
+                $tenant = $event->tenancy->tenant ?: tenant();
+                $this->app->make(\App\Services\MailNotificationService::class)->configureMailerForTenant($tenant);
+            }
+        };
+    }
+
+    protected function restoreCentralMailConfiguration(): Closure
+    {
+        return function (): void {
+            if ($this->app->bound(\App\Services\MailNotificationService::class)) {
+                $this->app->make(\App\Services\MailNotificationService::class)->restoreCentralConfiguration();
             }
         };
     }

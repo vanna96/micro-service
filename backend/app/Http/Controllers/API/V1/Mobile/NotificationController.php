@@ -15,11 +15,10 @@ class NotificationController extends Controller
 
     public function index(Request $request)
     {
-        $centralUser = $this->currentCentralUser($request);
-        $this->ensureTenantAccess($centralUser);
+        $customer = $this->currentCustomer($request);
 
         $notifications = Notification::query()
-            ->where('user_id', $centralUser->id)
+            ->where('customer_id', $customer->id)
             ->latest('id')
             ->paginate($request->integer('per_page') ?: 20);
 
@@ -34,7 +33,7 @@ class NotificationController extends Controller
                 'total' => $notifications->total(),
                 'last_page' => $notifications->lastPage(),
                 'unread_count' => Notification::query()
-                    ->where('user_id', $centralUser->id)
+                    ->where('customer_id', $customer->id)
                     ->whereNull('read_at')
                     ->count(),
             ],
@@ -43,11 +42,10 @@ class NotificationController extends Controller
 
     public function markRead(Request $request, string $notification)
     {
-        $centralUser = $this->currentCentralUser($request);
-        $this->ensureTenantAccess($centralUser);
+        $customer = $this->currentCustomer($request);
 
         $notificationModel = Notification::query()
-            ->where('user_id', $centralUser->id)
+            ->where('customer_id', $customer->id)
             ->findOrFail((int) $notification);
 
         if (! $notificationModel->read_at) {
@@ -63,11 +61,10 @@ class NotificationController extends Controller
 
     public function markAllRead(Request $request)
     {
-        $centralUser = $this->currentCentralUser($request);
-        $this->ensureTenantAccess($centralUser);
+        $customer = $this->currentCustomer($request);
 
         Notification::query()
-            ->where('user_id', $centralUser->id)
+            ->where('customer_id', $customer->id)
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
 

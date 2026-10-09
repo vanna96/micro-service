@@ -16,12 +16,10 @@ class AddressController extends Controller
 
     public function index(Request $request)
     {
-        $centralUser = $this->currentCentralUser($request);
-        $this->ensureTenantAccess($centralUser);
-        $this->ensureTenantUserMirror($centralUser);
+        $customer = $this->currentCustomer($request);
 
         $addresses = Address::query()
-            ->where('user_id', $centralUser->id)
+            ->where('customer_id', $customer->id)
             ->orderByDesc('is_default')
             ->orderBy('label')
             ->orderByDesc('id')
@@ -35,21 +33,19 @@ class AddressController extends Controller
 
     public function store(Request $request)
     {
-        $centralUser = $this->currentCentralUser($request);
-        $this->ensureTenantAccess($centralUser);
-        $this->ensureTenantUserMirror($centralUser);
+        $customer = $this->currentCustomer($request);
 
         $validated = $this->validateAddressPayload($request);
 
-        $address = DB::transaction(function () use ($centralUser, $validated) {
+        $address = DB::transaction(function () use ($customer, $validated) {
             if ($validated['is_default']) {
                 Address::query()
-                    ->where('user_id', $centralUser->id)
+                    ->where('customer_id', $customer->id)
                     ->update(['is_default' => false]);
             }
 
             return Address::query()->create(array_merge($validated, [
-                'user_id' => $centralUser->id,
+                'customer_id' => $customer->id,
             ]));
         });
 
@@ -62,20 +58,18 @@ class AddressController extends Controller
 
     public function update(Request $request, string $address)
     {
-        $centralUser = $this->currentCentralUser($request);
-        $this->ensureTenantAccess($centralUser);
-        $this->ensureTenantUserMirror($centralUser);
+        $customer = $this->currentCustomer($request);
 
         $addressModel = Address::query()
-            ->where('user_id', $centralUser->id)
+            ->where('customer_id', $customer->id)
             ->findOrFail((int) $address);
 
         $validated = $this->validateAddressPayload($request);
 
-        DB::transaction(function () use ($centralUser, $addressModel, $validated) {
+        DB::transaction(function () use ($customer, $addressModel, $validated) {
             if ($validated['is_default']) {
                 Address::query()
-                    ->where('user_id', $centralUser->id)
+                    ->where('customer_id', $customer->id)
                     ->whereKeyNot($addressModel->id)
                     ->update(['is_default' => false]);
             }
@@ -93,11 +87,10 @@ class AddressController extends Controller
 
     public function delete(Request $request, string $address)
     {
-        $centralUser = $this->currentCentralUser($request);
-        $this->ensureTenantAccess($centralUser);
+        $customer = $this->currentCustomer($request);
 
         $addressModel = Address::query()
-            ->where('user_id', $centralUser->id)
+            ->where('customer_id', $customer->id)
             ->findOrFail((int) $address);
 
         $deletedWasDefault = (bool) $addressModel->is_default;
@@ -105,7 +98,7 @@ class AddressController extends Controller
 
         if ($deletedWasDefault) {
             $replacement = Address::query()
-                ->where('user_id', $centralUser->id)
+                ->where('customer_id', $customer->id)
                 ->orderByDesc('id')
                 ->first();
 
@@ -122,16 +115,15 @@ class AddressController extends Controller
 
     public function makeDefault(Request $request, string $address)
     {
-        $centralUser = $this->currentCentralUser($request);
-        $this->ensureTenantAccess($centralUser);
+        $customer = $this->currentCustomer($request);
 
         $addressModel = Address::query()
-            ->where('user_id', $centralUser->id)
+            ->where('customer_id', $customer->id)
             ->findOrFail((int) $address);
 
-        DB::transaction(function () use ($centralUser, $addressModel) {
+        DB::transaction(function () use ($customer, $addressModel) {
             Address::query()
-                ->where('user_id', $centralUser->id)
+                ->where('customer_id', $customer->id)
                 ->update(['is_default' => false]);
 
             $addressModel->forceFill(['is_default' => true])->save();

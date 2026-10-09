@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52" role="img" aria-labelledby="title">
+  <title id="title">V-POS</title>
+  <defs>
+    <linearGradient id="v-pos-gradient" x1="4" y1="5" x2="46" y2="47" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff8a4c"/>
+      <stop offset="1" stop-color="#ff5f1f"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="48" height="48" rx="14" fill="#f2f5ff"/>
+  <path d="M11 13h9l7 20 7-20h9L31.5 41h-9z" fill="url(#v-pos-gradient)"/>
+  <path d="M27 13h16v8H32.5z" fill="#123b69"/>
+</svg>

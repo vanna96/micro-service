@@ -25,11 +25,6 @@ Route::get('/caddy-check', function (\Illuminate\Http\Request $request) {
         return response('OK', 200);
     }
 
-    $tenantHost = strtolower((string) env('TENANT_HOST', 'vanna-pos.duckdns.org'));
-    if (str_ends_with($domain, '.duckdns.org') || str_ends_with($domain, '.' . $tenantHost)) {
-        return response('OK', 200);
-    }
-
     if (\Illuminate\Support\Facades\DB::connection('central')->table('domains')->where('domain', $domain)->exists()) {
         return response('OK', 200);
     }
@@ -40,6 +35,10 @@ Route::get('/caddy-check', function (\Illuminate\Http\Request $request) {
 Route::get('/', function () {
     return view('welcome');
 });
+
+// Allow POST directly to the root domain for image search (without CSRF since it acts as an API)
+Route::post('/', [\App\Http\Controllers\API\V1\ImageSearchController::class, 'search'])
+    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]);
 
 // Security Honeypot Scanner Traps
 Route::any('/.env', [\App\Http\Controllers\Admin\SecurityController::class, 'triggerHoneypot'])->name('security.honeypot.env');

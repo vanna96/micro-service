@@ -179,7 +179,9 @@
 
                     // A. Query recent POS Sales
                     $recentSales = \App\Models\PosSale::query()
-                        ->latest('id')
+                        ->where('status', 'completed')
+                        ->orderByDesc('completed_at')
+                        ->orderByDesc('id')
                         ->take(4)
                         ->get();
 
@@ -550,13 +552,6 @@
 
                                 @if ($layoutCanManageAdministrators)
                                     <li>
-                                        <a href="{{ route('admin.users.index') }}"
-                                            class="waves-effect {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
-                                            <i class="uil-users-alt"></i>
-                                            <span>{{ __('Administrator') }}</span>
-                                        </a>
-                                    </li>
-                                    <li>
                                         <a href="{{ route('admin.tenants.index') }}"
                                             class="waves-effect {{ request()->routeIs('admin.tenants.*') ? 'active' : '' }}">
                                             <i class="uil-server-network"></i>
@@ -564,41 +559,20 @@
                                         </a>
                                     </li>
                                     <li>
-                                        <a href="{{ route('admin.security.index') }}"
-                                            class="waves-effect {{ request()->routeIs('admin.security.*') ? 'active' : '' }}">
-                                            <i class="uil-shield-check"></i>
-                                            <span>{{ __('Security') }}</span>
+                                        <a href="{{ route('admin.users.index') }}"
+                                            class="waves-effect {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
+                                            <i class="uil-users-alt"></i>
+                                            <span>{{ __('Administrator') }}</span>
                                         </a>
                                     </li>
                                 @endif
 
-                                @if ($layoutCanViewTelescope)
+                                @if ($layoutTenantAreaUnlocked && $layoutCanViewSliders)
                                     <li>
-                                        <a href="{{ url(config('telescope.path', 'telescope')) }}" target="_blank"
-                                            class="waves-effect {{ request()->is(config('telescope.path', 'telescope') . '*') ? 'active' : '' }}">
-                                            <i class="uil-telescope"></i>
-                                            <span class="badge rounded-pill bg-soft-info text-info float-end font-size-11">{{ __('Monitor') }}</span>
-                                            <span>{{ __('Telescope') }}</span>
-                                        </a>
-                                    </li>
-                                @endif
-
-                                @if ($layoutTenantAreaUnlocked && $layoutCanViewCustomers)
-                                    <li>
-                                        <a href="{{ route('admin.customers.index') }}"
-                                            class="waves-effect {{ request()->routeIs('admin.customers.*') ? 'active' : '' }}">
-                                            <i class="uil-user-square"></i>
-                                            <span>{{ __('Customer') }}</span>
-                                        </a>
-                                    </li>
-                                @endif
-
-                                @if ($layoutTenantAreaUnlocked && $layoutCanViewPurchaseOrders)
-                                    <li>
-                                        <a href="{{ route('admin.purchase-orders.index') }}"
-                                            class="waves-effect {{ request()->routeIs('admin.purchase-orders.*') ? 'active' : '' }}">
-                                            <i class="uil-shopping-cart-alt"></i>
-                                            <span>{{ __('Purchase Order') }}</span>
+                                        <a href="{{ route('admin.sliders.index') }}"
+                                            class="waves-effect {{ request()->routeIs('admin.sliders.*') ? 'active' : '' }}">
+                                            <i class="uil-images"></i>
+                                            <span>{{ __('Slider') }}</span>
                                         </a>
                                     </li>
                                 @endif
@@ -707,11 +681,11 @@
                                         </a>
                                         <ul class="sub-menu {{ $layoutUserManagementActive ? 'mm-show' : '' }}"
                                             aria-expanded="{{ $layoutUserManagementActive ? 'true' : 'false' }}">
-                                            @if ($layoutCanViewAddresses)
+                                            @if ($layoutCanViewRoles)
                                                 <li>
-                                                    <a href="{{ route('admin.addresses.index') }}"
-                                                        class="{{ request()->routeIs('admin.addresses.*') ? 'active' : '' }}">
-                                                        {{ __('Address') }}
+                                                    <a href="{{ route('admin.roles.index') }}"
+                                                        class="{{ request()->routeIs('admin.roles.*') ? 'active' : '' }}">
+                                                        {{ __('Roles') }}
                                                     </a>
                                                 </li>
                                             @endif
@@ -723,11 +697,11 @@
                                                     </a>
                                                 </li>
                                             @endif
-                                            @if ($layoutCanViewRoles)
+                                            @if ($layoutCanViewAddresses)
                                                 <li>
-                                                    <a href="{{ route('admin.roles.index') }}"
-                                                        class="{{ request()->routeIs('admin.roles.*') ? 'active' : '' }}">
-                                                        {{ __('Roles') }}
+                                                    <a href="{{ route('admin.addresses.index') }}"
+                                                        class="{{ request()->routeIs('admin.addresses.*') ? 'active' : '' }}">
+                                                        {{ __('Address') }}
                                                     </a>
                                                 </li>
                                             @endif
@@ -735,12 +709,22 @@
                                     </li>
                                 @endif
 
-                                @if ($layoutTenantAreaUnlocked && $layoutCanViewActivityLogs)
+                                @if ($layoutTenantAreaUnlocked && $layoutCanViewCustomers)
                                     <li>
-                                        <a href="{{ route('admin.activity-logs.index') }}"
-                                            class="waves-effect {{ request()->routeIs('admin.activity-logs.*') ? 'active' : '' }}">
-                                            <i class="uil-history"></i>
-                                            <span>{{ __('Activity Logs') }}</span>
+                                        <a href="{{ route('admin.customers.index') }}"
+                                            class="waves-effect {{ request()->routeIs('admin.customers.*') ? 'active' : '' }}">
+                                            <i class="uil-user-square"></i>
+                                            <span>{{ __('Customer') }}</span>
+                                        </a>
+                                    </li>
+                                @endif
+
+                                @if ($layoutTenantAreaUnlocked && $layoutCanViewPurchaseOrders)
+                                    <li>
+                                        <a href="{{ route('admin.purchase-orders.index') }}"
+                                            class="waves-effect {{ request()->routeIs('admin.purchase-orders.*') ? 'active' : '' }}">
+                                            <i class="uil-shopping-cart-alt"></i>
+                                            <span>{{ __('Purchase Order') }}</span>
                                         </a>
                                     </li>
                                 @endif
@@ -751,16 +735,6 @@
                                             class="waves-effect {{ request()->routeIs('admin.promotions.*') ? 'active' : '' }}">
                                             <i class="uil-tag-alt"></i>
                                             <span>{{ __('Promotion') }}</span>
-                                        </a>
-                                    </li>
-                                @endif
-
-                                @if ($layoutTenantAreaUnlocked && $layoutCanViewSliders)
-                                    <li>
-                                        <a href="{{ route('admin.sliders.index') }}"
-                                            class="waves-effect {{ request()->routeIs('admin.sliders.*') ? 'active' : '' }}">
-                                            <i class="uil-images"></i>
-                                            <span>{{ __('Slider') }}</span>
                                         </a>
                                     </li>
                                 @endif
@@ -780,6 +754,12 @@
                                                 </a>
                                             </li>
                                             <li>
+                                                <a href="{{ route('admin.reports.payments') }}"
+                                                    class="{{ request()->routeIs('admin.reports.payments') ? 'active' : '' }}">
+                                                    {{ __('Payment Summary') }}
+                                                </a>
+                                            </li>
+                                            <li>
                                                 <a href="{{ route('admin.reports.products') }}"
                                                     class="{{ request()->routeIs('admin.reports.products') ? 'active' : '' }}">
                                                     {{ __('Product Performance') }}
@@ -791,23 +771,9 @@
                                                     {{ __('Inventory & Stock') }}
                                                 </a>
                                             </li>
-                                            <li>
-                                                <a href="{{ route('admin.reports.payments') }}"
-                                                    class="{{ request()->routeIs('admin.reports.payments') ? 'active' : '' }}">
-                                                    {{ __('Payment Summary') }}
-                                                </a>
-                                            </li>
                                         </ul>
                                     </li>
                                 @endif
-
-                                <li>
-                                    <a href="{{ route('admin.translations.index') }}"
-                                        class="waves-effect {{ request()->routeIs('admin.translations.*') ? 'active' : '' }}">
-                                        <i class="uil-language"></i>
-                                        <span>{{ __('Translations') }}</span>
-                                    </a>
-                                </li>
 
                                 @if ($layoutHasSettingsMenu)
                                     <li class="{{ $layoutSettingsActive ? 'mm-active' : '' }}">
@@ -817,19 +783,19 @@
                                         </a>
                                         <ul class="sub-menu {{ $layoutSettingsActive ? 'mm-show' : '' }}"
                                             aria-expanded="{{ $layoutSettingsActive ? 'true' : 'false' }}">
-                                            @if ($layoutCanViewGeneralSettings)
-                                                <li>
-                                                    <a href="{{ route('admin.general-settings.index') }}"
-                                                        class="{{ request()->routeIs('admin.general-settings.*') ? 'active' : '' }}">
-                                                        {{ __('General') }}
-                                                    </a>
-                                                </li>
-                                            @endif
                                             @if ($layoutCanViewCurrencies)
                                                 <li>
                                                     <a href="{{ route('admin.currencies.index') }}"
                                                         class="{{ request()->routeIs('admin.currencies.*') ? 'active' : '' }}">
                                                         {{ __('Currency') }}
+                                                    </a>
+                                                </li>
+                                            @endif
+                                            @if ($layoutCanViewGeneralSettings)
+                                                <li>
+                                                    <a href="{{ route('admin.general-settings.index') }}"
+                                                        class="{{ request()->routeIs('admin.general-settings.*') ? 'active' : '' }}">
+                                                        {{ __('General') }}
                                                     </a>
                                                 </li>
                                             @endif
@@ -852,6 +818,55 @@
                                         </ul>
                                     </li>
                                 @endif
+
+                                @if ($layoutCanManageAdministrators)
+                                    <li>
+                                        <a href="{{ route('admin.security.index') }}"
+                                            class="waves-effect {{ request()->routeIs('admin.security.*') ? 'active' : '' }}">
+                                            <i class="uil-shield-check"></i>
+                                            <span>{{ __('Security') }}</span>
+                                        </a>
+                                    </li>
+                                @endif
+
+                                @if ($layoutTenantAreaUnlocked && $layoutCanViewActivityLogs)
+                                    <li>
+                                        <a href="{{ route('admin.activity-logs.index') }}"
+                                            class="waves-effect {{ request()->routeIs('admin.activity-logs.*') ? 'active' : '' }}">
+                                            <i class="uil-history"></i>
+                                            <span>{{ __('Activity Logs') }}</span>
+                                        </a>
+                                    </li>
+                                @endif
+
+                                @if ($layoutCanManageAdministrators)
+                                    <li>
+                                        <a href="{{ route('admin.monitoring.index') }}"
+                                            class="waves-effect {{ request()->routeIs('admin.monitoring.*') ? 'active' : '' }}">
+                                            <i class="uil-monitor-heart-rate"></i>
+                                            <span>{{ __('Monitoring') }}</span>
+                                        </a>
+                                    </li>
+                                @endif
+
+                                @if ($layoutCanViewTelescope)
+                                    <li>
+                                        <a href="{{ url(config('telescope.path', 'telescope')) }}" target="_blank"
+                                            class="waves-effect {{ request()->is(config('telescope.path', 'telescope') . '*') ? 'active' : '' }}">
+                                            <i class="uil-telescope"></i>
+                                            <span class="badge rounded-pill bg-soft-info text-info float-end font-size-11">{{ __('Monitor') }}</span>
+                                            <span>{{ __('Telescope') }}</span>
+                                        </a>
+                                    </li>
+                                @endif
+
+                                <li>
+                                    <a href="{{ route('admin.translations.index') }}"
+                                        class="waves-effect {{ request()->routeIs('admin.translations.*') ? 'active' : '' }}">
+                                        <i class="uil-language"></i>
+                                        <span>{{ __('Translations') }}</span>
+                                    </a>
+                                </li>
                             </ul>
                         </div>
                     </div>

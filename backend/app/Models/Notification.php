@@ -17,6 +17,7 @@ class Notification extends Model
 
     protected $fillable = [
         'user_id',
+        'customer_id',
         'type',
         'title',
         'message',
@@ -26,6 +27,7 @@ class Notification extends Model
 
     protected $casts = [
         'user_id' => 'integer',
+        'customer_id' => 'integer',
         'data' => 'array',
         'read_at' => 'datetime',
     ];
@@ -49,5 +51,10 @@ class Notification extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
     }
 }
