@@ -44,4 +44,10 @@ return [
         'timeout' => (int) env('VISION_EMBEDDING_TIMEOUT', 45),
     ],
 
+    'geoip' => [
+        // Enable only when the edge proxy overwrites (rather than forwards)
+        // visitor-supplied geolocation headers such as CF-IPCountry.
+        'trust_provider_headers' => (bool) env('GEOIP_TRUST_PROVIDER_HEADERS', false),
+    ],
+
 ];

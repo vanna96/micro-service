@@ -689,6 +689,7 @@
                                     @csrf
                                     @method('PUT')
                                     <input type="hidden" name="tab" value="firewall">
+                                    <input type="hidden" name="firewall_section" value="ip_whitelist">
 
                                     <div class="d-flex align-items-center justify-content-between mb-2">
                                         <div>
@@ -722,12 +723,284 @@
                         </div>
                     </div>
 
+                    {{-- Country Access Control --}}
+                    <div class="card border rounded-3 p-4 mb-4 bg-light">
+                        <form action="{{ route('admin.security.settings.update') }}" method="POST" id="countryPolicyForm">
+                            @csrf
+                            @method('PUT')
+                            <input type="hidden" name="tab" value="firewall">
+                            <input type="hidden" name="firewall_section" value="country">
+
+                            {{-- Card Header --}}
+                            <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="avatar-xs flex-shrink-0">
+                                        <span class="avatar-title bg-soft-primary text-primary rounded-3">
+                                            <i class="uil-map-marker-shield font-size-18"></i>
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <div class="d-flex align-items-center gap-2 mb-1">
+                                            <h6 class="fw-bold mb-0 text-dark">{{ __('Country Access Control') }}</h6>
+                                            <span class="badge bg-soft-primary text-primary font-size-11">{{ __('GeoIP Policy') }}</span>
+                                            @if(old('country_access_enabled', $settings['country_access_enabled'] ?? '0') === '1')
+                                                <span class="badge bg-soft-success text-success border border-success-subtle font-size-11" id="countryPolicyStatusBadge">
+                                                    <i class="uil-check-circle me-1"></i>{{ __('Active — Enforcing') }}
+                                                </span>
+                                            @else
+                                                <span class="badge bg-soft-secondary text-secondary border border-secondary-subtle font-size-11" id="countryPolicyStatusBadge">
+                                                    <i class="uil-power me-1"></i>{{ __('Disabled') }}
+                                                </span>
+                                            @endif
+                                        </div>
+                                        <p class="text-muted font-size-12 mb-0">
+                                            {{ __('Filter inbound traffic by geographic origin across your storefront, API, and administrative endpoints.') }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="form-check form-switch form-switch-md">
+                                    <input class="form-check-input" type="checkbox" name="country_access_enabled" value="1" id="countryAccessToggle"
+                                        {{ old('country_access_enabled', $settings['country_access_enabled'] ?? '0') === '1' ? 'checked' : '' }}>
+                                    <label class="form-check-label fw-semibold font-size-12" for="countryAccessToggle">
+                                        {{ __('Enable Country Policy') }}
+                                    </label>
+                                </div>
+                            </div>
+
+                            {{-- Origin Connection Diagnostics Banner --}}
+                            <div class="alert alert-light border d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4 py-2 px-3 rounded-3">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="fs-4">{{ $clientFlag ?? '🌐' }}</span>
+                                    <div>
+                                        <div class="small fw-semibold text-dark">
+                                            {{ __('Your Detected Origin') }}: <span class="font-monospace text-primary">{{ $clientIp ?? '127.0.0.1' }}</span>
+                                            <span class="mx-1 text-muted">•</span>
+                                            <span>{{ $clientCountryName ?? 'Local Network' }} ({{ $clientCountry ?? 'LAN' }})</span>
+                                        </div>
+                                        <div class="font-size-11 text-muted">
+                                            @if(config('services.geoip.trust_provider_headers', false))
+                                                {{ __('Trusted reverse-proxy GeoIP headers are evaluated in real time.') }}
+                                            @else
+                                                {{ __('Country is resolved from the verified client IP; caller-supplied GeoIP headers are ignored.') }}
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-soft-success text-success font-size-11">
+                                        <i class="uil-shield-check me-1"></i>{{ __('Admin Safe') }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {{-- Mode & Scope Configuration --}}
+                            <div class="row g-3 mb-3">
+                                <div class="col-lg-7">
+                                    <label class="form-label small fw-semibold text-dark">{{ __('Policy Mode') }}</label>
+                                    <div class="row g-2">
+                                        <div class="col-sm-6">
+                                            <div class="border rounded-3 p-2 h-100 bg-white country-mode-card {{ old('country_access_mode', $settings['country_access_mode'] ?? 'allowlist') === 'blocklist' ? 'border-primary' : '' }}" data-mode="blocklist" style="cursor: pointer;">
+                                                <div class="form-check mb-1">
+                                                    <input class="form-check-input" type="radio" name="country_access_mode" id="mode_blocklist" value="blocklist"
+                                                        {{ old('country_access_mode', $settings['country_access_mode'] ?? 'allowlist') === 'blocklist' ? 'checked' : '' }}>
+                                                    <label class="form-check-label fw-bold small text-dark" for="mode_blocklist">
+                                                        🚫 {{ __('Restriction (Blocklist)') }}
+                                                    </label>
+                                                </div>
+                                                <p class="font-size-11 text-muted mb-0 ps-3">
+                                                    {{ __('Block visitors from selected countries; allow everyone else.') }}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <div class="border rounded-3 p-2 h-100 bg-white country-mode-card {{ old('country_access_mode', $settings['country_access_mode'] ?? 'allowlist') === 'allowlist' ? 'border-primary' : '' }}" data-mode="allowlist" style="cursor: pointer;">
+                                                <div class="form-check mb-1">
+                                                    <input class="form-check-input" type="radio" name="country_access_mode" id="mode_allowlist" value="allowlist"
+                                                        {{ old('country_access_mode', $settings['country_access_mode'] ?? 'allowlist') === 'allowlist' ? 'checked' : '' }}>
+                                                    <label class="form-check-label fw-bold small text-dark" for="mode_allowlist">
+                                                        🔒 {{ __('Whitelist (Exclusive)') }}
+                                                    </label>
+                                                </div>
+                                                <p class="font-size-11 text-muted mb-0 ps-3">
+                                                    {{ __('Allow visitors only from selected countries; drop all others.') }}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-5">
+                                    <label class="form-label small fw-semibold text-dark">{{ __('Protection Scope') }}</label>
+                                    <select class="form-select" name="country_access_scope" id="country_access_scope">
+                                        <option value="storefront_only" {{ old('country_access_scope', $settings['country_access_scope'] ?? 'storefront_only') === 'storefront_only' ? 'selected' : '' }}>
+                                            🛡️ {{ __('Storefront & Public APIs (Safe)') }}
+                                        </option>
+                                        <option value="all" {{ old('country_access_scope', $settings['country_access_scope'] ?? 'storefront_only') === 'all' ? 'selected' : '' }}>
+                                            🌐 {{ __('Entire Platform (Storefront, APIs & Admin)') }}
+                                        </option>
+                                    </select>
+                                    <span class="text-muted font-size-11 d-block mt-1">
+                                        {{ __('Storefront scope prevents locking yourself out of Admin if your country is restricted.') }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {{-- Interactive Country Chips Container --}}
+                            <div class="mb-3">
+                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                                    <label class="form-label small fw-semibold text-dark mb-0">
+                                        <i class="uil-globe me-1 text-primary"></i> {{ __('Configured Countries') }}
+                                        <span class="badge bg-soft-primary text-primary ms-1" id="selectedCountBadge">0</span>
+                                    </label>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none font-size-11 text-primary" id="btn-add-asean">
+                                            <i class="uil-plus-circle me-1"></i>{{ __('+ Add ASEAN Region') }}
+                                        </button>
+                                        <span class="text-muted font-size-11">|</span>
+                                        <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none font-size-11 text-danger" id="btn-clear-all-countries">
+                                            <i class="uil-trash me-1"></i>{{ __('Clear All') }}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {{-- Country Chips Box --}}
+                                <div class="p-3 border rounded-3 bg-white mb-2" style="min-height: 80px; max-height: 180px; overflow-y: auto;" id="countryChipsBox">
+                                    <div id="noCountriesNotice" class="text-muted font-size-12 py-2 text-center {{ !empty($countryCodesArray) ? 'd-none' : '' }}">
+                                        <i class="uil-info-circle me-1"></i> {{ __('No countries selected yet. Click popular presets below or select from the dropdown.') }}
+                                    </div>
+                                    <div id="activeChipsList" class="d-flex flex-wrap gap-2">
+                                        @foreach($countryCodesArray ?? [] as $cCode)
+                                            @php
+                                                $cCode = strtoupper(trim($cCode));
+                                                $cName = $allCountries[$cCode]['name'] ?? $cCode;
+                                                $cFlag = $allCountries[$cCode]['flag'] ?? '🌐';
+                                            @endphp
+                                            <span class="badge bg-soft-secondary text-dark border d-inline-flex align-items-center gap-1 font-size-12 py-1 px-2 rounded-2 js-country-chip" data-code="{{ $cCode }}">
+                                                <span>{{ $cFlag }}</span>
+                                                <span class="fw-semibold">{{ $cName }}</span>
+                                                <span class="text-muted font-monospace font-size-10">({{ $cCode }})</span>
+                                                <button type="button" class="btn-close btn-close-xs ms-1 js-remove-chip" aria-label="Remove" style="font-size: 8px;"></button>
+                                            </span>
+                                        @endforeach
+                                    </div>
+                                </div>
+
+                                {{-- Synchronized Hidden Input for Form Submission --}}
+                                <input type="hidden" name="country_access_codes" id="hidden_country_access_codes" value="{{ old('country_access_codes', $countryCodesText) }}">
+                                @error('country_access_codes')
+                                    <div class="text-danger font-size-12 mt-1">{{ $message }}</div>
+                                @enderror
+
+                                {{-- Quick-Add Presets --}}
+                                <div class="d-flex flex-wrap align-items-center gap-1 mb-3 pt-1">
+                                    <span class="font-size-11 text-muted me-1 fw-semibold">{{ __('Quick Add:') }}</span>
+                                    @php
+                                        $presets = [
+                                            'KH' => ['Cambodia', '🇰🇭'],
+                                            'TH' => ['Thailand', '🇹🇭'],
+                                            'VN' => ['Vietnam', '🇻🇳'],
+                                            'SG' => ['Singapore', '🇸🇬'],
+                                            'MY' => ['Malaysia', '🇲🇾'],
+                                            'ID' => ['Indonesia', '🇮🇩'],
+                                            'PH' => ['Philippines', '🇵🇭'],
+                                            'CN' => ['China', '🇨🇳'],
+                                            'US' => ['United States', '🇺🇸'],
+                                            'GB' => ['United Kingdom', '🇬🇧'],
+                                            'RU' => ['Russia', '🇷🇺'],
+                                            'JP' => ['Japan', '🇯🇵'],
+                                        ];
+                                    @endphp
+                                    @foreach($presets as $pCode => $pInfo)
+                                        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 font-size-11 rounded-pill js-quick-country"
+                                            data-code="{{ $pCode }}" data-name="{{ $pInfo[0] }}" data-flag="{{ $pInfo[1] }}">
+                                            {{ $pInfo[1] }} {{ $pCode }}
+                                        </button>
+                                    @endforeach
+                                </div>
+
+                                {{-- Full Country Dropdown Selector --}}
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-md-6 col-lg-5">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-white"><i class="uil-search"></i></span>
+                                            <select class="form-select form-select-sm" id="countryDropdownSelect">
+                                                <option value="">{{ __('-- Select a country to add --') }}</option>
+                                                @foreach($allCountries as $code => $cData)
+                                                    <option value="{{ $code }}" data-name="{{ $cData['name'] }}" data-flag="{{ $cData['flag'] }}">
+                                                        {{ $cData['flag'] }} {{ $cData['name'] }} ({{ $code }})
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            <button class="btn btn-primary btn-sm" type="button" id="btnAddFromDropdown">
+                                                <i class="uil-plus"></i> {{ __('Add') }}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 col-lg-7">
+                                        <span class="text-muted font-size-11">
+                                            {{ __('Private LAN and whitelisted administrator IPs always bypass this policy.') }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Live Policy Simulator Tool --}}
+                            <div class="card border rounded-3 p-3 bg-white mb-3 shadow-none">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="uil-flask font-size-16 text-primary"></i>
+                                        <span class="fw-semibold small text-dark">{{ __('Live Policy Simulator') }}</span>
+                                        <span class="badge bg-soft-info text-info font-size-10">{{ __('Interactive Test') }}</span>
+                                    </div>
+                                    <span class="font-size-11 text-muted">{{ __('Simulate any visitor IP or country against your current rules') }}</span>
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <input type="text" class="form-control form-control-sm" id="sim_test_ip" placeholder="{{ __('Visitor IP (e.g. 103.216.x.x)') }}" value="{{ $clientIp ?? '' }}">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <select class="form-select form-select-sm" id="sim_test_country">
+                                            <option value="">{{ __('-- Auto-detect country from IP --') }}</option>
+                                            @foreach($allCountries as $code => $cData)
+                                                <option value="{{ $code }}" {{ ($clientCountry ?? '') === $code ? 'selected' : '' }}>
+                                                    {{ $cData['flag'] }} {{ $cData['name'] }} ({{ $code }})
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <button type="button" class="btn btn-outline-primary btn-sm w-100 fw-semibold" id="btn-run-simulation">
+                                            <i class="uil-play me-1"></i> {{ __('Test Policy Result') }}
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="sim_result_box" class="mt-2 d-none"></div>
+                            </div>
+
+                            {{-- Save Action Bar --}}
+                            <div class="border-top pt-3 mt-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                                <span class="text-warning font-size-11" id="whitelistWarningNotice" style="{{ old('country_access_mode', $settings['country_access_mode'] ?? 'allowlist') === 'allowlist' ? '' : 'display: none;' }}">
+                                    <i class="uil-exclamation-triangle me-1"></i>
+                                    {{ __('Whitelist mode drops all unselected and unknown countries. Keep Protection Scope on "Storefront & Public APIs" to prevent accidental admin lockout.') }}
+                                </span>
+                                <span class="text-muted font-size-11" id="restrictionNotice" style="{{ old('country_access_mode', $settings['country_access_mode'] ?? 'allowlist') === 'blocklist' ? '' : 'display: none;' }}">
+                                    <i class="uil-info-circle me-1"></i>
+                                    {{ __('Restriction mode blocks traffic from selected countries while permitting all other global visitors.') }}
+                                </span>
+                                <button type="submit" class="btn btn-primary btn-sm fw-semibold">
+                                    <i class="uil-save me-1"></i> {{ __('Save Country Policy') }}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
                     {{-- Commercial VPN, Datacenter Proxy & Tor Defense --}}
                     <div class="card border rounded-3 p-3 mb-4 bg-light">
                         <form action="{{ route('admin.security.settings.update') }}" method="POST">
                             @csrf
                             @method('PUT')
                             <input type="hidden" name="tab" value="firewall">
+                            <input type="hidden" name="firewall_section" value="vpn">
 
                             <div class="row align-items-center">
                                 <div class="col-lg-8">
@@ -1690,6 +1963,177 @@
                     var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : 'Failed to send test Telegram alert.';
                     $fb.removeClass('d-none').addClass('alert alert-danger p-2 small mt-2')
                         .html('<i class="uil-exclamation-triangle me-1"></i> ' + msg);
+                }
+            });
+        });
+
+        // Country Access Control: Toggle Switch Handler
+        $('#countryAccessToggle').on('change', function () {
+            var isEnabled = $(this).is(':checked');
+            var $badge = $('#countryPolicyStatusBadge');
+            if (isEnabled) {
+                $badge.removeClass('bg-soft-secondary text-secondary border-secondary-subtle')
+                    .addClass('bg-soft-success text-success border-success-subtle')
+                    .html('<i class="uil-check-circle me-1"></i>Active — Enforcing');
+            } else {
+                $badge.removeClass('bg-soft-success text-success border-success-subtle')
+                    .addClass('bg-soft-secondary text-secondary border-secondary-subtle')
+                    .html('<i class="uil-power me-1"></i>Disabled');
+            }
+        });
+
+        // Mode Card Selection Click
+        $('.country-mode-card').on('click', function () {
+            var mode = $(this).data('mode');
+            $('input[name="country_access_mode"][value="' + mode + '"]').prop('checked', true).trigger('change');
+        });
+
+        $('input[name="country_access_mode"]').on('change', function () {
+            var mode = $(this).val();
+            $('.country-mode-card').removeClass('border-primary shadow-sm');
+            $('.country-mode-card[data-mode="' + mode + '"]').addClass('border-primary shadow-sm');
+
+            if (mode === 'allowlist') {
+                $('#whitelistWarningNotice').show();
+                $('#restrictionNotice').hide();
+            } else {
+                $('#whitelistWarningNotice').hide();
+                $('#restrictionNotice').show();
+            }
+        });
+
+        // Country Chips Store & Management
+        var allCountriesDict = @json($allCountries ?? []);
+        var selectedCountries = [];
+
+        function parseHiddenCodes() {
+            var raw = $('#hidden_country_access_codes').val() || '';
+            selectedCountries = raw.split(/[\s,;\n]+/)
+                .map(function (c) { return c.trim().toUpperCase(); })
+                .filter(function (c) { return /^[A-Z]{2}$/.test(c); });
+            // unique
+            selectedCountries = Array.from(new Set(selectedCountries));
+        }
+
+        function updateChipsUI() {
+            var $list = $('#activeChipsList');
+            var $notice = $('#noCountriesNotice');
+            var $badge = $('#selectedCountBadge');
+
+            $list.empty();
+            $badge.text(selectedCountries.length);
+
+            if (selectedCountries.length === 0) {
+                $notice.removeClass('d-none');
+            } else {
+                $notice.addClass('d-none');
+                selectedCountries.forEach(function (code) {
+                    var data = allCountriesDict[code] || { name: code, flag: '🌐' };
+                    var chipHtml = '<span class="badge bg-soft-secondary text-dark border d-inline-flex align-items-center gap-1 font-size-12 py-1 px-2 rounded-2 js-country-chip" data-code="' + code + '">'
+                        + '<span>' + data.flag + '</span>'
+                        + '<span class="fw-semibold">' + data.name + '</span>'
+                        + '<span class="text-muted font-monospace font-size-10">(' + code + ')</span>'
+                        + '<button type="button" class="btn-close btn-close-xs ms-1 js-remove-chip" data-code="' + code + '" aria-label="Remove" style="font-size: 8px;"></button>'
+                        + '</span>';
+                    $list.append(chipHtml);
+                });
+            }
+
+            $('#hidden_country_access_codes').val(selectedCountries.join('\n'));
+        }
+
+        // Initialize chips on load
+        parseHiddenCodes();
+        updateChipsUI();
+
+        // Remove single chip
+        $(document).on('click', '.js-remove-chip', function (e) {
+            e.stopPropagation();
+            var code = $(this).data('code') || $(this).closest('.js-country-chip').data('code');
+            if (code) {
+                selectedCountries = selectedCountries.filter(function (c) { return c !== code; });
+                updateChipsUI();
+            }
+        });
+
+        // Quick Preset Add
+        $(document).on('click', '.js-quick-country', function () {
+            var code = $(this).data('code');
+            if (code && !selectedCountries.includes(code)) {
+                selectedCountries.push(code);
+                updateChipsUI();
+            }
+        });
+
+        // Add from Dropdown
+        $('#btnAddFromDropdown').on('click', function () {
+            var $select = $('#countryDropdownSelect');
+            var code = $select.val();
+            if (code && !selectedCountries.includes(code)) {
+                selectedCountries.push(code);
+                updateChipsUI();
+                $select.val('');
+            }
+        });
+
+        // Quick add ASEAN
+        $('#btn-add-asean').on('click', function () {
+            var asean = ['KH', 'TH', 'VN', 'SG', 'MY', 'ID', 'PH', 'MM', 'LA', 'BN'];
+            asean.forEach(function (c) {
+                if (!selectedCountries.includes(c)) {
+                    selectedCountries.push(c);
+                }
+            });
+            updateChipsUI();
+        });
+
+        // Clear All Countries
+        $('#btn-clear-all-countries').on('click', function () {
+            if (selectedCountries.length > 0) {
+                selectedCountries = [];
+                updateChipsUI();
+            }
+        });
+
+        // Live Policy Simulator
+        $('#btn-run-simulation').on('click', function () {
+            var $btn = $(this);
+            var $res = $('#sim_result_box');
+            var testIp = $('#sim_test_ip').val().trim();
+            var testCountry = $('#sim_test_country').val();
+
+            $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Checking...');
+            $res.addClass('d-none').empty();
+
+            $.ajax({
+                url: "{{ route('admin.security.test-country') }}",
+                method: "POST",
+                data: {
+                    _token: "{{ csrf_token() }}",
+                    ip: testIp,
+                    country_code: testCountry
+                },
+                success: function (res) {
+                    $btn.prop('disabled', false).html('<i class="uil-play me-1"></i> Test Policy Result');
+                    $res.removeClass('d-none');
+
+                    if (res.would_block) {
+                        $res.html('<div class="alert alert-danger py-2 px-3 font-size-12 mb-0 d-flex align-items-center gap-2 rounded-3">'
+                            + '<i class="uil-ban font-size-16 text-danger"></i>'
+                            + '<div><strong>BLOCKED:</strong> ' + res.message + '</div>'
+                            + '</div>');
+                    } else {
+                        $res.html('<div class="alert alert-success py-2 px-3 font-size-12 mb-0 d-flex align-items-center gap-2 rounded-3">'
+                            + '<i class="uil-check-circle font-size-16 text-success"></i>'
+                            + '<div><strong>PERMITTED:</strong> ' + res.message + '</div>'
+                            + '</div>');
+                    }
+                },
+                error: function (xhr) {
+                    $btn.prop('disabled', false).html('<i class="uil-play me-1"></i> Test Policy Result');
+                    $res.removeClass('d-none').html('<div class="alert alert-warning py-2 px-3 font-size-12 mb-0 rounded-3">'
+                        + '<i class="uil-exclamation-triangle me-1"></i> Failed to run simulation. Check input or network.'
+                        + '</div>');
                 }
             });
         });

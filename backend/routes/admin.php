@@ -102,6 +102,7 @@ Route::middleware(['admin.central'])->group(function () {
         Route::delete('security/clear-logs', [SecurityController::class, 'clearLogs'])->name('security.clear-logs');
         Route::post('security/seed-samples', [SecurityController::class, 'seedSampleLogs'])->name('security.seed-samples');
         Route::post('security/test-telegram', [SecurityController::class, 'testTelegramAlert'])->name('security.test-telegram');
+        Route::post('security/test-country', [SecurityController::class, 'testCountryAccess'])->name('security.test-country');
     });
 
     Route::middleware(['auth', 'admin.tenant', 'admin.tenancy'])->prefix('admin')->name('admin.')->group(function () {

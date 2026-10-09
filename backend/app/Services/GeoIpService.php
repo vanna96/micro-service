@@ -14,6 +14,43 @@ class GeoIpService
     protected static array $memoryCache = [];
 
     /**
+     * Resolve the effective client IP, checking Cloudflare and reverse proxy headers.
+     */
+    public static function resolveClientIp(?Request $request = null): string
+    {
+        $req = $request ?: (function_exists('request') ? request() : null);
+        if (! $req) {
+            return '127.0.0.1';
+        }
+
+        $remoteIp = trim((string) $req->server('REMOTE_ADDR', ''));
+
+        // Only accept a forwarded chain from an internal proxy. Read it from
+        // right to left so a caller cannot win by prepending a fake address.
+        if (static::isPrivateIp($remoteIp)) {
+            $forwarded = array_reverse(array_map('trim', explode(',', (string) $req->header('X-Forwarded-For', ''))));
+            foreach ($forwarded as $ip) {
+                if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP) && ! static::isPrivateIp($ip)) {
+                    return $ip;
+                }
+            }
+        }
+
+        // Provider-specific identity headers are opt-in because public clients
+        // can otherwise spoof them and bypass country access controls.
+        if (config('services.geoip.trust_provider_headers', false)) {
+            foreach (['CF-Connecting-IP', 'True-Client-IP', 'X-Real-IP'] as $header) {
+                $ip = trim((string) $req->header($header));
+                if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP)) {
+                    return $ip;
+                }
+            }
+        }
+
+        return filter_var($remoteIp, FILTER_VALIDATE_IP) ? $remoteIp : '127.0.0.1';
+    }
+
+    /**
      * Resolve IP Geolocation and detect VPN/Proxy/Datacenter usage.
      *
      * @return array{country_code: string, country_name: string, city: ?string, isp: ?string, is_vpn: bool, is_tor: bool}
@@ -22,19 +59,40 @@ class GeoIpService
     {
         $ip = trim($ip);
 
+        // Check Reverse Proxy / Cloudflare Geolocation Headers
+        $req = $request ?: (function_exists('request') ? request() : null);
+        $headerCountry = null;
+        if ($req && config('services.geoip.trust_provider_headers', false)) {
+            $rawCountry = $req->header('CF-IPCountry')
+                ?: $req->header('X-Country-Code')
+                ?: $req->header('X-Geo-Country')
+                ?: $req->header('X-Forwarded-Country');
+            if ($rawCountry && preg_match('/^[A-Za-z]{2}$/', trim($rawCountry))) {
+                $headerCountry = strtoupper(trim($rawCountry));
+            }
+        }
+
         if (array_key_exists($ip, static::$memoryCache)) {
-            return static::$memoryCache[$ip];
+            $cached = static::$memoryCache[$ip];
+            if ($headerCountry) {
+                $cached['country_code'] = $headerCountry;
+                $cached['country_name'] = static::countryNameFromCode($headerCountry);
+            }
+
+            return $cached;
         }
 
         // 1. Local LAN / Loopback Resolution
         if (static::isPrivateIp($ip)) {
+            $country = $headerCountry ?: 'LAN';
+            $countryName = $headerCountry ? static::countryNameFromCode($headerCountry) : 'Local Network';
             $data = [
-                'country_code' => 'LAN',
-                'country_name' => 'Local Network',
-                'city' => 'Internal / LAN',
+                'country_code' => $country,
+                'country_name' => $countryName,
+                'city' => $headerCountry ? 'Simulated / Proxy' : 'Internal / LAN',
                 'latitude' => null,
                 'longitude' => null,
-                'isp' => 'Private Subnet',
+                'isp' => $headerCountry ? 'Proxy Header' : 'Private Subnet',
                 'is_vpn' => false,
                 'is_tor' => false,
             ];
@@ -44,10 +102,14 @@ class GeoIpService
         }
 
         // 2. Check File Cache (Persistent 30-day cache to avoid external rate limits)
-        $cacheKey = 'geoip_lookup_' . md5($ip);
+        $cacheKey = 'geoip_lookup_'.md5($ip);
         try {
             $cached = Cache::store('file')->get($cacheKey);
             if (is_array($cached) && ! empty($cached['country_code'])) {
+                if ($headerCountry) {
+                    $cached['country_code'] = $headerCountry;
+                    $cached['country_name'] = static::countryNameFromCode($headerCountry);
+                }
                 if (! array_key_exists('latitude', $cached)) {
                     $coords = static::fallbackCoordinates($cached['country_code'] ?? null, $cached['city'] ?? null);
                     $cached['latitude'] = $coords['lat'];
@@ -65,7 +127,7 @@ class GeoIpService
         $req = $request ?: (function_exists('request') ? request() : null);
         $clientLat = $req ? ($req->header('X-Client-Latitude') ?: $req->header('X-Geo-Lat') ?: $req->header('CF-IPLatitude')) : null;
         $clientLng = $req ? ($req->header('X-Client-Longitude') ?: $req->header('X-Geo-Lng') ?: $req->header('CF-IPLongitude')) : null;
-        $cfCountry = $req ? $req->header('CF-IPCountry') : null;
+        $cfCountry = $headerCountry ?: ($req ? ($req->header('CF-IPCountry') ?: $req->header('X-Country-Code')) : null);
         $cfCity = $req ? $req->header('CF-IPCity') : null;
         $cfCoords = static::fallbackCoordinates($cfCountry, $cfCity);
 
@@ -96,8 +158,9 @@ class GeoIpService
                 // indicate VPNs, proxies, and automated bot networks.
                 $isVpn = $isProxy || $isHosting;
 
-                $cCode = strtoupper($payload['countryCode'] ?? 'UN');
-                $cityName = $payload['city'] ?? $payload['regionName'] ?? 'Unknown City';
+                $cCode = $headerCountry ?: strtoupper($payload['countryCode'] ?? ($cfCountry ?: 'UN'));
+                $cityName = $payload['city'] ?? $payload['regionName'] ?? ($cfCity ?: 'Unknown City');
+                $cName = $headerCountry ? static::countryNameFromCode($headerCountry) : ($payload['country'] ?? static::countryNameFromCode($cCode));
                 $lat = $clientLat !== null ? (float) $clientLat : (isset($payload['lat']) ? (float) $payload['lat'] : null);
                 $lon = $clientLng !== null ? (float) $clientLng : (isset($payload['lon']) ? (float) $payload['lon'] : null);
 
@@ -109,7 +172,7 @@ class GeoIpService
 
                 $geoData = [
                     'country_code' => $cCode,
-                    'country_name' => $payload['country'] ?? 'Unknown Location',
+                    'country_name' => $cName,
                     'city' => $cityName,
                     'latitude' => $lat,
                     'longitude' => $lon,
@@ -151,6 +214,37 @@ class GeoIpService
     }
 
     /**
+     * Complete ISO 3166-1 country dictionary with flags and English names.
+     */
+    public static function allCountries(): array
+    {
+        static $countries;
+
+        if (is_array($countries)) {
+            return $countries;
+        }
+
+        $path = resource_path('data/countries.json');
+        $names = is_file($path) ? json_decode((string) file_get_contents($path), true) : [];
+        $countries = [];
+
+        foreach (is_array($names) ? $names : [] as $code => $name) {
+            $code = strtoupper((string) $code);
+            if (preg_match('/^[A-Z]{2}$/', $code)) {
+                $countries[$code] = [
+                    'code' => $code,
+                    'name' => (string) $name,
+                    'flag' => static::countryFlagEmoji($code),
+                ];
+            }
+        }
+
+        uasort($countries, static fn (array $left, array $right): int => strcasecmp($left['name'], $right['name']));
+
+        return $countries;
+    }
+
+    /**
      * Convert an ISO 3166-1 alpha-2 country code to a Unicode flag emoji.
      */
     public static function countryFlagEmoji(?string $countryCode): string
@@ -161,7 +255,7 @@ class GeoIpService
 
         $code = strtoupper(trim($countryCode));
 
-        if ($code === 'LAN' || $code === 'LOC') {
+        if ($code === 'LAN' || $code === 'LOC' || $code === 'UN') {
             return '🌐';
         }
 
@@ -173,32 +267,21 @@ class GeoIpService
         $firstChar = mb_ord($code[0]) - 65 + 0x1F1E6;
         $secondChar = mb_ord($code[1]) - 65 + 0x1F1E6;
 
-        return mb_chr($firstChar) . mb_chr($secondChar);
+        return mb_chr($firstChar).mb_chr($secondChar);
     }
 
     /**
-     * Lookup common country code names fallback.
+     * Lookup country name fallback with comprehensive coverage.
      */
     public static function countryNameFromCode(string $code): string
     {
-        $names = [
-            'US' => 'United States',
-            'KH' => 'Cambodia',
-            'VN' => 'Vietnam',
-            'TH' => 'Thailand',
-            'SG' => 'Singapore',
-            'MY' => 'Malaysia',
-            'CN' => 'China',
-            'JP' => 'Japan',
-            'KR' => 'South Korea',
-            'GB' => 'United Kingdom',
-            'DE' => 'Germany',
-            'FR' => 'France',
-            'AU' => 'Australia',
-            'CA' => 'Canada',
-        ];
+        $code = strtoupper(trim($code));
+        $all = static::allCountries();
+        if (isset($all[$code])) {
+            return $all[$code]['name'];
+        }
 
-        return $names[strtoupper($code)] ?? strtoupper($code);
+        return $code === 'LAN' ? 'Local Network' : ($code === 'UN' ? 'Unknown Location' : $code);
     }
 
     /**
@@ -269,7 +352,7 @@ class GeoIpService
             'JP' => ['lat' => 35.676192, 'lng' => 139.650311], // Tokyo
             'GB' => ['lat' => 51.507351, 'lng' => -0.127758],  // London
             'FR' => ['lat' => 48.856613, 'lng' => 2.352222],   // Paris
-            'AU' => ['lat' => -33.868820, 'lng' => 151.209296],// Sydney
+            'AU' => ['lat' => -33.868820, 'lng' => 151.209296], // Sydney
             'CA' => ['lat' => 43.653225, 'lng' => -79.383186], // Toronto
             'NL' => ['lat' => 52.367573, 'lng' => 4.904139],   // Amsterdam
             'KR' => ['lat' => 37.566536, 'lng' => 126.977966], // Seoul

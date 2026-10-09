@@ -8,6 +8,7 @@ use App\Models\SecuritySetting;
 use App\Services\GeoIpService;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
@@ -92,7 +93,7 @@ class EnforceSecurityFirewall
             return $next($request);
         }
 
-        $ip = $request->ip();
+        $ip = GeoIpService::resolveClientIp($request);
 
         // 0.1 IP Whitelist Exemption: Whitelisted IPs bypass all firewall blocks
         $whitelistedJson = SecuritySetting::get('admin_whitelisted_ips', '[]');
@@ -130,7 +131,7 @@ class EnforceSecurityFirewall
                     'unauthorized_admin_access',
                     'high',
                     'blocked',
-                    'Unauthorized IP tried to access admin route: ' . $request->path(),
+                    'Unauthorized IP tried to access admin route: '.$request->path(),
                     $request
                 );
 
@@ -144,7 +145,12 @@ class EnforceSecurityFirewall
             }
         }
 
-        // 4. Commercial VPN, Anonymous Proxy & Tor Exit Node Filter
+        // 4. Country Allowlist / Blocklist
+        if ($countryResponse = $this->checkCountryAccess($request, $ip)) {
+            return $countryResponse;
+        }
+
+        // 5. Commercial VPN, Anonymous Proxy & Tor Exit Node Filter
         if (SecuritySetting::getBool('block_vpn_proxies', false) && ! GeoIpService::isPrivateIp($ip)) {
             $geo = GeoIpService::lookup($ip, $request);
             if (! empty($geo['is_vpn'])) {
@@ -153,7 +159,7 @@ class EnforceSecurityFirewall
                     'vpn_proxy_blocked',
                     'medium',
                     'blocked',
-                    'Blocked connection from commercial VPN / Datacenter proxy (' . ($geo['isp'] ?? 'Anonymous Proxy') . ')',
+                    'Blocked connection from commercial VPN / Datacenter proxy ('.($geo['isp'] ?? 'Anonymous Proxy').')',
                     $request
                 );
 
@@ -167,7 +173,7 @@ class EnforceSecurityFirewall
             }
         }
 
-        // 4. Bad Bot & Exploit Scanner Filter
+        // 6. Bad Bot & Exploit Scanner Filter
         if (SecuritySetting::getBool('block_bad_bots', true)) {
             $userAgent = strtolower((string) $request->userAgent());
             foreach ($this->badBotSignatures as $signature) {
@@ -177,14 +183,14 @@ class EnforceSecurityFirewall
                         'bad_bot_scanner',
                         'high',
                         'blocked',
-                        'Vulnerability scanner detected: ' . $userAgent,
+                        'Vulnerability scanner detected: '.$userAgent,
                         $request
                     );
 
                     if (SecuritySetting::get('waf_action', 'block_and_autoban') === 'block_and_autoban') {
                         BlockedIp::block(
                             $ip,
-                            'Automated exploit tool detected (' . $signature . ')',
+                            'Automated exploit tool detected ('.$signature.')',
                             'bad_bot',
                             SecuritySetting::getInt('autoban_duration_hours', 24),
                             'Firewall WAF'
@@ -202,7 +208,7 @@ class EnforceSecurityFirewall
             }
         }
 
-        // 5. File Upload Threat Inspection (Web shells, trojans, executables)
+        // 7. File Upload Threat Inspection (Web shells, trojans, executables)
         if ($fileThreat = $this->inspectFileUploads($request)) {
             [$threatType, $matchedRule, $fileName] = $fileThreat;
 
@@ -211,14 +217,14 @@ class EnforceSecurityFirewall
                 $threatType,
                 'critical',
                 'blocked',
-                'Malicious upload rejected (' . $matchedRule . '): ' . $fileName,
+                'Malicious upload rejected ('.$matchedRule.'): '.$fileName,
                 $request
             );
 
             if (SecuritySetting::get('waf_action', 'block_and_autoban') === 'block_and_autoban') {
                 BlockedIp::block(
                     $ip,
-                    'Malicious file upload attempted (' . $fileName . ')',
+                    'Malicious file upload attempted ('.$fileName.')',
                     $threatType,
                     SecuritySetting::getInt('autoban_duration_hours', 24),
                     'Upload Firewall'
@@ -234,7 +240,7 @@ class EnforceSecurityFirewall
             );
         }
 
-        // 6. WAF Payload Inspection (SQLi, XSS, Path Traversal on All Inputs & Parameters)
+        // 8. WAF Payload Inspection (SQLi, XSS, Path Traversal on All Inputs & Parameters)
         if ($threat = $this->inspectPayloads($request)) {
             [$threatType, $matchedPattern, $matchedValue] = $threat;
 
@@ -243,14 +249,14 @@ class EnforceSecurityFirewall
                 $threatType,
                 'critical',
                 'blocked',
-                'Matched: ' . $matchedPattern . ' in: ' . Str::limit((string) $matchedValue, 300),
+                'Matched: '.$matchedPattern.' in: '.Str::limit((string) $matchedValue, 300),
                 $request
             );
 
             if (SecuritySetting::get('waf_action', 'block_and_autoban') === 'block_and_autoban') {
                 BlockedIp::block(
                     $ip,
-                    'WAF: ' . strtoupper($threatType) . ' attempt detected',
+                    'WAF: '.strtoupper($threatType).' attempt detected',
                     $threatType,
                     SecuritySetting::getInt('autoban_duration_hours', 24),
                     'Firewall WAF'
@@ -260,7 +266,7 @@ class EnforceSecurityFirewall
             return $this->blockedResponse(
                 $request,
                 $ip,
-                'Malicious request payload detected by Web Application Firewall (' . strtoupper($threatType) . ').',
+                'Malicious request payload detected by Web Application Firewall ('.strtoupper($threatType).').',
                 $incident->incident_id,
                 $threatType
             );
@@ -290,6 +296,73 @@ class EnforceSecurityFirewall
         }
 
         return $response;
+    }
+
+    protected function checkCountryAccess(Request $request, string $ip): ?Response
+    {
+        if (! SecuritySetting::getBool('country_access_enabled', false)) {
+            return null;
+        }
+
+        // Scope check: If scope is storefront_only, allow administrative routes
+        $scope = SecuritySetting::get('country_access_scope', 'storefront_only');
+        if ($scope === 'storefront_only' && $request->is('admin*')) {
+            return null;
+        }
+
+        // Safeguard: Never lock an authenticated account out of the admin portal.
+        // Route authorization still decides whether that account may use the page.
+        if ($request->is('admin*') && auth()->check()) {
+            return null;
+        }
+
+        $geo = GeoIpService::lookup($ip, $request);
+        $countryCode = strtoupper((string) ($geo['country_code'] ?? 'UN'));
+
+        // Internal local network traffic without proxy geo headers bypasses country policy
+        if ($countryCode === 'LAN') {
+            return null;
+        }
+
+        $configured = json_decode(SecuritySetting::get('country_access_codes', '[]'), true);
+        $countryCodes = collect(is_array($configured) ? $configured : [])
+            ->map(static fn ($code) => strtoupper(trim((string) $code)))
+            ->filter(static fn (string $code): bool => (bool) preg_match('/^[A-Z]{2}$/', $code))
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($countryCodes === []) {
+            return null;
+        }
+
+        $mode = SecuritySetting::get('country_access_mode', 'allowlist');
+        $mode = in_array($mode, ['allowlist', 'blocklist'], true) ? $mode : 'allowlist';
+        $listed = in_array($countryCode, $countryCodes, true);
+        $blocked = $mode === 'allowlist' ? ! $listed : $listed;
+
+        if (! $blocked) {
+            return null;
+        }
+
+        $countryName = (string) ($geo['country_name'] ?? GeoIpService::countryNameFromCode($countryCode));
+        $policy = $mode === 'allowlist' ? 'country allowlist' : 'country restriction list';
+        $incident = SecurityLog::logIncident(
+            $ip,
+            'country_access_blocked',
+            'high',
+            'blocked',
+            "Access from {$countryName} ({$countryCode}) was denied by the {$policy}.",
+            $request
+        );
+
+        return $this->blockedResponse(
+            $request,
+            $ip,
+            "Access from your country ({$countryName}) is not permitted by the security policy.",
+            $incident->incident_id,
+            'country_access_blocked'
+        );
     }
 
     /**
@@ -386,7 +459,7 @@ class EnforceSecurityFirewall
         $this->flattenArray($files, $flattenedFiles);
 
         foreach ($flattenedFiles as $file) {
-            if (! $file instanceof \Illuminate\Http\UploadedFile) {
+            if (! $file instanceof UploadedFile) {
                 continue;
             }
 
@@ -394,7 +467,7 @@ class EnforceSecurityFirewall
             if ($blockDangerous && in_array($clientExtension, $this->dangerousExtensions, true)) {
                 return [
                     'malicious_file_upload',
-                    'dangerous_extension:.' . $clientExtension,
+                    'dangerous_extension:.'.$clientExtension,
                     $file->getClientOriginalName(),
                 ];
             }
@@ -413,7 +486,7 @@ class EnforceSecurityFirewall
                 if (in_array($mime, $dangerousMimes, true)) {
                     return [
                         'malicious_file_upload',
-                        'dangerous_mime:' . $mime,
+                        'dangerous_mime:'.$mime,
                         $file->getClientOriginalName(),
                     ];
                 }
@@ -440,7 +513,7 @@ class EnforceSecurityFirewall
             return null;
         }
 
-        $windowKey = 'sec_req_count_' . md5($ip . '_' . date('YmdHi'));
+        $windowKey = 'sec_req_count_'.md5($ip.'_'.date('YmdHi'));
 
         try {
             $currentCount = (int) Cache::store('file')->get($windowKey, 0) + 1;
@@ -530,6 +603,9 @@ class EnforceSecurityFirewall
                 'ip' => $ip,
             ], 403, [
                 'X-Security-Firewall' => 'Blocked',
+                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+                'Pragma' => 'no-cache',
+                'Expires' => '0',
             ]);
         }
 
@@ -540,13 +616,21 @@ class EnforceSecurityFirewall
                 'incidentId' => $incidentId,
             ], 403, [
                 'X-Security-Firewall' => 'Blocked',
+                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+                'Pragma' => 'no-cache',
+                'Expires' => '0',
             ]);
         }
 
         return response(
             "<h1>403 Forbidden</h1><p>{$reason}</p><p>Incident Reference: <strong>{$incidentId}</strong></p><p>IP: {$ip}</p>",
             403,
-            ['X-Security-Firewall' => 'Blocked']
+            [
+                'X-Security-Firewall' => 'Blocked',
+                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+                'Pragma' => 'no-cache',
+                'Expires' => '0',
+            ]
         );
     }
 }

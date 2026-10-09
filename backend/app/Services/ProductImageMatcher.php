@@ -191,14 +191,18 @@ class ProductImageMatcher
      * @param  array{variants: array<int, array{phash: string, dhash: string, histogram: array<int, float>, aspect_ratio: float}>}  $uploadedSignature
      * @return array<int, array{item_id: int, distance: int, similarity: float}>
      */
-    public function findMatchingItems(array $uploadedSignature, int $threshold): array
-    {
+    public function findMatchingItems(
+        array $uploadedSignature,
+        int $threshold,
+        ?int $categoryId = null,
+    ): array {
         $visualMatches = [];
         $visualCandidates = [];
 
         $items = Item::query()
             ->whereNotNull('image_id')
             ->where('status', 'Active')
+            ->when($categoryId !== null, fn ($query) => $query->where('category_id', $categoryId))
             ->with(['image', 'galleries'])
             ->get();
 

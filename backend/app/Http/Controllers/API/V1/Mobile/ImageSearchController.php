@@ -43,11 +43,15 @@ class ImageSearchController extends Controller
             'base64_image' => ['required_without:image', 'string'],
             'threshold' => ['nullable', 'integer', 'between:0,64'],
             'per_page' => ['nullable', 'integer', 'between:1,100'],
+            'category_id' => ['nullable', 'integer', 'min:1'],
         ]);
 
         // 64 accepted every possible hash and caused unrelated products to be returned.
         $threshold = (int) ($request->input('threshold', ProductImageMatcher::DEFAULT_DISTANCE_THRESHOLD));
         $perPage = (int) ($request->input('per_page', 20));
+        $categoryId = $request->filled('category_id')
+            ? (int) $request->input('category_id')
+            : null;
 
         // ── Load the uploaded image into GD ─────────────────────────────
         $uploadedGd = $this->loadUploadedImage($request);
@@ -67,7 +71,7 @@ class ImageSearchController extends Controller
         }
 
         // ── Collect all product images and compare ──────────────────────
-        $matches = $this->imageMatcher->findMatchingItems($uploadedSignature, $threshold);
+        $matches = $this->imageMatcher->findMatchingItems($uploadedSignature, $threshold, $categoryId);
 
         // ── Paginate manually ───────────────────────────────────────────
         $total = count($matches);
@@ -76,11 +80,13 @@ class ImageSearchController extends Controller
 
         // Eager-load items for the current page
         $itemIds = array_column($sliced, 'item_id');
-        $items = Item::query()
-            ->whereIn('id', $itemIds)
-            ->with(['category', 'image', 'galleries'])
-            ->get()
-            ->keyBy('id');
+        $items = $itemIds === []
+            ? collect()
+            : Item::query()
+                ->whereIn('id', $itemIds)
+                ->with(['category', 'image', 'galleries'])
+                ->get()
+                ->keyBy('id');
 
         $results = [];
         $promotionPreviews = $this->promotionPricing->catalogPromotionPreviews($items->values());

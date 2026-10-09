@@ -1,0 +1,44 @@
+/* Share Tech Mono */
+@font-face {
+  font-family: 'Share Tech Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/fonts/error-fonts/sharetechmono-400.woff2) format('woff2');
+}
+
+/* Space Mono - Normal 400 */
+@font-face {
+  font-family: 'Space Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/fonts/error-fonts/spacemono-400.woff2) format('woff2');
+}
+
+/* Space Mono - Normal 700 */
+@font-face {
+  font-family: 'Space Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(/fonts/error-fonts/spacemono-700.woff2) format('woff2');
+}
+
+/* Space Mono - Italic 400 */
+@font-face {
+  font-family: 'Space Mono';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/fonts/error-fonts/spacemono-i400.woff2) format('woff2');
+}
+
+/* Space Mono - Italic 700 */
+@font-face {
+  font-family: 'Space Mono';
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url(/fonts/error-fonts/spacemono-i700.woff2) format('woff2');
+}

@@ -785,11 +785,11 @@ class TelegramNotificationService
         // <pre>...</pre>
         $lines = [$title];
         foreach ($fields as $key => $val) {
-            $lines[] = " ├ {$key} : {$val}";
+            $lines[] = " ├ <b>{$key} :</b> {$val}";
         }
 
         if (filled($combinedDetails)) {
-            $lines[] = " └ Threat Details :\n<pre>" . htmlspecialchars($combinedDetails, ENT_QUOTES, 'UTF-8') . '</pre>';
+            $lines[] = " └ <b>Threat Details :</b>\n<pre>" . htmlspecialchars($combinedDetails, ENT_QUOTES, 'UTF-8') . '</pre>';
         } elseif (! empty($lines)) {
             $lastIdx = count($lines) - 1;
             $lines[$lastIdx] = preg_replace('/^ ├ /', ' └ ', $lines[$lastIdx]);

@@ -21,6 +21,7 @@ export default function Document() {
                     type="image/svg+xml"
                 />
                 <link rel="apple-touch-icon" href="/branding/v-pos-mark.png" />
+                <link rel="stylesheet" href="/fonts/nextjs-fonts/fonts.css" />
             </Head>
             <body>
                 <Main />

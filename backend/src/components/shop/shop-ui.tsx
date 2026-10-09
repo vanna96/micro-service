@@ -176,7 +176,11 @@ export function SearchField({
                     />
                     <button
                         type="button"
-                        aria-label="Search by Image"
+                        aria-label={
+                            isImageSearching
+                                ? t("Loading…")
+                                : t("Search by Image")
+                        }
                         onClick={() => fileInputRef.current?.click()}
                         disabled={isImageSearching}
                         style={{
@@ -189,7 +193,12 @@ export function SearchField({
                         }}
                     >
                         {isImageSearching ? (
-                            <Loader2 size={20} strokeWidth={1.5} className="animate-spin" style={{ animation: "spin 1s linear infinite" }} />
+                            <span
+                                aria-live="polite"
+                                style={{ fontSize: "13px", fontWeight: 600 }}
+                            >
+                                {t("Loading…")}
+                            </span>
                         ) : (
                             <Camera size={20} strokeWidth={1.5} />
                         )}

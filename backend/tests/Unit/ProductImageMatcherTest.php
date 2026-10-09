@@ -2,9 +2,14 @@
 
 namespace Tests\Unit;
 
+use App\Http\Controllers\API\V1\Mobile\ImageSearchController;
 use App\Models\Item;
 use App\Services\ProductImageMatcher;
+use App\Services\PromotionPricingService;
+use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Mockery;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use Tests\TestCase;
 
@@ -22,6 +27,41 @@ class ProductImageMatcherTest extends TestCase
     public function test_default_threshold_cannot_accept_every_possible_image(): void
     {
         $this->assertLessThan(64, ProductImageMatcher::DEFAULT_DISTANCE_THRESHOLD);
+    }
+
+    public function test_mobile_image_search_forwards_the_selected_category_to_the_matcher(): void
+    {
+        $signature = [
+            'variants' => [],
+            'ocr_text' => '',
+            'multi_object_query' => false,
+        ];
+        $matcher = Mockery::mock(ProductImageMatcher::class);
+        $matcher->shouldReceive('signature')
+            ->once()
+            ->with(Mockery::type(\GdImage::class), true)
+            ->andReturn($signature);
+        $matcher->shouldReceive('findMatchingItems')
+            ->once()
+            ->with($signature, ProductImageMatcher::DEFAULT_DISTANCE_THRESHOLD, 16)
+            ->andReturn([]);
+
+        $promotions = Mockery::mock(PromotionPricingService::class);
+        $promotions->shouldReceive('catalogPromotionPreviews')
+            ->once()
+            ->andReturn([]);
+
+        $request = Request::create(
+            '/v1/api/mobile/products/search-by-image',
+            'POST',
+            ['category_id' => '16'],
+            [],
+            ['image' => UploadedFile::fake()->image('product.png', 80, 80)],
+        );
+        $response = (new ImageSearchController($promotions, $matcher))->search($request);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame(0, $response->getData(true)['total']);
     }
 
     public function test_it_matches_the_same_product_across_phone_and_catalogue_backgrounds(): void

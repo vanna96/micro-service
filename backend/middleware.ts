@@ -35,38 +35,107 @@ const TRAVERSAL_PATTERNS = [
 ];
 
 // In-memory cache for IP verification to avoid hitting the backend on every sub-asset
-const ipCache = new Map<string, { blocked: boolean; expires: number }>();
+interface FirewallCheckResult {
+  blocked: boolean;
+  reason?: string;
+  country?: string;
+}
 
-async function isIpBlocked(ip: string): Promise<boolean> {
-  if (!ip || ip === "127.0.0.1" || ip === "::1") {
-    return false;
-  }
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;",
+    };
 
-  const now = Date.now();
-  const cached = ipCache.get(ip);
-  if (cached && cached.expires > now) {
-    return cached.blocked;
-  }
+    return entities[character];
+  });
+}
 
+function renderForbiddenPage({
+  title,
+  heading,
+  message,
+  footer,
+}: {
+  title: string;
+  heading: string;
+  message: string;
+  footer: string;
+}): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(title)}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+  <style>
+    :root { --text-muted: #555555; }
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Share Tech Mono', 'Space Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    html { background-color: #ffffff !important; color: #000000 !important; }
+    body { background-color: #ffffff !important; color: #000000 !important; min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 24px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    .container { max-width: 520px; width: 100%; text-align: left; animation: fadeIn 0.2s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    h1 { font-size: clamp(2.4rem, 6vw, 3.4rem); font-weight: 400; letter-spacing: -0.01em; line-height: 1.1; margin-bottom: 8px; color: #000000; }
+    h2 { font-size: clamp(1.2rem, 3vw, 1.45rem); font-weight: 400; letter-spacing: -0.01em; line-height: 1.3; margin-bottom: 20px; color: #000000; }
+    .description { font-size: clamp(0.95rem, 2.2vw, 1.05rem); line-height: 1.6; margin-bottom: 28px; color: #000000; }
+    .actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; padding: 9px 22px; font-size: 15px; color: #000000; background: transparent; border: 1px solid #000000; border-radius: 4px; text-decoration: none; cursor: pointer; transition: all 0.15s ease; outline: none; font-family: inherit; }
+    .btn:hover { background-color: #000000; color: #ffffff; }
+    .btn:active { transform: scale(0.98); }
+    .footer { font-size: 13px; line-height: 1.5; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>Error 403</h1>
+    <h2>${escapeHtml(heading)}</h2>
+    <p class="description">${escapeHtml(message)}</p>
+    <div class="actions">
+      <a href="/" class="btn">Home</a>
+      <button type="button" onclick="window.history.length > 1 ? window.history.back() : window.location.href='/'" class="btn">Go Back</button>
+    </div>
+    <p class="footer">${escapeHtml(footer)}</p>
+  </main>
+</body>
+</html>`;
+}
+
+async function isClientBlocked(ip: string, countryHeader?: string | null): Promise<FirewallCheckResult> {
   try {
     const backendUrl = process.env.LARAVEL_API_URL || "http://nginx/v1/api";
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (countryHeader) {
+      headers["CF-IPCountry"] = countryHeader;
+      headers["X-Country-Code"] = countryHeader;
+    }
+
     const res = await fetch(`${backendUrl}/security/verify-ip?ip=${encodeURIComponent(ip)}`, {
       cache: "no-store",
-      headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(1000), // 1s fast timeout
+      headers,
+      signal: AbortSignal.timeout(1500),
     });
 
     if (res.ok) {
       const data = await res.json();
-      const blocked = Boolean(data.blocked);
-      ipCache.set(ip, { blocked, expires: now + 15_000 }); // Cache for 15s
-      return blocked;
+      const result: FirewallCheckResult = {
+        blocked: Boolean(data.blocked),
+        reason: data.reason,
+        country: data.country_name || data.country_code,
+      };
+      return result;
     }
-  } catch (err) {
+  } catch {
     // If backend check fails or times out, failsafe allow to preserve site uptime
   }
 
-  return false;
+  return { blocked: false };
 }
 
 export async function middleware(request: NextRequest) {
@@ -84,49 +153,49 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Determine client IP
+  // Determine client IP & country headers
   const forwarded = request.headers.get("x-forwarded-for");
-  const clientIp = forwarded ? forwarded.split(",")[0].trim() : request.headers.get("x-real-ip") || "127.0.0.1";
+  const clientIp = forwarded ? forwarded.split(",")[0].trim() : request.headers.get("x-real-ip") || request.headers.get("cf-connecting-ip") || "127.0.0.1";
+  const clientCountry = request.headers.get("cf-ipcountry") || request.headers.get("x-country-code") || "";
 
-  // 1. Check IP Blacklist
-  if (await isIpBlocked(clientIp)) {
+  // 1. Check IP & Country Firewall
+  const check = await isClientBlocked(clientIp, clientCountry);
+  if (check.blocked) {
+    const isCountryBlocked = check.reason === "country_access_blocked";
+    const title = isCountryBlocked ? "403 - Country Access Restricted" : "403 - Access Denied by Security Firewall";
+    const heading = isCountryBlocked ? "Access restricted in your region" : "Access Denied by Security Firewall";
+    const message = isCountryBlocked
+      ? `Access from your country (${check.country || "your location"}) is not permitted by the security policy.`
+      : "Your IP address has been blocked by the security firewall.";
+    const refCode = isCountryBlocked ? "SEC-GEO-RESTRICTED" : "SEC-IP-BLACKLIST";
+
     return new NextResponse(
-      `<!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>403 Forbidden - Security Firewall</title>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 16px; }
-          .card { background: #1e293b; border: 1px solid #ef4444; border-radius: 12px; max-width: 460px; width: 100%; padding: 32px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
-          h1 { color: #ef4444; font-size: 22px; margin: 0 0 12px 0; }
-          p { color: #94a3b8; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0; }
-          .badge { display: inline-block; background: #334155; color: #f87171; font-family: monospace; padding: 4px 10px; border-radius: 6px; font-size: 13px; margin-bottom: 20px; }
-          .footer { font-size: 12px; color: #64748b; border-top: 1px solid #334155; padding-top: 16px; }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <h1>Access Blocked</h1>
-          <p>Your IP address has been flagged and blocked by the V-POS Application Firewall.</p>
-          <div class="badge">IP: ${clientIp}</div>
-          <div class="footer">V-POS Central Security & Threat Mitigation Engine</div>
-        </div>
-      </body>
-      </html>`,
+      renderForbiddenPage({
+        title,
+        heading,
+        message,
+        footer: `Reference ID: ${refCode}`,
+      }),
       {
         status: 403,
         headers: {
           "Content-Type": "text/html; charset=utf-8",
-          "X-Security-Firewall": "Blocked",
+          "X-Security-Firewall": isCountryBlocked ? "Country-Blocked" : "IP-Blocked",
+          "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+          Pragma: "no-cache",
+          Expires: "0",
         },
       }
     );
   }
 
   // 2. WAF URL & Query Inspection (SQLi, XSS, Traversal)
-  const fullUri = decodeURIComponent(pathname + search);
+  let fullUri = (pathname + search).replace(/\+/g, " ");
+  try {
+    fullUri = decodeURIComponent(fullUri);
+  } catch {
+    // Keep the raw URI when malformed percent encoding cannot be decoded.
+  }
 
   const isSqli = SQLI_PATTERNS.some((pattern) => pattern.test(fullUri));
   const isXss = XSS_PATTERNS.some((pattern) => pattern.test(fullUri));
@@ -136,34 +205,20 @@ export async function middleware(request: NextRequest) {
     const threatName = isSqli ? "SQL Injection" : isXss ? "Cross-Site Scripting" : "Path Traversal Probe";
 
     return new NextResponse(
-      `<!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="utf-8">
-        <title>403 Forbidden - Security Firewall</title>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 16px; }
-          .card { background: #1e293b; border: 1px solid #ef4444; border-radius: 12px; max-width: 480px; width: 100%; padding: 32px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
-          h1 { color: #ef4444; font-size: 22px; margin: 0 0 12px 0; }
-          p { color: #94a3b8; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0; }
-          .badge { display: inline-block; background: #334155; color: #f87171; font-family: monospace; padding: 4px 10px; border-radius: 6px; font-size: 13px; margin-bottom: 20px; }
-          .footer { font-size: 12px; color: #64748b; border-top: 1px solid #334155; padding-top: 16px; }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <h1>Request Blocked</h1>
-          <p>Malicious request payload blocked by Web Application Firewall.</p>
-          <div class="badge">Threat: ${threatName}</div>
-          <div class="footer">V-POS Central Security & Threat Mitigation Engine</div>
-        </div>
-      </body>
-      </html>`,
+      renderForbiddenPage({
+        title: "403 Forbidden - Security Firewall",
+        heading: "Request Blocked",
+        message: "Malicious request payload blocked by Web Application Firewall.",
+        footer: `Threat: ${threatName}`,
+      }),
       {
         status: 403,
         headers: {
           "Content-Type": "text/html; charset=utf-8",
           "X-Security-Firewall": "Blocked",
+          "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+          Pragma: "no-cache",
+          Expires: "0",
         },
       }
     );

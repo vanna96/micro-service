@@ -79,6 +79,10 @@ Route::prefix('errors/preview')->middleware('auth')->group(function () {
         return response()->view('errors.500', [], 500);
     });
 
+    Route::get('/503', function () {
+        return response()->view('errors.503', [], 503);
+    });
+
     Route::get('/security-monitor', function () {
         if (class_exists(\Barryvdh\Debugbar\Facades\Debugbar::class)) {
             \Barryvdh\Debugbar\Facades\Debugbar::disable();

@@ -6,11 +6,12 @@ import {
     ChevronDown,
     Grid2X2,
     List,
+    Loader2,
     MapPin,
     SlidersHorizontal,
     X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ShopCategory, ShopProduct } from "@/types/shop";
 import { shopApi } from "@/lib/shop-api";
 import { useShop } from "./shop-provider";
@@ -27,12 +28,87 @@ import {
     useShopResource,
 } from "./shop-ui";
 
-const IMAGE_SEARCH_RESULTS_KEY = "imageSearchResults:v2";
+const IMAGE_SEARCH_RESULTS_KEY_PREFIX = "imageSearchResults:v3";
 const LEGACY_IMAGE_SEARCH_RESULTS_KEY = "imageSearchResults";
 
-function clearCachedImageSearchResults() {
-    sessionStorage.removeItem(IMAGE_SEARCH_RESULTS_KEY);
+function imageSearchResultsKey(category = "") {
+    return `${IMAGE_SEARCH_RESULTS_KEY_PREFIX}:${category || "all"}`;
+}
+
+function clearCachedImageSearchResults(category?: string) {
+    if (category !== undefined) {
+        sessionStorage.removeItem(imageSearchResultsKey(category));
+        return;
+    }
+
+    for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
+        const key = sessionStorage.key(index);
+        if (key?.startsWith(`${IMAGE_SEARCH_RESULTS_KEY_PREFIX}:`)) {
+            sessionStorage.removeItem(key);
+        }
+    }
+
+    sessionStorage.removeItem("imageSearchResults:v2");
     sessionStorage.removeItem(LEGACY_IMAGE_SEARCH_RESULTS_KEY);
+}
+
+function publicShopQuery(
+    query: Record<string, string | string[] | undefined>,
+) {
+    return Object.fromEntries(
+        Object.entries(query).filter(([key]) => key !== "shop"),
+    );
+}
+
+async function searchProductsByImage(file: File, category = "") {
+    const formData = new FormData();
+    formData.append("image", file, file.name || "image.jpg");
+    if (category) formData.append("category_id", category);
+
+    const response = await fetch("/v1/api/mobile/products/search-by-image", {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        body: formData,
+    });
+    const payload = (await response.json().catch(() => null)) as {
+        success?: boolean;
+        data?: ShopProduct[];
+        message?: string;
+    } | null;
+
+    if (!response.ok || payload?.success === false) {
+        throw new Error(
+            response.status === 413
+                ? "This image is too large. Please choose a smaller photo."
+                : payload?.message ||
+                      "Image search could not be completed. Please try again.",
+        );
+    }
+    if (!Array.isArray(payload?.data)) {
+        throw new Error("Image search could not be completed. Please try again.");
+    }
+
+    return payload.data;
+}
+
+function ImageSearchError({
+    message,
+    dismiss,
+}: {
+    message: string;
+    dismiss: () => void;
+}) {
+    const { t } = useShop();
+
+    return (
+        <div className="shop-error" role="alert">
+            <p>{t(message)}</p>
+            <button className="shop-text-button" onClick={dismiss}>
+                <X size={16} />
+                {t("Close")}
+            </button>
+        </div>
+    );
 }
 
 function Section({
@@ -69,33 +145,28 @@ export function HomeScreen() {
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(false);
     const [isImageSearching, setIsImageSearching] = useState(false);
+    const [imageSearchError, setImageSearchError] = useState("");
     const [bannerIndex, setBannerIndex] = useState(0);
     const banners = bootstrap?.banners || [];
 
     const handleImageSearch = async (file: File) => {
         setIsImageSearching(true);
+        setImageSearchError("");
         setSearch("");
         clearCachedImageSearchResults();
         try {
-            const formData = new FormData();
-            formData.append("image", file, file.name || "image.jpg");
-            const response = await fetch('/v1/api/mobile/products/search-by-image', {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json'
-                },
-                body: formData
-            });
-            const data = await response.json();
-            if (data.success && data.data) {
-                sessionStorage.setItem(IMAGE_SEARCH_RESULTS_KEY, JSON.stringify(data.data));
-                void router.push('/shop?image_search=1');
-            } else {
-                alert(data.message || 'Image search failed');
-            }
-        } catch (e) {
-            console.error(e);
-            alert('Image search failed');
+            const products = await searchProductsByImage(file);
+            sessionStorage.setItem(
+                imageSearchResultsKey(),
+                JSON.stringify(products),
+            );
+            void router.push("/shop?image_search=1");
+        } catch (error) {
+            setImageSearchError(
+                error instanceof Error
+                    ? error.message
+                    : "Image search could not be completed. Please try again.",
+            );
         } finally {
             setIsImageSearching(false);
         }
@@ -160,6 +231,12 @@ export function HomeScreen() {
                 />
             </ShopHeader>
             <div className="shop-content">
+                {imageSearchError && (
+                    <ImageSearchError
+                        message={imageSearchError}
+                        dismiss={() => setImageSearchError("")}
+                    />
+                )}
                 {banner && (
                     <section className="shop-banner">
                         <div className="shop-banner-media">
@@ -486,13 +563,15 @@ export function CatalogScreen() {
             if (imageSearch) {
                 // The versioned key prevents a previous zero-result response
                 // from masking a newer algorithm after deployment.
-                const cached = sessionStorage.getItem(IMAGE_SEARCH_RESULTS_KEY);
+                const cached = sessionStorage.getItem(
+                    imageSearchResultsKey(category),
+                );
                 if (cached) {
                     try {
                         const parsed = JSON.parse(cached);
                         setImageSearchProducts(Array.isArray(parsed) ? parsed : []);
                     } catch {
-                        clearCachedImageSearchResults();
+                        clearCachedImageSearchResults(category);
                         setImageSearchProducts([]);
                     }
                 } else {
@@ -507,44 +586,135 @@ export function CatalogScreen() {
         return () => {
             active = false;
         };
-    }, [imageSearch]);
+    }, [imageSearch, category]);
 
     const products = imageSearchProducts !== null ? imageSearchProducts : [...(resource.data || []), ...extraProducts];
     const page = more.key === queryKey ? more.page : retained?.page || 1;
-
     const [isImageSearching, setIsImageSearching] = useState(false);
+    const [imageSearchError, setImageSearchError] = useState("");
     const handleImageSearch = async (file: File) => {
         setIsImageSearching(true);
+        setImageSearchError("");
         setSearch("");
-        clearCachedImageSearchResults();
+        clearCachedImageSearchResults(category);
         try {
-            const formData = new FormData();
-            formData.append("image", file, file.name || "image.jpg");
-            const response = await fetch('/v1/api/mobile/products/search-by-image', {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json'
-                },
-                body: formData
-            });
-            const data = await response.json();
-            if (data.success && data.data) {
-                sessionStorage.setItem(IMAGE_SEARCH_RESULTS_KEY, JSON.stringify(data.data));
-                if (!imageSearch) {
-                    void router.replace({ pathname: '/shop', query: { ...router.query, image_search: '1' } });
-                } else {
-                    setImageSearchProducts(data.data);
-                }
+            const products = await searchProductsByImage(file, category);
+            sessionStorage.setItem(
+                imageSearchResultsKey(category),
+                JSON.stringify(products),
+            );
+            if (!imageSearch) {
+                void router.replace({
+                    pathname: "/shop",
+                    query: {
+                        ...publicShopQuery(router.query),
+                        image_search: "1",
+                    },
+                });
             } else {
-                alert(data.message || 'Image search failed');
+                setImageSearchProducts(products);
             }
-        } catch (e) {
-            console.error(e);
-            alert('Image search failed');
+        } catch (error) {
+            setImageSearchError(
+                error instanceof Error
+                    ? error.message
+                    : "Image search could not be completed. Please try again.",
+            );
         } finally {
             setIsImageSearching(false);
         }
     };
+
+    const hasMore =
+        !isImageSearching &&
+        !resource.loading &&
+        !imageSearch &&
+        Boolean(resource.meta && page < resource.meta.last_page);
+
+    const loadMore = useCallback(async () => {
+        if (loadingMore) return;
+        setLoadingMore(true);
+        setMoreError("");
+        try {
+            const response = await shopApi<ShopProduct[]>(
+                `products?${queryKey}&page=${page + 1}`,
+            );
+            const next = {
+                key: queryKey,
+                page: page + 1,
+                products: [
+                    ...extraProducts,
+                    ...response.data,
+                ],
+            };
+            catalogPages.set(queryKey, next);
+            setMore(next);
+        } catch (error) {
+            setMoreError(
+                error instanceof Error
+                    ? error.message
+                    : t("Retry"),
+            );
+        } finally {
+            setLoadingMore(false);
+        }
+    }, [loadingMore, queryKey, page, extraProducts, catalogPages, t]);
+
+    const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        const sentinel = sentinelRef.current;
+        if (!sentinel || !hasMore || loadingMore || resource.loading) return;
+
+        const container = sentinel.closest<HTMLElement>(".shop-screen");
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0]?.isIntersecting) {
+                    void loadMore();
+                }
+            },
+            {
+                root: container || null,
+                rootMargin: "350px",
+                threshold: 0,
+            },
+        );
+
+        observer.observe(sentinel);
+
+        const handleScroll = () => {
+            if (container) {
+                const { scrollTop, scrollHeight, clientHeight } = container;
+                if (scrollHeight - scrollTop - clientHeight < 400) {
+                    void loadMore();
+                }
+            } else {
+                const scrollBottom =
+                    document.documentElement.scrollHeight -
+                    window.innerHeight -
+                    window.scrollY;
+                if (scrollBottom < 400) {
+                    void loadMore();
+                }
+            }
+        };
+
+        if (container) {
+            container.addEventListener("scroll", handleScroll, { passive: true });
+        } else {
+            window.addEventListener("scroll", handleScroll, { passive: true });
+        }
+
+        return () => {
+            observer.disconnect();
+            if (container) {
+                container.removeEventListener("scroll", handleScroll);
+            } else {
+                window.removeEventListener("scroll", handleScroll);
+            }
+        };
+    }, [hasMore, loadingMore, resource.loading, loadMore]);
     useEffect(() => {
         const handler = (url: string) =>
             setSearch(
@@ -559,12 +729,12 @@ export function CatalogScreen() {
         const timer = setTimeout(
             () => {
                 const newQuery: Record<string, string | string[] | undefined> = {
-                    ...router.query,
+                    ...publicShopQuery(router.query),
                     search,
                 };
                 if (newQuery.image_search) {
                     delete newQuery.image_search;
-                    clearCachedImageSearchResults();
+                    clearCachedImageSearchResults(category);
                     setImageSearchProducts(null);
                 }
                 if (!search) delete newQuery.search;
@@ -577,7 +747,7 @@ export function CatalogScreen() {
             800,
         );
         return () => clearTimeout(timer);
-    }, [search, initialQuery, router]);
+    }, [search, initialQuery, router, category]);
     const selectedCategory = bootstrap?.categories.find(
         (value) => String(value.id) === category,
     );
@@ -598,13 +768,19 @@ export function CatalogScreen() {
                 />
             </ShopHeader>
             <div className="shop-content">
+                {imageSearchError && (
+                    <ImageSearchError
+                        message={imageSearchError}
+                        dismiss={() => setImageSearchError("")}
+                    />
+                )}
                 {imageSearch && (
                     <div style={{ padding: "8px 16px", background: "#f1f5f9", borderRadius: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
                         <span style={{ fontSize: "14px", color: "#334155" }}>Showing visual matches for your image</span>
                         <button
                             onClick={() => {
-                                clearCachedImageSearchResults();
-                                const newQuery = { ...router.query };
+                                clearCachedImageSearchResults(category);
+                                const newQuery = publicShopQuery(router.query);
                                 delete newQuery.image_search;
                                 void router.replace({ pathname: '/shop', query: newQuery });
                                 setImageSearchProducts(null);
@@ -684,41 +860,53 @@ export function CatalogScreen() {
                         />
                     )
                 )}
-                {moreError && <ErrorState error={moreError} />}
-                {!imageSearch && resource.meta && page < resource.meta.last_page && (
-                    <button
-                        className="shop-button shop-button-secondary shop-load-more"
-                        disabled={loadingMore}
-                        onClick={async () => {
-                            setLoadingMore(true);
-                            setMoreError("");
-                            try {
-                                const response = await shopApi<ShopProduct[]>(
-                                    `products?${query}&page=${page + 1}`,
-                                );
-                                const next = {
-                                    key: queryKey,
-                                    page: page + 1,
-                                    products: [
-                                        ...extraProducts,
-                                        ...response.data,
-                                    ],
-                                };
-                                catalogPages.set(queryKey, next);
-                                setMore(next);
-                            } catch (error) {
-                                setMoreError(
-                                    error instanceof Error
-                                        ? error.message
-                                        : t("Retry"),
-                                );
-                            } finally {
-                                setLoadingMore(false);
-                            }
+                {moreError && (
+                    <div style={{ margin: "20px 0 10px", textAlign: "center" }}>
+                        <p style={{ color: "#ef4444", fontSize: "13px", marginBottom: "8px" }}>
+                            {moreError}
+                        </p>
+                        <button
+                            type="button"
+                            className="shop-button shop-button-secondary"
+                            style={{ display: "inline-flex", padding: "8px 20px", fontSize: "13px" }}
+                            onClick={() => void loadMore()}
+                        >
+                            {t("Retry")}
+                        </button>
+                    </div>
+                )}
+                {hasMore && (
+                    <div
+                        ref={sentinelRef}
+                        className="shop-scroll-loader"
+                        style={{
+                            padding: "20px 0 24px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: "100%",
+                            minHeight: "44px",
                         }}
                     >
-                        {t(loadingMore ? "Loading…" : "Load More")}
-                    </button>
+                        {loadingMore && (
+                            <div
+                                style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "8px",
+                                    color: "var(--shop-primary, #ff762d)",
+                                    fontSize: "13.5px",
+                                    fontWeight: 600,
+                                }}
+                            >
+                                <Loader2
+                                    size={18}
+                                    style={{ animation: "shop-pull-spin 0.75s linear infinite" }}
+                                />
+                                <span>{t("Loading…")}</span>
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
             {filters && (

@@ -216,9 +216,12 @@ body[data-experience="pos"] {
 /* Master Layout */
 :where(.pos-app) .pos-container {
   min-height: 100vh;
+  max-width: 1366px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   background-color: var(--pos-bg);
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.05); /* Optional: add slight shadow to distinguish from body on huge screens */
 }
 
 /* Top Navigation Bar */

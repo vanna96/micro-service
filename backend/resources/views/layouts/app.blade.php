@@ -286,9 +286,7 @@
         </script>
     @endif
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:ital,wght@0,100..700;1,100..700&family=Noto+Sans+Khmer:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/fonts/laravel-fonts/fonts.css">
     <link rel="stylesheet" href="{{ global_asset('fonts/khmer/khmer-fonts.css') }}">
     <link rel="shortcut icon" href="{{ global_asset('branding/v-pos-mark.svg') }}" type="image/svg+xml">
     <link href="{{ global_asset('minible/assets/css/bootstrap.min.css') }}" id="bootstrap-style" rel="stylesheet"

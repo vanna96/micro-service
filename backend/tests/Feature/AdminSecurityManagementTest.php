@@ -8,9 +8,11 @@ use App\Models\SecuritySetting;
 use App\Models\User;
 use App\Services\GeoIpService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Http\Client\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class AdminSecurityManagementTest extends TestCase
@@ -20,6 +22,7 @@ class AdminSecurityManagementTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config()->set('services.geoip.trust_provider_headers', false);
         Cache::flush();
         try {
             Cache::store('file')->flush();
@@ -32,6 +35,10 @@ class AdminSecurityManagementTest extends TestCase
         SecuritySetting::set('admin_ip_whitelist_enabled', '0');
         SecuritySetting::set('admin_whitelisted_ips', '[]');
         SecuritySetting::set('block_vpn_proxies', '0');
+        SecuritySetting::set('country_access_enabled', '0');
+        SecuritySetting::set('country_access_mode', 'allowlist');
+        SecuritySetting::set('country_access_codes', '[]');
+        SecuritySetting::set('country_access_scope', 'storefront_only');
         SecuritySetting::set('waf_sqli_enabled', '1');
         SecuritySetting::set('waf_xss_enabled', '1');
         SecuritySetting::set('waf_path_traversal_enabled', '1');
@@ -44,6 +51,10 @@ class AdminSecurityManagementTest extends TestCase
         SecuritySetting::set('admin_ip_whitelist_enabled', '0');
         SecuritySetting::set('admin_whitelisted_ips', '[]');
         SecuritySetting::set('block_vpn_proxies', '0');
+        SecuritySetting::set('country_access_enabled', '0');
+        SecuritySetting::set('country_access_mode', 'allowlist');
+        SecuritySetting::set('country_access_codes', '[]');
+        SecuritySetting::set('country_access_scope', 'storefront_only');
         SecuritySetting::set('global_rate_limit_per_minute', '120');
         Cache::flush();
         try {
@@ -68,7 +79,8 @@ class AdminSecurityManagementTest extends TestCase
             ->assertSee('Web Application Firewall (WAF)')
             ->assertSee('Total Threats Stopped')
             ->assertSee('DDoS & Rate Limits')
-            ->assertSee('Firewall & IP Rules');
+            ->assertSee('Firewall & IP Rules')
+            ->assertSee('Country Access Control');
     }
 
     public function test_security_dashboard_renders_datatables_with_database_records(): void
@@ -351,7 +363,7 @@ class AdminSecurityManagementTest extends TestCase
         $testIp = '203.0.113.166';
         BlockedIp::block($testIp, 'Blocked for test');
 
-        $resVerify = $this->getJson('/v1/api/security/verify-ip?ip=' . $testIp);
+        $resVerify = $this->getJson('/v1/api/security/verify-ip?ip='.$testIp);
         $resVerify->assertOk()
             ->assertJson([
                 'ip' => $testIp,
@@ -428,7 +440,7 @@ class AdminSecurityManagementTest extends TestCase
 
         // 2. Public IP with cached data
         $testPublicIp = '198.51.100.42';
-        Cache::store('file')->put('geoip_lookup_' . md5($testPublicIp), [
+        Cache::store('file')->put('geoip_lookup_'.md5($testPublicIp), [
             'country_code' => 'KH',
             'country_name' => 'Cambodia',
             'city' => 'Phnom Penh',
@@ -450,7 +462,7 @@ class AdminSecurityManagementTest extends TestCase
         $targetIp = '198.51.100.99';
 
         // Preload cache for target IP
-        Cache::store('file')->put('geoip_lookup_' . md5($targetIp), [
+        Cache::store('file')->put('geoip_lookup_'.md5($targetIp), [
             'country_code' => 'KH',
             'country_name' => 'Cambodia',
             'city' => 'Phnom Penh',
@@ -505,7 +517,7 @@ class AdminSecurityManagementTest extends TestCase
         $vpnIp = '203.0.113.88';
 
         // Preload cache as a commercial datacenter / VPN IP
-        Cache::store('file')->put('geoip_lookup_' . md5($vpnIp), [
+        Cache::store('file')->put('geoip_lookup_'.md5($vpnIp), [
             'country_code' => 'US',
             'country_name' => 'United States',
             'city' => 'Ashburn',
@@ -536,7 +548,7 @@ class AdminSecurityManagementTest extends TestCase
         SecuritySetting::set('block_vpn_proxies', '0');
         $vpnIp = '203.0.113.89';
 
-        Cache::store('file')->put('geoip_lookup_' . md5($vpnIp), [
+        Cache::store('file')->put('geoip_lookup_'.md5($vpnIp), [
             'country_code' => 'SG',
             'country_name' => 'Singapore',
             'city' => 'Singapore',
@@ -578,6 +590,255 @@ class AdminSecurityManagementTest extends TestCase
             ->assertSessionHas('status');
 
         $this->assertEquals('0', SecuritySetting::get('block_vpn_proxies'));
+    }
+
+    public function test_country_allowlist_blocks_unlisted_country_and_allows_listed_country(): void
+    {
+        SecuritySetting::set('country_access_enabled', '1');
+        SecuritySetting::set('country_access_mode', 'allowlist');
+        SecuritySetting::set('country_access_codes', json_encode(['KH']));
+
+        Cache::store('file')->put('geoip_lookup_'.md5('8.8.8.8'), [
+            'country_code' => 'US',
+            'country_name' => 'United States',
+            'city' => 'Mountain View',
+            'isp' => 'Google',
+            'is_vpn' => false,
+            'is_tor' => false,
+        ], 3600);
+        Cache::store('file')->put('geoip_lookup_'.md5('1.1.1.1'), [
+            'country_code' => 'KH',
+            'country_name' => 'Cambodia',
+            'city' => 'Phnom Penh',
+            'isp' => 'Local ISP',
+            'is_vpn' => false,
+            'is_tor' => false,
+        ], 3600);
+
+        $blocked = $this->withServerVariables(['REMOTE_ADDR' => '8.8.8.8'])
+            ->getJson('/v1/api/tenant-host');
+
+        $blocked->assertStatus(403)
+            ->assertJson([
+                'error' => 'SecurityFirewallBlocked',
+                'threat_type' => 'country_access_blocked',
+            ]);
+        $this->assertDatabaseHas('security_logs', [
+            'ip_address' => '8.8.8.8',
+            'country_code' => 'US',
+            'threat_type' => 'country_access_blocked',
+        ]);
+
+        GeoIpService::clearMemoryCache();
+        $allowed = $this->withServerVariables(['REMOTE_ADDR' => '1.1.1.1'])
+            ->getJson('/v1/api/tenant-host');
+
+        $this->assertNotSame(403, $allowed->status());
+    }
+
+    public function test_country_restriction_blocks_listed_country_and_allows_others(): void
+    {
+        SecuritySetting::set('country_access_enabled', '1');
+        SecuritySetting::set('country_access_mode', 'blocklist');
+        SecuritySetting::set('country_access_codes', json_encode(['US']));
+
+        Cache::store('file')->put('geoip_lookup_'.md5('9.9.9.9'), [
+            'country_code' => 'US',
+            'country_name' => 'United States',
+            'city' => 'New York',
+            'isp' => 'Quad9',
+            'is_vpn' => false,
+            'is_tor' => false,
+        ], 3600);
+        Cache::store('file')->put('geoip_lookup_'.md5('208.67.222.222'), [
+            'country_code' => 'KH',
+            'country_name' => 'Cambodia',
+            'city' => 'Phnom Penh',
+            'isp' => 'Local ISP',
+            'is_vpn' => false,
+            'is_tor' => false,
+        ], 3600);
+
+        $blocked = $this->withServerVariables(['REMOTE_ADDR' => '9.9.9.9'])
+            ->getJson('/v1/api/tenant-host');
+        $blocked->assertStatus(403)
+            ->assertJsonPath('threat_type', 'country_access_blocked');
+
+        GeoIpService::clearMemoryCache();
+        $allowed = $this->withServerVariables(['REMOTE_ADDR' => '208.67.222.222'])
+            ->getJson('/v1/api/tenant-host');
+        $this->assertNotSame(403, $allowed->status());
+    }
+
+    public function test_country_policy_settings_are_normalized_without_overwriting_vpn_setting(): void
+    {
+        $admin = $this->createAdminUser();
+        SecuritySetting::set('block_vpn_proxies', '1');
+
+        $response = $this->actingAs($admin)
+            ->put(route('admin.security.settings.update'), [
+                'tab' => 'firewall',
+                'firewall_section' => 'country',
+                'country_access_enabled' => '1',
+                'country_access_mode' => 'allowlist',
+                'country_access_codes' => "kh, TH\nkh",
+            ]);
+
+        $response->assertRedirect(route('admin.security.index', ['tab' => 'firewall']))
+            ->assertSessionHas('status');
+        $this->assertSame('1', SecuritySetting::get('country_access_enabled'));
+        $this->assertSame('allowlist', SecuritySetting::get('country_access_mode'));
+        $this->assertSame(['KH', 'TH'], json_decode(SecuritySetting::get('country_access_codes'), true));
+        $this->assertSame('1', SecuritySetting::get('block_vpn_proxies'));
+    }
+
+    public function test_country_policy_requires_a_country_when_enabled(): void
+    {
+        $admin = $this->createAdminUser();
+
+        $response = $this->actingAs($admin)
+            ->from(route('admin.security.index', ['tab' => 'firewall']))
+            ->put(route('admin.security.settings.update'), [
+                'tab' => 'firewall',
+                'firewall_section' => 'country',
+                'country_access_enabled' => '1',
+                'country_access_mode' => 'allowlist',
+                'country_access_codes' => '',
+            ]);
+
+        $response->assertRedirect(route('admin.security.index', ['tab' => 'firewall']))
+            ->assertSessionHasErrors('country_access_codes');
+        $this->assertSame('0', SecuritySetting::get('country_access_enabled'));
+    }
+
+    public function test_country_policy_supports_reverse_proxy_headers_and_scope(): void
+    {
+        config()->set('services.geoip.trust_provider_headers', true);
+        SecuritySetting::set('country_access_enabled', '1');
+        SecuritySetting::set('country_access_mode', 'blocklist');
+        SecuritySetting::set('country_access_codes', json_encode(['KH']));
+        SecuritySetting::set('country_access_scope', 'all');
+
+        GeoIpService::clearMemoryCache();
+        Cache::store('file')->put('geoip_lookup_'.md5('203.144.144.1'), [
+            'country_code' => 'US',
+            'country_name' => 'United States',
+            'city' => 'Cached City',
+            'isp' => 'Cached ISP',
+            'is_vpn' => false,
+            'is_tor' => false,
+        ], 3600);
+
+        // 1. Inbound request with CF-IPCountry: KH to public API is blocked
+        $blocked = $this->withServerVariables(['REMOTE_ADDR' => '203.144.144.1'])
+            ->withHeaders(['CF-IPCountry' => 'KH'])
+            ->getJson('/v1/api/tenant-host');
+        $blocked->assertStatus(403)
+            ->assertJsonPath('threat_type', 'country_access_blocked');
+
+        // 2. An authenticated administrator keeps access even with all-site scope.
+        $admin = $this->createAdminUser();
+        $adminResp = $this->actingAs($admin)
+            ->withServerVariables(['REMOTE_ADDR' => '203.144.144.1'])
+            ->withHeaders(['CF-IPCountry' => 'KH'])
+            ->get(route('admin.security.index', ['tab' => 'firewall']));
+        $this->assertNotSame(403, $adminResp->status());
+    }
+
+    public function test_country_policy_ignores_spoofed_provider_country_header_by_default(): void
+    {
+        SecuritySetting::set('country_access_enabled', '1');
+        SecuritySetting::set('country_access_mode', 'allowlist');
+        SecuritySetting::set('country_access_codes', json_encode(['KH']));
+
+        Cache::store('file')->put('geoip_lookup_'.md5('8.8.8.8'), [
+            'country_code' => 'US',
+            'country_name' => 'United States',
+            'city' => 'Mountain View',
+            'isp' => 'Google',
+            'is_vpn' => false,
+            'is_tor' => false,
+        ], 3600);
+
+        $response = $this->withServerVariables(['REMOTE_ADDR' => '8.8.8.8'])
+            ->withHeaders(['CF-IPCountry' => 'KH'])
+            ->getJson('/v1/api/tenant-host');
+
+        $response->assertStatus(403)
+            ->assertJsonPath('threat_type', 'country_access_blocked');
+    }
+
+    public function test_country_catalog_contains_complete_iso_country_set(): void
+    {
+        $countries = GeoIpService::allCountries();
+
+        $this->assertCount(249, $countries);
+        $this->assertSame('Cambodia', $countries['KH']['name']);
+        $this->assertSame("Côte d'Ivoire", $countries['CI']['name']);
+        $this->assertSame('🇰🇭', $countries['KH']['flag']);
+    }
+
+    public function test_client_ip_resolver_ignores_forwarded_header_from_public_peer(): void
+    {
+        $directRequest = \Illuminate\Http\Request::create('/', 'GET', [], [], [], [
+            'REMOTE_ADDR' => '8.8.8.8',
+            'HTTP_X_FORWARDED_FOR' => '1.1.1.1',
+        ]);
+        $proxiedRequest = \Illuminate\Http\Request::create('/', 'GET', [], [], [], [
+            'REMOTE_ADDR' => '172.20.0.5',
+            'HTTP_X_FORWARDED_FOR' => '198.51.100.20, 8.8.4.4',
+        ]);
+
+        $this->assertSame('8.8.8.8', GeoIpService::resolveClientIp($directRequest));
+        $this->assertSame('8.8.4.4', GeoIpService::resolveClientIp($proxiedRequest));
+    }
+
+    public function test_verify_ip_api_evaluates_country_access_and_vpn_firewall(): void
+    {
+        config()->set('services.geoip.trust_provider_headers', true);
+        SecuritySetting::set('country_access_enabled', '1');
+        SecuritySetting::set('country_access_mode', 'blocklist');
+        SecuritySetting::set('country_access_codes', json_encode(['KH']));
+
+        GeoIpService::clearMemoryCache();
+
+        // Verify IP API with country header KH returns blocked: true
+        $res = $this->withHeaders(['CF-IPCountry' => 'KH'])
+            ->getJson('/v1/api/security/verify-ip?ip=103.216.1.1');
+
+        $res->assertStatus(200)
+            ->assertJson([
+                'blocked' => true,
+                'reason' => 'country_access_blocked',
+                'country_code' => 'KH',
+            ]);
+    }
+
+    public function test_verify_ip_api_rejects_invalid_ip_input(): void
+    {
+        $this->getJson('/v1/api/security/verify-ip?ip=not-an-ip')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('ip');
+    }
+
+    public function test_admin_can_simulate_country_policy_access(): void
+    {
+        $admin = $this->createAdminUser();
+        SecuritySetting::set('country_access_enabled', '1');
+        SecuritySetting::set('country_access_mode', 'blocklist');
+        SecuritySetting::set('country_access_codes', json_encode(['KH']));
+
+        $res = $this->actingAs($admin)
+            ->postJson(route('admin.security.test-country'), [
+                'country_code' => 'KH',
+            ]);
+
+        $res->assertStatus(200)
+            ->assertJson([
+                'status' => 'success',
+                'country_code' => 'KH',
+                'would_block' => true,
+            ]);
     }
 
     public function test_admin_can_clear_security_logs_and_stay_empty(): void
@@ -671,8 +932,8 @@ class AdminSecurityManagementTest extends TestCase
         SecuritySetting::set('telegram_security_bot_token', '123456:FAKE-BOT-TOKEN');
         SecuritySetting::set('telegram_security_chat_id', '-100987654321');
 
-        \Illuminate\Support\Facades\Http::fake([
-            'api.telegram.org/*' => \Illuminate\Support\Facades\Http::response(['ok' => true], 200),
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true], 200),
         ]);
 
         $incident = SecurityLog::logIncident(
@@ -686,7 +947,7 @@ class AdminSecurityManagementTest extends TestCase
         $this->assertNotNull($incident);
         $this->assertEquals('sql_injection', $incident->threat_type);
 
-        \Illuminate\Support\Facades\Http::assertSent(function (\Illuminate\Http\Client\Request $request) {
+        Http::assertSent(function (Request $request) {
             return str_contains($request->url(), 'api.telegram.org/bot123456:FAKE-BOT-TOKEN/sendMessage')
                 && str_contains($request['text'], 'Live Threat & Incident Alert')
                 && str_contains($request['text'], '198.51.100.22')
@@ -697,9 +958,9 @@ class AdminSecurityManagementTest extends TestCase
     private function createAdminUser(array $attributes = []): User
     {
         return User::query()->create(array_merge([
-            'username' => 'sec-admin-' . uniqid(),
+            'username' => 'sec-admin-'.uniqid(),
             'name' => 'Security Admin',
-            'email' => 'sec-admin-' . uniqid() . '@example.com',
+            'email' => 'sec-admin-'.uniqid().'@example.com',
             'password' => Hash::make('secret123'),
             'role' => 'admin',
             'status' => 'Active',

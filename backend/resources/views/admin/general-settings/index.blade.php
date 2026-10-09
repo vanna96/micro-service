@@ -4,7 +4,7 @@
 @section('page_title', 'General Settings')
 
 @push('styles')
-<link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.css" rel="stylesheet">
+<link href="/assets/vendor/summernote/summernote-lite.min.css" rel="stylesheet">
 <style>
     /* Tab Styling */
     .general-settings-tabs .nav-link {
@@ -554,7 +554,7 @@
 @endsection
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.js"></script>
+<script src="/assets/vendor/summernote/summernote-lite.min.js"></script>
 <script>
 (function ($) {
     'use strict';

@@ -1,105 +1,126 @@
+/* Font import moved to global layout */
+
+:global(html),
+:global(body) {
+  margin: 0;
+  padding: 0;
+}
+
 .page {
-  --accent: #38bdf8;
-  --accent-rgb: 56, 189, 248;
+  --bg: #ffffff;
+  --text: #000000;
+  --text-muted: #555555;
+  --border: #000000;
+  --btn-hover-bg: #000000;
+  --btn-hover-text: #ffffff;
+
+  box-sizing: border-box;
+  margin: 0;
   min-height: 100vh;
   min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: radial-gradient(at 0% 0%, rgba(var(--accent-rgb), .12), transparent 50%), radial-gradient(at 100% 100%, rgba(30, 27, 75, .25), transparent 50%), #090d16;
-  color: #f8fafc;
-  font-family: "Plus Jakarta Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  font-family: 'Share Tech Mono', 'Space Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
-.page[data-tone="purple"] { --accent: #a855f7; --accent-rgb: 168, 85, 247; }
-.page[data-tone="red"] { --accent: #ef4444; --accent-rgb: 239, 68, 68; }
-.page[data-tone="amber"] { --accent: #f59e0b; --accent-rgb: 245, 158, 11; }
-.card {
-  position: relative;
+
+:global(body[data-experience="pos"]) .page,
+:global(body[data-experience="shop"]) .page {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+.container {
+  box-sizing: border-box;
+  max-width: 520px;
   width: 100%;
-  max-width: 560px;
-  overflow: hidden;
-  padding: 44px 38px;
-  border: 1px solid rgba(var(--accent-rgb), .28);
-  border-radius: 24px;
-  background: rgba(17, 24, 39, .75);
-  box-shadow: 0 30px 60px -15px rgba(0, 0, 0, .65), 0 0 45px rgba(var(--accent-rgb), .3);
-  backdrop-filter: blur(20px);
-  text-align: center;
-  animation: fadeIn .4s ease-out;
+  text-align: left;
+  animation: fadeIn 0.2s ease-out;
 }
-.card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, var(--accent), #818cf8, var(--accent));
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
-.icon {
-  width: 92px;
-  height: 92px;
-  margin: 0 auto 26px;
+
+.code {
+  font-family: 'Share Tech Mono', 'Space Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: clamp(2.4rem, 6vw, 3.4rem);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  margin: 0 0 8px;
+  color: #000000;
+}
+
+.subtitle {
+  font-family: 'Share Tech Mono', 'Space Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: clamp(1.2rem, 3vw, 1.45rem);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  margin: 0 0 20px;
+  color: #000000;
+}
+
+.description {
+  font-family: 'Share Tech Mono', 'Space Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: clamp(0.95rem, 2.2vw, 1.05rem);
+  line-height: 1.6;
+  margin: 0 0 28px;
+  color: #000000;
+}
+
+.actions {
   display: flex;
   align-items: center;
-  justify-content: center;
-  border: 2px solid rgba(var(--accent-rgb), .4);
-  border-radius: 50%;
-  background: rgba(var(--accent-rgb), .12);
-  box-shadow: 0 0 30px rgba(var(--accent-rgb), .35);
-  color: var(--accent);
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 24px;
 }
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 14px;
-  padding: 4px 12px;
-  border: 1px solid rgba(var(--accent-rgb), .35);
-  border-radius: 20px;
-  background: rgba(var(--accent-rgb), .15);
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: .05em;
-  text-transform: uppercase;
-}
-.pulseDot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 8px currentColor;
-  animation: pulseDot 1.8s ease-in-out infinite;
-  display: inline-block;
-}
-@keyframes pulseDot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.35; transform: scale(0.75); }
-}
-.card h1 { margin: 0 0 12px; color: #fff; font-size: 30px; font-weight: 800; letter-spacing: -.025em; }
-.description { max-width: 460px; margin: 0 auto 28px; color: #94a3b8; font-size: 15px; line-height: 1.6; }
-.actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+
 .button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 45px;
-  padding: 12px 24px;
-  border-radius: 12px;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
+  padding: 9px 22px;
+  font-family: 'Share Tech Mono', 'Space Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 15px;
+  font-weight: 400;
+  color: #000000;
+  background-color: transparent;
+  border: 1px solid #000000;
+  border-radius: 4px;
   text-decoration: none;
   cursor: pointer;
-  transition: transform .2s ease, background .2s ease;
+  transition: all 0.15s ease;
+  outline: none;
 }
-.button:hover { transform: translateY(-1px); }
-.primary { border: 0; background: var(--accent); color: #090d16; box-shadow: 0 4px 15px rgba(var(--accent-rgb), .4); }
-.secondary { border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .08); color: #e2e8f0; }
-.secondary:hover { background: rgba(255, 255, 255, .14); color: #fff; }
-.footer { margin: 24px 0 0; color: #64748b; font-size: 12px; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-@media (max-width: 600px) { .card { padding: 38px 24px; } .card h1 { font-size: 27px; } }
+
+.button:hover {
+  background-color: #000000;
+  color: #ffffff;
+}
+
+.button:active {
+  transform: scale(0.98);
+}
+
+.footer {
+  font-family: 'Share Tech Mono', 'Space Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  margin: 0;
+}

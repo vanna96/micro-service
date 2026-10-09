@@ -6,10 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\BlockedIp;
 use App\Models\SecurityLog;
 use App\Models\SecuritySetting;
+use App\Services\GeoIpService;
+use App\Services\TelegramNotificationService;
+use Database\Seeders\SecurityIncidentSampleSeeder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class SecurityController extends Controller
@@ -62,6 +67,17 @@ class SecurityController extends Controller
         $whitelistedRaw = json_decode($settings['admin_whitelisted_ips'] ?? '[]', true) ?: [];
         $whitelistedText = implode("\n", $whitelistedRaw);
 
+        $countryCodesRaw = json_decode($settings['country_access_codes'] ?? '[]', true) ?: [];
+        $countryCodesText = implode("\n", $countryCodesRaw);
+        $countryAccessScope = $settings['country_access_scope'] ?? 'storefront_only';
+
+        $clientIp = GeoIpService::resolveClientIp($request);
+        $clientGeo = GeoIpService::lookup($clientIp, $request);
+        $clientCountry = strtoupper((string) ($clientGeo['country_code'] ?? 'UN'));
+        $clientCountryName = (string) ($clientGeo['country_name'] ?? GeoIpService::countryNameFromCode($clientCountry));
+        $clientFlag = GeoIpService::countryFlagEmoji($clientCountry);
+        $allCountries = GeoIpService::allCountries();
+
         // CORS origins display text
         $corsOriginsText = $settings['cors_allowed_origins'] ?? "http://localhost:3000\nhttp://localhost:8880\nhttp://localhost:8882\nhttp://127.0.0.1:3000\nhttp://127.0.0.1:8880";
 
@@ -74,6 +90,14 @@ class SecurityController extends Controller
             'selectedThreatType' => $logFilter,
             'activeTab' => $activeTab,
             'whitelistedText' => $whitelistedText,
+            'countryCodesText' => $countryCodesText,
+            'countryCodesArray' => $countryCodesRaw,
+            'countryAccessScope' => $countryAccessScope,
+            'allCountries' => $allCountries,
+            'clientIp' => $clientIp,
+            'clientCountry' => $clientCountry,
+            'clientCountryName' => $clientCountryName,
+            'clientFlag' => $clientFlag,
             'corsOriginsText' => $corsOriginsText,
         ]);
     }
@@ -106,18 +130,60 @@ class SecurityController extends Controller
 
         // Tab: Firewall, IP Rules & VPN Defense
         if ($tab === 'firewall' || $request->has('admin_ip_whitelist_enabled') || $request->has('block_vpn_proxies')) {
-            $whitelistedRaw = $request->input('admin_whitelisted_ips', '');
-            $whitelistedArray = array_values(array_filter(array_map('trim', preg_split('/[\r\n,]+/', (string) $whitelistedRaw))));
+            $section = (string) $request->input('firewall_section', 'legacy');
 
-            $updates['admin_ip_whitelist_enabled'] = $request->has('admin_ip_whitelist_enabled') ? '1' : '0';
-            if ($request->has('admin_whitelisted_ips')) {
-                $updates['admin_whitelisted_ips'] = json_encode($whitelistedArray);
-                foreach ($whitelistedArray as $wIp) {
-                    BlockedIp::unblock($wIp);
+            if (in_array($section, ['legacy', 'ip_whitelist'], true)) {
+                $whitelistedRaw = $request->input('admin_whitelisted_ips', '');
+                $whitelistedArray = array_values(array_filter(array_map('trim', preg_split('/[\r\n,]+/', (string) $whitelistedRaw))));
+
+                $updates['admin_ip_whitelist_enabled'] = $request->has('admin_ip_whitelist_enabled') ? '1' : '0';
+                if ($request->has('admin_whitelisted_ips')) {
+                    $updates['admin_whitelisted_ips'] = json_encode($whitelistedArray);
+                    foreach ($whitelistedArray as $wIp) {
+                        BlockedIp::unblock($wIp);
+                    }
                 }
             }
-            $updates['block_vpn_proxies'] = $request->has('block_vpn_proxies') ? '1' : '0';
-            $updates['block_tor_nodes'] = $request->has('block_tor_nodes') ? '1' : '0';
+
+            if (in_array($section, ['legacy', 'vpn'], true)) {
+                $updates['block_vpn_proxies'] = $request->has('block_vpn_proxies') ? '1' : '0';
+                $updates['block_tor_nodes'] = $request->has('block_tor_nodes') ? '1' : '0';
+            }
+
+            if ($section === 'country') {
+                $validated = $request->validate([
+                    'country_access_mode' => ['required', Rule::in(['allowlist', 'blocklist'])],
+                    'country_access_scope' => ['nullable', Rule::in(['storefront_only', 'all'])],
+                    'country_access_codes' => ['nullable', 'string', 'max:5000'],
+                ]);
+                $countryCodes = collect(preg_split('/[\s,;]+/', (string) ($validated['country_access_codes'] ?? '')))
+                    ->map(static fn ($code) => strtoupper(trim((string) $code)))
+                    ->filter()
+                    ->unique()
+                    ->values();
+                $validCountryCodes = GeoIpService::allCountries();
+                $invalidCodes = $countryCodes->reject(static fn (string $code): bool => isset($validCountryCodes[$code]));
+
+                if ($invalidCodes->isNotEmpty()) {
+                    throw ValidationException::withMessages([
+                        'country_access_codes' => __('Use two-letter ISO country codes only. Invalid: :codes', [
+                            'codes' => $invalidCodes->implode(', '),
+                        ]),
+                    ]);
+                }
+
+                $enabled = $request->has('country_access_enabled');
+                if ($enabled && $countryCodes->isEmpty()) {
+                    throw ValidationException::withMessages([
+                        'country_access_codes' => __('Add at least one country before enabling country access control.'),
+                    ]);
+                }
+
+                $updates['country_access_enabled'] = $enabled ? '1' : '0';
+                $updates['country_access_mode'] = $validated['country_access_mode'];
+                $updates['country_access_scope'] = $validated['country_access_scope'] ?? 'storefront_only';
+                $updates['country_access_codes'] = $countryCodes->toJson();
+            }
         }
 
         // Tab: File Uploads & Anti-Inspect Hardening
@@ -211,7 +277,7 @@ class SecurityController extends Controller
 
         BlockedIp::block(
             $log->ip_address,
-            'Quick blocked from security incident #' . $log->incident_id,
+            'Quick blocked from security incident #'.$log->incident_id,
             $log->threat_type,
             24,
             auth()->user() ? auth()->user()->name : 'Administrator'
@@ -234,7 +300,7 @@ class SecurityController extends Controller
     public function seedSampleLogs(): RedirectResponse
     {
         try {
-            (new \Database\Seeders\SecurityIncidentSampleSeeder())->run();
+            (new SecurityIncidentSampleSeeder)->run();
 
             return redirect()
                 ->route('admin.security.index', ['tab' => 'monitor'])
@@ -242,7 +308,7 @@ class SecurityController extends Controller
         } catch (\Throwable $e) {
             return redirect()
                 ->route('admin.security.index', ['tab' => 'monitor'])
-                ->with('status', 'Failed to load sample incidents: ' . $e->getMessage());
+                ->with('status', 'Failed to load sample incidents: '.$e->getMessage());
         }
     }
 
@@ -253,7 +319,7 @@ class SecurityController extends Controller
     {
         $ip = $request->ip();
 
-        if (BlockedIp::isWhitelisted($ip) || \App\Services\GeoIpService::isPrivateIp($ip)) {
+        if (BlockedIp::isWhitelisted($ip) || GeoIpService::isPrivateIp($ip)) {
             return response()->json(['status' => 'not found'], 404);
         }
 
@@ -263,13 +329,13 @@ class SecurityController extends Controller
                 'honeypot_trap',
                 'critical',
                 'auto_banned',
-                'Probe on vulnerable trap path: ' . $request->path(),
+                'Probe on vulnerable trap path: '.$request->path(),
                 $request
             );
 
             BlockedIp::block(
                 $ip,
-                'Automated probe against honeypot trap (' . $request->path() . ')',
+                'Automated probe against honeypot trap ('.$request->path().')',
                 'honeypot',
                 SecuritySetting::getInt('autoban_duration_hours', 24),
                 'Firewall Honeypot'
@@ -292,15 +358,126 @@ class SecurityController extends Controller
      */
     public function verifyIpApi(Request $request): JsonResponse
     {
-        $ip = (string) ($request->query('ip') ?: $request->ip());
+        $validated = $request->validate(['ip' => ['nullable', 'ip']]);
+        $ip = (string) (($validated['ip'] ?? null) ?: GeoIpService::resolveClientIp($request));
         $isBlocked = BlockedIp::isBlocked($ip);
         $underAttack = SecuritySetting::getBool('under_attack_mode', false);
+        $whitelisted = json_decode(SecuritySetting::get('admin_whitelisted_ips', '[]'), true) ?: [];
+        $bypassesFirewall = in_array($ip, $whitelisted, true) || in_array($ip, ['127.0.0.1', '::1'], true);
+
+        $geo = GeoIpService::lookup($ip, $request);
+        $countryCode = strtoupper((string) ($geo['country_code'] ?? 'UN'));
+        $countryName = (string) ($geo['country_name'] ?? GeoIpService::countryNameFromCode($countryCode));
+
+        $countryBlocked = false;
+        if (SecuritySetting::getBool('country_access_enabled', false) && $countryCode !== 'LAN') {
+            $configured = json_decode(SecuritySetting::get('country_access_codes', '[]'), true);
+            $countryCodes = collect(is_array($configured) ? $configured : [])
+                ->map(static fn ($code) => strtoupper(trim((string) $code)))
+                ->filter(static fn (string $code): bool => (bool) preg_match('/^[A-Z]{2}$/', $code))
+                ->unique()
+                ->values()
+                ->all();
+
+            if (! empty($countryCodes)) {
+                $mode = SecuritySetting::get('country_access_mode', 'allowlist');
+                $mode = in_array($mode, ['allowlist', 'blocklist'], true) ? $mode : 'allowlist';
+                $listed = in_array($countryCode, $countryCodes, true);
+                $countryBlocked = $mode === 'allowlist' ? ! $listed : $listed;
+            }
+        }
+
+        $vpnBlocked = false;
+        if (SecuritySetting::getBool('block_vpn_proxies', false) && ! empty($geo['is_vpn']) && $countryCode !== 'LAN') {
+            $vpnBlocked = true;
+        }
+
+        $overallBlocked = ! $bypassesFirewall && ($isBlocked || $countryBlocked || $vpnBlocked);
+        $reason = null;
+        if ($overallBlocked && $isBlocked) {
+            $reason = 'ip_blacklist';
+        } elseif ($overallBlocked && $countryBlocked) {
+            $reason = 'country_access_blocked';
+        } elseif ($overallBlocked && $vpnBlocked) {
+            $reason = 'vpn_proxy_blocked';
+        }
 
         return response()->json([
             'ip' => $ip,
-            'blocked' => $isBlocked,
+            'blocked' => $overallBlocked,
+            'reason' => $reason,
+            'country_code' => $countryCode,
+            'country_name' => $countryName,
+            'is_vpn' => (bool) ($geo['is_vpn'] ?? false),
+            'firewall_bypassed' => $bypassesFirewall,
             'under_attack' => $underAttack,
             'firewall_active' => true,
+        ]);
+    }
+
+    /**
+     * AJAX endpoint to simulate & test Country and IP access policy in real-time.
+     */
+    public function testCountryAccess(Request $request): JsonResponse
+    {
+        if ($request->filled('country_code')) {
+            $request->merge(['country_code' => strtoupper(trim((string) $request->input('country_code')))]);
+        }
+
+        $validated = $request->validate([
+            'ip' => ['nullable', 'ip'],
+            'country_code' => ['nullable', 'string', 'size:2', Rule::in(array_keys(GeoIpService::allCountries()))],
+        ]);
+
+        $inputIp = trim((string) ($validated['ip'] ?? ''));
+        $inputCountry = strtoupper(trim((string) ($validated['country_code'] ?? '')));
+
+        $ip = $inputIp !== '' ? $inputIp : GeoIpService::resolveClientIp($request);
+        $geo = $inputCountry === ''
+            ? GeoIpService::lookup($ip, $request)
+            : ['country_code' => $inputCountry, 'country_name' => GeoIpService::countryNameFromCode($inputCountry)];
+
+        $countryCode = $inputCountry !== '' ? $inputCountry : strtoupper((string) ($geo['country_code'] ?? 'UN'));
+        $countryName = GeoIpService::countryNameFromCode($countryCode);
+        $flag = GeoIpService::countryFlagEmoji($countryCode);
+
+        $enabled = SecuritySetting::getBool('country_access_enabled', false);
+        $mode = SecuritySetting::get('country_access_mode', 'allowlist');
+        $scope = SecuritySetting::get('country_access_scope', 'storefront_only');
+        $configured = json_decode(SecuritySetting::get('country_access_codes', '[]'), true) ?: [];
+
+        $countryCodes = collect($configured)
+            ->map(static fn ($c) => strtoupper(trim((string) $c)))
+            ->values()
+            ->all();
+
+        $listed = in_array($countryCode, $countryCodes, true);
+        $wouldBlock = false;
+
+        if ($enabled && $countryCode !== 'LAN' && ! empty($countryCodes)) {
+            $wouldBlock = $mode === 'allowlist' ? ! $listed : $listed;
+        }
+
+        $scopeLabel = $scope === 'storefront_only' ? 'Storefront & Public APIs' : 'Entire System (Storefront, APIs & Admin)';
+        $statusText = ! $enabled
+            ? 'Country Access Policy is currently DISABLED. All countries are permitted.'
+            : ($wouldBlock
+                ? "Access from {$flag} {$countryName} ({$countryCode}) would be BLOCKED on {$scopeLabel} (Policy: ".($mode === 'allowlist' ? 'Whitelist' : 'Restriction').').'
+                : "Access from {$flag} {$countryName} ({$countryCode}) is PERMITTED on {$scopeLabel} (Policy: ".($mode === 'allowlist' ? 'Whitelist' : 'Restriction').').');
+
+        return response()->json([
+            'status' => 'success',
+            'ip' => $ip,
+            'country_code' => $countryCode,
+            'country_name' => $countryName,
+            'flag' => $flag,
+            'policy_enabled' => $enabled,
+            'policy_mode' => $mode,
+            'scope' => $scope,
+            'configured_count' => count($countryCodes),
+            'would_block' => $wouldBlock,
+            'is_listed' => $listed,
+            'message' => $statusText,
         ]);
     }
 
@@ -325,8 +502,8 @@ class SecurityController extends Controller
         $botToken = trim((string) $request->input('bot_token', ''));
         $chatId = trim((string) $request->input('chat_id', ''));
 
-        /** @var \App\Services\TelegramNotificationService $service */
-        $service = app(\App\Services\TelegramNotificationService::class);
+        /** @var TelegramNotificationService $service */
+        $service = app(TelegramNotificationService::class);
 
         $resolvedToken = $botToken ?: SecuritySetting::get('telegram_security_bot_token');
         $resolvedChat = $chatId ?: SecuritySetting::get('telegram_security_chat_id');
@@ -345,7 +522,7 @@ class SecurityController extends Controller
 
         // Send simulated test threat alert
         $dummyIncident = new SecurityLog([
-            'incident_id' => 'SEC-TEST-' . strtoupper(Str::random(4)),
+            'incident_id' => 'SEC-TEST-'.strtoupper(Str::random(4)),
             'ip_address' => $request->ip(),
             'threat_type' => 'sql_injection_simulated',
             'severity' => 'high',
@@ -366,7 +543,7 @@ class SecurityController extends Controller
         if ($sent) {
             return response()->json([
                 'success' => true,
-                'message' => 'Test Telegram Security Alert successfully sent to Chat ID: ' . $resolvedChat,
+                'message' => 'Test Telegram Security Alert successfully sent to Chat ID: '.$resolvedChat,
             ]);
         }
 
