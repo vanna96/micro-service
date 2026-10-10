@@ -1,3 +1,4 @@
+import { getCsrfToken } from "@/lib/csrf";
 import { CashTenderInput, CartItem, Category, CurrencyInfo, Customer, CustomerPriceList, HeldOrder, Invoice, PaymentTenderInput, PosBranch, PosCartPricing, PosCompanyInfo, PosSaleSnapshot, PosSaleTotals, Product } from "@/types/pos-types";
 
 interface ApiEnvelope<T> {
@@ -258,21 +259,6 @@ function getApiHeaders(customHeaders?: HeadersInit): Record<string, string> {
     "X-Locale": loc,
     ...(customHeaders as Record<string, string> || {}),
   };
-}
-
-async function getCsrfToken(): Promise<string> {
-  const response = await fetch("/next/auth/csrf", {
-    credentials: "same-origin",
-    headers: { Accept: "application/json" },
-    cache: "no-store",
-  });
-  const payload = await response.json().catch(() => ({})) as { token?: string };
-
-  if (!response.ok || !payload.token) {
-    throw new Error("Unable to start a secure session. Please try again.");
-  }
-
-  return payload.token;
 }
 
 async function request<T>(path: string): Promise<T> {
@@ -546,9 +532,11 @@ export async function searchPosProductsByImage(
   formData.append("per_page", String(perPage));
   formData.append("threshold", String(threshold));
 
-  const response = await fetch(`${apiBase}/item/search-by-image`, {
+  const csrf = await getCsrfToken();
+  const response = await fetch(`${apiBase}/pos/products/search-by-image`, {
     method: "POST",
-    headers: getApiHeaders(),
+    credentials: "same-origin",
+    headers: getApiHeaders({ "X-CSRF-TOKEN": csrf }),
     body: formData,
   });
 

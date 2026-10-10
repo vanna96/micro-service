@@ -4,6 +4,7 @@ use App\Http\Controllers\API\V1\Pos\PosCatalogController;
 use App\Http\Controllers\API\V1\Pos\PosCustomerController;
 use App\Http\Controllers\API\V1\Pos\PosDisplayController;
 use App\Http\Controllers\API\V1\Pos\PosSaleController;
+use App\Http\Controllers\API\V1\ImageSearchController;
 use App\Http\Middleware\InitializeTenancyByDomainOrRequestData;
 use Illuminate\Support\Facades\Route;
 
@@ -34,6 +35,8 @@ Route::prefix('pos')
             Route::get('categories', [PosCatalogController::class, 'categories']);
             Route::get('products', [PosCatalogController::class, 'products']);
             Route::get('products/{item}', [PosCatalogController::class, 'show']);
+            Route::post('products/search-by-image', [ImageSearchController::class, 'search'])
+                ->middleware('throttle:image-search');
             Route::post('cart/price', [PosCatalogController::class, 'priceCart']);
 
             // POS Customers

@@ -14,6 +14,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ShopCategory, ShopProduct } from "@/types/shop";
 import { shopApi } from "@/lib/shop-api";
+import { getCsrfToken } from "@/lib/csrf";
 import { useShop } from "./shop-provider";
 import {
     CategoryVisual,
@@ -65,9 +66,14 @@ async function searchProductsByImage(file: File, category = "") {
     formData.append("image", file, file.name || "image.jpg");
     if (category) formData.append("category_id", category);
 
+    const csrf = await getCsrfToken();
     const response = await fetch("/v1/api/mobile/products/search-by-image", {
         method: "POST",
-        headers: { Accept: "application/json" },
+        credentials: "same-origin",
+        headers: {
+            Accept: "application/json",
+            "X-CSRF-TOKEN": csrf,
+        },
         body: formData,
     });
     const payload = (await response.json().catch(() => null)) as {
