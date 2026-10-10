@@ -14,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 
 class NextPortalAuthController extends Controller
@@ -48,8 +49,8 @@ class NextPortalAuthController extends Controller
             $validated['password'],
             (bool) ($validated['remember'] ?? false)
         )) {
-            $attempts = (int) Cache::store('file')->get($cacheKey, 0) + 1;
-            Cache::store('file')->put($cacheKey, $attempts, 900);
+            RateLimiter::hit($cacheKey, 900);
+            $attempts = RateLimiter::attempts($cacheKey);
 
             $threshold = SecuritySetting::getInt('autoban_login_threshold', 5);
             $autoBanEnabled = SecuritySetting::getBool('autoban_failed_logins_enabled', true);
@@ -72,7 +73,7 @@ class NextPortalAuthController extends Controller
                     'Portal Auth'
                 );
 
-                Cache::store('file')->forget($cacheKey);
+                RateLimiter::clear($cacheKey);
 
                 return response()->json([
                     'success' => false,
@@ -96,7 +97,7 @@ class NextPortalAuthController extends Controller
         }
 
         // Clear failed attempts on success
-        Cache::store('file')->forget($cacheKey);
+        RateLimiter::clear($cacheKey);
 
         $user = Auth::user();
 

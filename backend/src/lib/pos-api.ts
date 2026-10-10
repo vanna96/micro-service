@@ -260,9 +260,25 @@ function getApiHeaders(customHeaders?: HeadersInit): Record<string, string> {
   };
 }
 
+async function getCsrfToken(): Promise<string> {
+  const response = await fetch("/next/auth/csrf", {
+    credentials: "same-origin",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+  const payload = await response.json().catch(() => ({})) as { token?: string };
+
+  if (!response.ok || !payload.token) {
+    throw new Error("Unable to start a secure session. Please try again.");
+  }
+
+  return payload.token;
+}
+
 async function request<T>(path: string): Promise<T> {
   const response = await fetch(`${apiBase}${path}`, {
     cache: "no-store",
+    credentials: "same-origin",
     headers: getApiHeaders(),
   });
 
@@ -281,6 +297,7 @@ async function request<T>(path: string): Promise<T> {
 async function requestEnvelope<T>(path: string): Promise<ApiEnvelope<T>> {
   const response = await fetch(`${apiBase}${path}`, {
     cache: "no-store",
+    credentials: "same-origin",
     headers: getApiHeaders(),
   });
 
@@ -631,11 +648,15 @@ export function getOrCreatePosClientToken(): string {
 }
 
 async function posSaleRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = (init?.method || "GET").toUpperCase();
+  const csrf = ["GET", "HEAD", "OPTIONS"].includes(method) ? null : await getCsrfToken();
   const response = await fetch(`${apiBase}${path}`, {
     ...init,
     cache: "no-store",
+    credentials: "same-origin",
     headers: getApiHeaders({
       "Content-Type": "application/json",
+      ...(csrf ? { "X-CSRF-TOKEN": csrf } : {}),
       ...(init?.headers as Record<string, string> || {}),
     }),
   });
@@ -886,11 +907,14 @@ export interface PosDisplayPayload {
 
 export async function syncPosDisplay(payload: PosDisplayPayload): Promise<void> {
   try {
+    const csrf = await getCsrfToken();
     await fetch(`${apiBase}/pos/display/sync`, {
       method: "POST",
+      credentials: "same-origin",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
+        "X-CSRF-TOKEN": csrf,
       },
       body: JSON.stringify(payload),
     });
@@ -902,6 +926,7 @@ export async function syncPosDisplay(payload: PosDisplayPayload): Promise<void> 
 export async function fetchPosDisplayState(token: string): Promise<PosDisplayPayload | null> {
   try {
     const res = await fetch(`${apiBase}/pos/display/state?token=${encodeURIComponent(token)}`, {
+      credentials: "same-origin",
       headers: { Accept: "application/json" },
       cache: "no-store",
     });
@@ -937,6 +962,7 @@ export async function fetchPosDisplayPromotions(token?: string, type: string = "
     if (token) query.set("token", token);
     if (type) query.set("type", type);
     const res = await fetch(`${apiBase}/pos/display/promotions?${query.toString()}`, {
+      credentials: "same-origin",
       headers: { Accept: "application/json" },
       cache: "no-store",
     });
@@ -959,11 +985,14 @@ export async function savePosDisplayPromotions(
   type: string = "second_screen"
 ): Promise<{ success: boolean; data?: PromoSlide[]; message?: string }> {
   try {
+    const csrf = await getCsrfToken();
     const res = await fetch(`${apiBase}/pos/display/promotions`, {
       method: "POST",
+      credentials: "same-origin",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
+        "X-CSRF-TOKEN": csrf,
       },
       body: JSON.stringify({
         token,

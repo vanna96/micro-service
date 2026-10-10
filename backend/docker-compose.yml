@@ -5,9 +5,13 @@ services:
     container_name: laravel_app1
     command: php-fpm
     restart: always
+    security_opt:
+      - no-new-privileges:true
     volumes:
-      - .:/var/www/html
+      - .:/var/www/html:ro
+      - ./storage:/var/www/html/storage
       - ./bootstrap/cache:/var/www/html/bootstrap/cache
+      - ./lang:/var/www/html/lang
     healthcheck:
       # Confirm both the source mount and PHP-FPM are ready before Nginx starts.
       test: ["CMD-SHELL", "test -f /var/www/html/public/index.php && php -r 'exit(@fsockopen(\"127.0.0.1\", 9000) ? 0 : 1);'"]
@@ -24,9 +28,13 @@ services:
     container_name: laravel_app2
     command: php-fpm
     restart: always
+    security_opt:
+      - no-new-privileges:true
     volumes:
-      - .:/var/www/html
+      - .:/var/www/html:ro
+      - ./storage:/var/www/html/storage
       - ./bootstrap/cache:/var/www/html/bootstrap/cache
+      - ./lang:/var/www/html/lang
     healthcheck:
       # Confirm both the source mount and PHP-FPM are ready before Nginx starts.
       test: ["CMD-SHELL", "test -f /var/www/html/public/index.php && php -r 'exit(@fsockopen(\"127.0.0.1\", 9000) ? 0 : 1);'"]
@@ -43,8 +51,13 @@ services:
     container_name: laravel_queue
     command: /usr/bin/supervisord -n -c /etc/supervisor/supervisord.conf
     restart: always
+    security_opt:
+      - no-new-privileges:true
     volumes:
-      - .:/var/www/html
+      - .:/var/www/html:ro
+      - ./storage:/var/www/html/storage
+      - ./bootstrap/cache:/var/www/html/bootstrap/cache
+      - ./lang:/var/www/html/lang
     networks:
       - app-network
 
@@ -52,11 +65,13 @@ services:
     image: nginx:latest
     container_name: laravel_nginx
     restart: always
+    security_opt:
+      - no-new-privileges:true
     ports:
       # Only the host-level Caddy proxy should reach Nginx directly.
       - "127.0.0.1:8080:80"
     volumes:
-      - .:/var/www/html
+      - .:/var/www/html:ro
       # Directory mounts remain valid when an editor replaces default.conf in WSL.
       - ./nginx:/etc/nginx/conf.d:ro
     depends_on:
@@ -75,12 +90,26 @@ services:
     container_name: laravel_nextjs
     working_dir: /var/www/html
     restart: always
-    command: sh -lc "npm install && npm run next:${NEXT_MODE:-dev}"
+    security_opt:
+      - no-new-privileges:true
+    command: sh -lc "npm ci && npm run next:${NEXT_MODE:-dev}"
     environment:
       LARAVEL_API_URL: http://nginx/v1/api
       NEXT_PUBLIC_API_URL: /v1/api
+      APP_URL: ${APP_URL}
+      CENTRAL_PORTAL_HOST: ${CENTRAL_PORTAL_HOST}
+      NEXT_PUBLIC_PUSHER_APP_KEY: ${NEXT_PUBLIC_PUSHER_APP_KEY:-}
+      NEXT_PUBLIC_PUSHER_PORT: ${NEXT_PUBLIC_PUSHER_PORT:-6001}
+      NEXT_PUBLIC_PUSHER_SCHEME: ${NEXT_PUBLIC_PUSHER_SCHEME:-https}
+      NEXT_PUBLIC_PUSHER_APP_CLUSTER: ${NEXT_PUBLIC_PUSHER_APP_CLUSTER:-mt1}
+      NEXT_PUBLIC_LAN_IP: ${NEXT_PUBLIC_LAN_IP:-}
+      NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0}
+      NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE: ${NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE:-0}
     volumes:
-      - .:/var/www/html
+      - .:/var/www/html:ro
+      - /dev/null:/var/www/html/.env:ro
       - next_node_modules:/var/www/html/node_modules
       - next_cache:/var/www/html/.next
     healthcheck:
@@ -98,6 +127,8 @@ services:
     image: quay.io/soketi/soketi:1.4-16-alpine
     container_name: laravel_soketi
     restart: always
+    security_opt:
+      - no-new-privileges:true
     environment:
       SOKETI_DEBUG: "0"
       SOKETI_DEFAULT_APP_ID: "pos_app"

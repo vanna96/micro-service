@@ -38,6 +38,7 @@ Route::get('/', function () {
 
 // Allow POST directly to the root domain for image search (without CSRF since it acts as an API)
 Route::post('/', [\App\Http\Controllers\API\V1\ImageSearchController::class, 'search'])
+    ->middleware('throttle:image-search')
     ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]);
 
 // Security Honeypot Scanner Traps

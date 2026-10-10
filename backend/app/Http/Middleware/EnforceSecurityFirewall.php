@@ -9,7 +9,7 @@ use App\Services\GeoIpService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -513,11 +513,11 @@ class EnforceSecurityFirewall
             return null;
         }
 
-        $windowKey = 'sec_req_count_'.md5($ip.'_'.date('YmdHi'));
+        $windowKey = 'security-firewall:'.hash('sha256', $ip);
 
         try {
-            $currentCount = (int) Cache::store('file')->get($windowKey, 0) + 1;
-            Cache::store('file')->put($windowKey, $currentCount, 90);
+            RateLimiter::hit($windowKey, 60);
+            $currentCount = RateLimiter::attempts($windowKey);
 
             if ($currentCount > $limit) {
                 // Critical flood threshold: auto-ban attacker IP

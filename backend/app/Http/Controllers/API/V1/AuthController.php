@@ -22,7 +22,7 @@ class AuthController extends Controller
             'name'          => 'required|string|max:255',
             'username'      => 'required|string|max:255|unique:users,username',
             'email'         => 'nullable|string|email|unique:users,email',
-            'password'      => 'required|string|min:6|confirmed',
+            'password'      => 'required|string|min:12|confirmed',
             'first_name'    => 'nullable|string|max:255',
             'last_name'     => 'nullable|string|max:255',
             'country_code'  => 'nullable|string|max:5',
@@ -127,7 +127,7 @@ class AuthController extends Controller
         $accessExpiresMinutes = 60;
         $refreshExpiresDays = 30;
 
-        $tokenResult = $user->createToken('authToken', ['*'], now()->addMinutes($accessExpiresMinutes));
+        $tokenResult = $user->createToken('authToken', ['tenant:access'], now()->addMinutes($accessExpiresMinutes));
         $plainTextToken = $tokenResult->plainTextToken;
         $tokenResult->accessToken->forceFill([
             'tenant_id'   => null,
@@ -183,14 +183,17 @@ class AuthController extends Controller
             ], 401);
         }
 
-        if ($token->name !== 'refreshToken' || ! $token->can('issue-token')) {
+        if ($token->name !== 'refreshToken'
+            || ! $token->can('issue-token')
+            || $token->tokenable_type !== User::class
+        ) {
             return response()->json([
                 'success' => false,
                 'message' => translate('Provided token is not a valid refresh token.')
             ], 401);
         }
 
-        $user = User::on('central')->find($token->tokenable_id) ?: $token->tokenable;
+        $user = $token->tokenable;
 
         if (! $user || $user->status !== 'Active') {
             return response()->json([
@@ -205,7 +208,7 @@ class AuthController extends Controller
         $accessExpiresMinutes = 60;
         $refreshExpiresDays = 30;
 
-        $newTokenResult = $user->createToken('authToken', ['*'], now()->addMinutes($accessExpiresMinutes));
+        $newTokenResult = $user->createToken('authToken', ['tenant:access'], now()->addMinutes($accessExpiresMinutes));
         $newTokenResult->accessToken->forceFill([
             'tenant_id'   => null,
             'device_name' => null,

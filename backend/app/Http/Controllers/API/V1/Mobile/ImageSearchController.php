@@ -18,6 +18,10 @@ class ImageSearchController extends Controller
 {
     use BuildsMobilePayloads;
 
+    private const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+    private const MAX_IMAGE_PIXELS = 25_000_000;
+    private const MAX_IMAGE_DIMENSION = 10_000;
+
     public function __construct(
         protected PromotionPricingService $promotionPricing,
         protected ProductImageMatcher $imageMatcher,
@@ -39,8 +43,8 @@ class ImageSearchController extends Controller
     {
         // ── Validate input ──────────────────────────────────────────────
         $request->validate([
-            'image' => ['required_without:base64_image', 'file', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
-            'base64_image' => ['required_without:image', 'string'],
+            'image' => ['required_without:base64_image', 'file', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'base64_image' => ['required_without:image', 'string', 'max:5592412'],
             'threshold' => ['nullable', 'integer', 'between:0,64'],
             'per_page' => ['nullable', 'integer', 'between:1,100'],
             'category_id' => ['nullable', 'integer', 'min:1'],
@@ -134,7 +138,7 @@ class ImageSearchController extends Controller
         }
 
         $binary = base64_decode($base64, strict: true);
-        if ($binary === false) {
+        if ($binary === false || ! $this->isSafeImageBinary($binary)) {
             return null;
         }
 
@@ -156,7 +160,7 @@ class ImageSearchController extends Controller
         }
 
         $contents = file_get_contents($path);
-        if (! $contents) {
+        if (! $contents || ! $this->isSafeImageBinary($contents)) {
             return null;
         }
 
@@ -180,7 +184,7 @@ class ImageSearchController extends Controller
         }
 
         $contents = $disk->get($relativePath);
-        if (! $contents) {
+        if (! $contents || ! $this->isSafeImageBinary($contents)) {
             return null;
         }
 
@@ -207,7 +211,7 @@ class ImageSearchController extends Controller
                 ->attach('image', $binary, 'image.bin')
                 ->post($convertUrl);
 
-            if ($response->successful()) {
+            if ($response->successful() && $this->isSafeImageBinary($response->body())) {
                 return @imagecreatefromstring($response->body()) ?: null;
             }
         } catch (\Throwable $e) {
@@ -215,6 +219,26 @@ class ImageSearchController extends Controller
         }
 
         return null;
+    }
+
+    protected function isSafeImageBinary(string $binary): bool
+    {
+        if (strlen($binary) > self::MAX_IMAGE_BYTES) {
+            return false;
+        }
+
+        $size = @getimagesizefromstring($binary);
+        if (! is_array($size)) {
+            return false;
+        }
+
+        [$width, $height] = $size;
+
+        return $width > 0
+            && $height > 0
+            && $width <= self::MAX_IMAGE_DIMENSION
+            && $height <= self::MAX_IMAGE_DIMENSION
+            && ($width * $height) <= self::MAX_IMAGE_PIXELS;
     }
 
     // ════════════════════════════════════════════════════════════════════

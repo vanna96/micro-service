@@ -19,8 +19,8 @@ Route::prefix('mobile')
         'tenant.active',
     ])->group(function () {
         Route::prefix('auth')->group(function () {
-            Route::post('register', [AuthController::class, 'register'])->middleware('throttle:6,1');
-            Route::post('login', [AuthController::class, 'login'])->middleware('throttle:6,1');
+            Route::post('register', [AuthController::class, 'register'])->middleware('throttle:login');
+            Route::post('login', [AuthController::class, 'login'])->middleware('throttle:login');
             Route::get('facebook/start', [AuthController::class, 'facebookStart'])->middleware('throttle:10,1');
             Route::get('facebook/callback', [AuthController::class, 'facebookCallback'])->middleware('throttle:10,1');
             Route::get('google/start', [AuthController::class, 'googleStart'])->middleware('throttle:10,1');
@@ -39,7 +39,8 @@ Route::prefix('mobile')
         Route::get('categories', [CatalogController::class, 'categories']);
         Route::get('products', [CatalogController::class, 'products']);
         Route::get('products/{item}', [CatalogController::class, 'show']);
-        Route::post('products/search-by-image', [App\Http\Controllers\API\V1\Mobile\ImageSearchController::class, 'search']);
+        Route::post('products/search-by-image', [App\Http\Controllers\API\V1\Mobile\ImageSearchController::class, 'search'])
+            ->middleware('throttle:image-search');
         Route::post('cart/price', [CatalogController::class, 'priceCart']);
 
         Route::middleware(['customer.access'])->group(function () {

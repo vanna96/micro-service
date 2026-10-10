@@ -21,16 +21,14 @@ use App\Http\Controllers\API\V1\CartPricingController;
 */
 
 Route::get('sanctum/csrf-cookie', [\Laravel\Sanctum\Http\Controllers\CsrfCookieController::class, 'show']);
-Route::middleware(['api'])->group(function () {
+Route::middleware(['api', 'admin.central'])->group(function () {
 
     Route::prefix('user')->group(function () {
-        // Public routes
-        Route::post('register', [AuthController::class, 'register']);
-        Route::post('login', [AuthController::class, 'login']);
-        Route::post('refresh', [AuthController::class, 'refreshToken']);
+        Route::post('login', [AuthController::class, 'login'])->middleware('throttle:login');
+        Route::post('refresh', [AuthController::class, 'refreshToken'])->middleware('throttle:token-refresh');
 
         // Protected user routes
-        Route::middleware(['auth:sanctum'])->group(function () {
+        Route::middleware(['auth:sanctum', 'admin.administrator'])->group(function () {
             Route::get('list', [AdministratorController::class, 'list']);
             Route::post('store', [AuthController::class, 'register']);
             Route::get('edit/{admin}', [AdministratorController::class, 'edit']);
@@ -40,11 +38,11 @@ Route::middleware(['api'])->group(function () {
         });
     });
 
-    Route::post('auth/refresh', [AuthController::class, 'refreshToken']);
-    Route::post('refresh', [AuthController::class, 'refreshToken']);
+    Route::post('auth/refresh', [AuthController::class, 'refreshToken'])->middleware('throttle:token-refresh');
+    Route::post('refresh', [AuthController::class, 'refreshToken'])->middleware('throttle:token-refresh');
 
     // Protected tenant routes
-    Route::prefix('tenant')->middleware(['auth:sanctum'])->group(function () {
+    Route::prefix('tenant')->middleware(['auth:sanctum', 'admin.administrator'])->group(function () {
         Route::get('list', [TenantController::class, 'list']);
         Route::post('store', [TenantController::class, 'store']);
         Route::get('edit/{tenant}', [TenantController::class, 'edit']);

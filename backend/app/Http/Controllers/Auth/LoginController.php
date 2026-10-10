@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -303,8 +304,8 @@ class LoginController extends Controller
         $username = (string) $request->input($this->username());
         
         $cacheKey = 'failed_login_count_' . md5($ip);
-        $attempts = (int) Cache::store('file')->get($cacheKey, 0) + 1;
-        Cache::store('file')->put($cacheKey, $attempts, 900); // 15-minute sliding window
+        RateLimiter::hit($cacheKey, 900);
+        $attempts = RateLimiter::attempts($cacheKey);
 
         $threshold = SecuritySetting::getInt('autoban_login_threshold', 5);
         $autoBanEnabled = SecuritySetting::getBool('autoban_failed_logins_enabled', true);
@@ -327,7 +328,7 @@ class LoginController extends Controller
                 'Auth Protection'
             );
 
-            Cache::store('file')->forget($cacheKey);
+            RateLimiter::clear($cacheKey);
 
             return response()->view('errors.security-blocked', [
                 'ip' => $ip,
@@ -382,7 +383,7 @@ class LoginController extends Controller
         }
 
         // Reset failed login tracking on successful login
-        Cache::store('file')->forget('failed_login_count_' . md5($request->ip()));
+        RateLimiter::clear('failed_login_count_' . md5($request->ip()));
     }
 
     public function logout(Request $request): RedirectResponse

@@ -28,15 +28,18 @@ Route::middleware([
 ])->group(function ($r) {
     $r->group([ 'prefix' => 'v1/api'], function ($r) {
         $r->group([ 'prefix' => 'user'], function ($r) {
-            $r->post('register', [AuthController::class, 'register']);
-            $r->post('login', [AuthController::class, 'login'])->middleware('tenant.active');
-            $r->post('refresh', [AuthController::class, 'refreshToken'])->middleware('tenant.active');
+            $r->post('login', [AuthController::class, 'login'])->middleware(['tenant.active', 'throttle:login']);
+            $r->post('refresh', [AuthController::class, 'refreshToken'])->middleware(['tenant.active', 'throttle:token-refresh']);
 
-            $r->middleware(['auth:sanctum',  'tenant.active'])->group(function ($r) {
-                $r->post('store', [AuthController::class, 'register']);
-                $r->get('list', [AdministratorController::class, 'list']);
-                $r->get('edit/{admin}', [AdministratorController::class, 'edit']);
-                $r->patch('update/{admin}', [AdministratorController::class, 'update']);
+            $r->middleware(['auth:sanctum', 'tenant.active'])->group(function ($r) {
+                $r->post('store', [AuthController::class, 'register'])
+                    ->middleware('admin.permission:tenant_users.create');
+                $r->get('list', [AdministratorController::class, 'list'])
+                    ->middleware('admin.permission:tenant_users.view');
+                $r->get('edit/{admin}', [AdministratorController::class, 'edit'])
+                    ->middleware('admin.permission:tenant_users.view');
+                $r->patch('update/{admin}', [AdministratorController::class, 'update'])
+                    ->middleware('admin.permission:tenant_users.edit');
                 $r->get('auth', [AuthController::class, 'auth']);
                 $r->post('logout', [AuthController::class, 'logout']);
             });

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -27,7 +28,12 @@ class EnsureTenantAccess
 
         [$id, $token] = explode('|', $accessToken, 2);
         $tokenModel = PersonalAccessToken::on('central')->find($id);
-        if (!$tokenModel) return response()->json([
+        if (! $tokenModel
+            || ($tokenModel->expires_at && $tokenModel->expires_at->isPast())
+            || $tokenModel->name !== 'authToken'
+            || ! $tokenModel->can('tenant:access')
+            || $tokenModel->tokenable_type !== User::class
+        ) return response()->json([
             'success' => false,
             'message' => 'Unauthenticated'
         ], 401);
@@ -37,8 +43,15 @@ class EnsureTenantAccess
             'message' => 'Unauthenticated'
         ], 401);
         
-        $user = $tokenModel->tokenable;
-        if (!$user->tenants()->where('tenants.id', $tenant_id)->exists()) {
+        $user = User::on('central')->find($tokenModel->tokenable_id);
+        if (! $user || $user->status !== 'Active') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated'
+            ], 401);
+        }
+
+        if (!$user->tenants()->where('tenants.id', $tenant_id)->where('tenants.status', 'Active')->exists()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized tenant access',
@@ -48,6 +61,8 @@ class EnsureTenantAccess
         if (method_exists($user, 'withAccessToken')) {
             $user = $user->withAccessToken($tokenModel);
         }
+
+        $tokenModel->forceFill(['last_used_at' => now()])->save();
 
         Auth::setUser($user);
         $request->setUserResolver(static fn () => $user);

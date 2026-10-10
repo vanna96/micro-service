@@ -304,7 +304,8 @@ function LoginPage() {
       if (saved) {
         const data = JSON.parse(saved);
         if (data.username) setUsername(data.username);
-        if (data.password) setPassword(data.password);
+        // Migrate legacy entries that stored a plaintext password.
+        localStorage.setItem("vpos_remember_login", JSON.stringify({ username: data.username || "" }));
         setRemember(true);
       }
     } catch {
@@ -343,7 +344,7 @@ function LoginPage() {
 
       if (remember) {
         try {
-          localStorage.setItem("vpos_remember_login", JSON.stringify({ username, password }));
+          localStorage.setItem("vpos_remember_login", JSON.stringify({ username }));
         } catch {
           // Ignore
         }

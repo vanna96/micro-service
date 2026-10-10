@@ -442,20 +442,20 @@ class MonitoringService
     private function caddyMetrics(): array
     {
         $statuses = [];
-        // encode wraps the public routes in our Caddyfile. Counting that outer
-        // handler includes every public request once and excludes metrics scrapes.
-        foreach ($this->query('sum(rate(caddy_http_request_duration_seconds_count{handler="encode"}[5m])) by (code)') as $result) {
+        // The security-header handler wraps the public HTTPS routes. Counting
+        // that outer handler includes every public request once and excludes scrapes.
+        foreach ($this->query('sum(rate(caddy_http_request_duration_seconds_count{handler="headers"}[5m])) by (code)') as $result) {
             $statuses[(string) data_get($result, 'metric.code', 'unknown')] = (float) data_get($result, 'value.1', 0);
         }
 
-        $duration = $this->scalar('sum(rate(caddy_http_request_duration_seconds_sum{handler="encode"}[5m])) / clamp_min(sum(rate(caddy_http_request_duration_seconds_count{handler="encode"}[5m])), 0.000001)');
+        $duration = $this->scalar('sum(rate(caddy_http_request_duration_seconds_sum{handler="headers"}[5m])) / clamp_min(sum(rate(caddy_http_request_duration_seconds_count{handler="headers"}[5m])), 0.000001)');
 
         return [
-            'total_requests' => $this->scalar('sum(caddy_http_requests_total{handler="encode"})'),
-            'requests_per_second' => $this->scalar('sum(rate(caddy_http_requests_total{handler="encode"}[5m]))'),
-            'active_requests' => $this->scalar('sum(caddy_http_requests_in_flight{handler="encode"})'),
+            'total_requests' => $this->scalar('sum(caddy_http_requests_total{handler="headers"})'),
+            'requests_per_second' => $this->scalar('sum(rate(caddy_http_requests_total{handler="headers"}[5m]))'),
+            'active_requests' => $this->scalar('sum(caddy_http_requests_in_flight{handler="headers"})'),
             'average_duration_ms' => $duration === null ? null : $duration * 1000,
-            'average_response_bytes' => $this->scalar('sum(rate(caddy_http_response_size_bytes_sum{handler="encode"}[5m])) / clamp_min(sum(rate(caddy_http_response_size_bytes_count{handler="encode"}[5m])), 0.000001)'),
+            'average_response_bytes' => $this->scalar('sum(rate(caddy_http_response_size_bytes_sum{handler="headers"}[5m])) / clamp_min(sum(rate(caddy_http_response_size_bytes_count{handler="headers"}[5m])), 0.000001)'),
             'status_codes' => $statuses,
         ];
     }

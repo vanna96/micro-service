@@ -8,6 +8,7 @@ use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvi
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 
 class RouteServiceProvider extends ServiceProvider
 {
@@ -96,5 +97,27 @@ class RouteServiceProvider extends ServiceProvider
 
             return Limit::perMinute($limit)->by($request->user()?->id ?: $request->ip());
         });
+
+        RateLimiter::for('login', function (Request $request) {
+            $login = Str::lower(trim((string) $request->input('username', $request->input('email', 'unknown'))));
+
+            return [
+                Limit::perMinute(6)->by('login-ip:'.$request->ip()),
+                Limit::perMinute(4)->by('login-account:'.hash('sha256', $login).'|'.$request->ip()),
+            ];
+        });
+
+        RateLimiter::for('token-refresh', fn (Request $request) => [
+            Limit::perMinute(12)->by('refresh-ip:'.$request->ip()),
+        ]);
+
+        RateLimiter::for('image-search', fn (Request $request) => [
+            Limit::perMinute(6)->by('image-search-minute:'.$request->ip()),
+            Limit::perHour(30)->by('image-search-hour:'.$request->ip()),
+        ]);
+
+        RateLimiter::for('display-read', fn (Request $request) => [
+            Limit::perMinute(60)->by('display-read:'.$request->ip()),
+        ]);
     }
 }

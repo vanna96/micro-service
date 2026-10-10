@@ -39,11 +39,6 @@ Route::get('/tenant-host', function () {
     ]);
 });
 
-Route::post('/pos/display/sync', [\App\Http\Controllers\API\V1\Pos\PosDisplayController::class, 'sync']);
-Route::get('/pos/display/state', [\App\Http\Controllers\API\V1\Pos\PosDisplayController::class, 'state']);
-Route::get('/pos/display/promotions', [\App\Http\Controllers\API\V1\Pos\PosDisplayController::class, 'promotions']);
-Route::post('/pos/display/promotions', [\App\Http\Controllers\API\V1\Pos\PosDisplayController::class, 'savePromotions']);
-
 // Security Firewall API Endpoints (Used by Frontend & Next.js)
 Route::prefix('security')->group(function () {
     Route::get('verify-ip', [\App\Http\Controllers\Admin\SecurityController::class, 'verifyIpApi']);
@@ -204,7 +199,8 @@ Route::get('/storefront', function () {
 });
 
 // Search products by image (pHash-based visual similarity)
-Route::post('/products/search-by-image', [\App\Http\Controllers\API\V1\ImageSearchController::class, 'search']);
+Route::post('/products/search-by-image', [\App\Http\Controllers\API\V1\ImageSearchController::class, 'search'])
+    ->middleware('throttle:image-search');
 
 Route::post('/orders', function (Request $request) {
     $data = $request->validate([
