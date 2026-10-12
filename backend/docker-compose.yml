@@ -1,10 +1,16 @@
 services:
-  app1:
+  app:
     build:
       context: ./php
-    container_name: laravel_app1
     command: php-fpm
+    stop_signal: SIGQUIT
+    cpus: 2.0
+    mem_limit: 8g
     restart: always
+    environment:
+      CACHE_DRIVER: redis
+      REDIS_CLIENT: phpredis
+      REDIS_HOST: redis
     security_opt:
       - no-new-privileges:true
     volumes:
@@ -12,6 +18,8 @@ services:
       - ./storage:/var/www/html/storage
       - ./bootstrap/cache:/var/www/html/bootstrap/cache
       - ./lang:/var/www/html/lang
+      - ./php/performance.ini:/usr/local/etc/php/conf.d/zz-performance.ini:ro
+      - ./php/www-performance.conf:/usr/local/etc/php-fpm.d/zz-performance.conf:ro
     healthcheck:
       # Confirm both the source mount and PHP-FPM are ready before Nginx starts.
       test: ["CMD-SHELL", "test -f /var/www/html/public/index.php && php -r 'exit(@fsockopen(\"127.0.0.1\", 9000) ? 0 : 1);'"]
@@ -19,29 +27,9 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    networks:
-      - app-network
-
-  app2:
-    build:
-      context: ./php
-    container_name: laravel_app2
-    command: php-fpm
-    restart: always
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - .:/var/www/html:ro
-      - ./storage:/var/www/html/storage
-      - ./bootstrap/cache:/var/www/html/bootstrap/cache
-      - ./lang:/var/www/html/lang
-    healthcheck:
-      # Confirm both the source mount and PHP-FPM are ready before Nginx starts.
-      test: ["CMD-SHELL", "test -f /var/www/html/public/index.php && php -r 'exit(@fsockopen(\"127.0.0.1\", 9000) ? 0 : 1);'"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+    depends_on:
+      redis:
+        condition: service_healthy
     networks:
       - app-network
 
@@ -51,6 +39,10 @@ services:
     container_name: laravel_queue
     command: /usr/bin/supervisord -n -c /etc/supervisor/supervisord.conf
     restart: always
+    environment:
+      CACHE_DRIVER: redis
+      REDIS_CLIENT: phpredis
+      REDIS_HOST: redis
     security_opt:
       - no-new-privileges:true
     volumes:
@@ -58,6 +50,38 @@ services:
       - ./storage:/var/www/html/storage
       - ./bootstrap/cache:/var/www/html/bootstrap/cache
       - ./lang:/var/www/html/lang
+      - ./php/performance.ini:/usr/local/etc/php/conf.d/zz-performance.ini:ro
+      - ./php/www-performance.conf:/usr/local/etc/php-fpm.d/zz-performance.conf:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: laravel_redis
+    command:
+      - redis-server
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - allkeys-lru
+    restart: always
+    cpus: 0.5
+    mem_limit: 320m
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
     networks:
       - app-network
 
@@ -74,15 +98,53 @@ services:
       - .:/var/www/html:ro
       # Directory mounts remain valid when an editor replaces default.conf in WSL.
       - ./nginx:/etc/nginx/conf.d:ro
+      - ./autoscaling/runtime:/etc/nginx/autoscaling
+      - ./autoscaling/laravel-upstream.conf:/etc/nginx/laravel-upstream.template:ro
+    command: ["sh", "-c", "test -s /etc/nginx/autoscaling/laravel-upstream.conf || cp /etc/nginx/laravel-upstream.template /etc/nginx/autoscaling/laravel-upstream.conf; exec nginx -g 'daemon off;'"]
     depends_on:
-      app1:
-        condition: service_healthy
-      app2:
+      app:
         condition: service_healthy
       nextjs:
         condition: service_healthy
     networks:
       - app-network
+
+  autoscaler:
+    build:
+      context: ./autoscaling
+    container_name: laravel_autoscaler
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      AUTOSCALE_INTERVAL: ${AUTOSCALE_INTERVAL:-15}
+      AUTOSCALE_UP_CPU: ${AUTOSCALE_UP_CPU:-70}
+      AUTOSCALE_DOWN_CPU: ${AUTOSCALE_DOWN_CPU:-25}
+      AUTOSCALE_UP_SECONDS: ${AUTOSCALE_UP_SECONDS:-60}
+      AUTOSCALE_DOWN_SECONDS: ${AUTOSCALE_DOWN_SECONDS:-300}
+      AUTOSCALE_COOLDOWN: ${AUTOSCALE_COOLDOWN:-300}
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./autoscaling/runtime:/etc/nginx/autoscaling
+      # Compose uses this file; the controller discovers its host-side source
+      # path so newly created replicas bind the actual checkout, not /workspace.
+      - .:/workspace:ro
+    depends_on:
+      app:
+        condition: service_healthy
+      nginx:
+        condition: service_started
+    network_mode: none
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "python3", "/app/autoscale.py", "health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
 
 
   nextjs:
@@ -92,7 +154,17 @@ services:
     restart: always
     security_opt:
       - no-new-privileges:true
-    command: sh -lc "npm ci && npm run next:${NEXT_MODE:-dev}"
+    command:
+      - sh
+      - -lc
+      - |
+        lock_hash="$$(sha256sum package-lock.json | cut -d ' ' -f 1)"
+        installed_hash="$$(cat node_modules/.package-lock.sha256 2>/dev/null || true)"
+        if [ "$$lock_hash" != "$$installed_hash" ]; then
+          npm ci
+          printf '%s\n' "$$lock_hash" > node_modules/.package-lock.sha256
+        fi
+        exec npm run "next:${NEXT_MODE:-dev}"
     environment:
       LARAVEL_API_URL: http://nginx/v1/api
       NEXT_PUBLIC_API_URL: /v1/api
@@ -119,7 +191,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
-      start_period: 60s
+      # A cold dependency install can take several minutes on a slow link.
+      start_period: 10m
     networks:
       - app-network
 
@@ -171,10 +244,19 @@ services:
     restart: unless-stopped
     profiles: ["monitoring"]
     command: php artisan pulse:check
+    environment:
+      CACHE_DRIVER: redis
+      REDIS_CLIENT: phpredis
+      REDIS_HOST: redis
     user: www-data
     working_dir: /var/www/html
     volumes:
       - .:/var/www/html
+      - ./php/performance.ini:/usr/local/etc/php/conf.d/zz-performance.ini:ro
+      - ./php/www-performance.conf:/usr/local/etc/php-fpm.d/zz-performance.conf:ro
+    depends_on:
+      redis:
+        condition: service_healthy
     networks:
       - app-network
 

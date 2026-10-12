@@ -27,9 +27,9 @@ else
     exit 1
 fi
 
-# run.sh verifies the bundled Caddy container, so enable its opt-in profile by
-# default. Callers can still override COMPOSE_PROFILES when needed.
-export COMPOSE_PROFILES="${COMPOSE_PROFILES:-container-ingress}"
+backend_exec() {
+    (cd "$SCRIPT_DIR/backend" && "${COMPOSE[@]}" exec -T --index 1 app "$@")
+}
 
 if ! command -v python3 >/dev/null 2>&1; then
     echo "Error: Python 3 is required to create local .env files." >&2
@@ -53,24 +53,13 @@ for service_dir in "${SERVICE_DIRS[@]}"; do
 done
 
 if docker network inspect "$NETWORK_NAME" >/dev/null 2>&1; then
-    attached_containers=()
-    while IFS= read -r container_name; do
-        [[ -n "$container_name" ]] && attached_containers+=("$container_name")
-    done < <(
-        docker network inspect "$NETWORK_NAME" \
-            --format '{{range .Containers}}{{.Name}}{{"\n"}}{{end}}'
-    )
-
-    if (( ${#attached_containers[@]} > 0 )); then
-        echo "Stopping containers still attached to $NETWORK_NAME"
-        docker stop "${attached_containers[@]}"
-    fi
-
-    docker network rm "$NETWORK_NAME"
+    # This external network is shared with independent stacks such as the
+    # gateway and Telegram bot. Reusing it avoids interrupting those services.
+    echo "Reusing network $NETWORK_NAME"
+else
+    echo "Creating network $NETWORK_NAME"
+    docker network create "$NETWORK_NAME" >/dev/null
 fi
-
-echo "Creating network $NETWORK_NAME"
-docker network create "$NETWORK_NAME" >/dev/null
 
 for service_dir in "${SERVICE_DIRS[@]}"; do
     if [[ -d "$service_dir" ]]; then
@@ -83,24 +72,37 @@ for service_dir in "${SERVICE_DIRS[@]}"; do
                 /docker-entrypoint-initdb.d/01-grant-tenant-database-access.sh
         elif [[ "$service_dir" == "backend" ]]; then
             echo "Preparing Laravel"
-            # PHP-FPM runs as www-data and must be able to read the bind-mounted .env.
-            docker exec laravel_app1 chgrp www-data /var/www/html/.env
-            docker exec laravel_app1 chmod 640 /var/www/html/.env
-            docker exec laravel_app1 composer install \
-                --no-interaction --prefer-dist --no-progress
-            # Docker exec defaults to root. Return generated dependencies to
-            # the invoking user so the checkout remains editable on Linux.
-            if [[ "${OSTYPE:-}" == linux* ]]; then
-                docker exec laravel_app1 chown -R "$(id -u):$(id -g)" \
-                    /var/www/html/vendor
-            fi
-            docker exec laravel_app1 php artisan migrate --force --no-interaction
-            docker exec laravel_app1 php artisan optimize:clear
+            # PHP-FPM must read .env, but the application checkout is mounted
+            # read-only. Use a short-lived container with a writable file mount
+            # to set the host file's group and mode safely.
+            backend_image="$(cd "$SCRIPT_DIR/backend" && "${COMPOSE[@]}" images -q app)"
+            docker run --rm --entrypoint sh \
+                --volume "$SCRIPT_DIR/backend/.env:/app.env" \
+                "$backend_image" -c 'chgrp www-data /app.env && chmod 640 /app.env'
+            # Composer writes vendor metadata, so run it against a temporary
+            # writable mount instead of weakening the live container mount.
+            docker run --rm \
+                --env COMPOSER_HOME=/tmp/composer \
+                --env COMPOSER_ALLOW_SUPERUSER=1 \
+                --env HOST_UID="$(id -u)" \
+                --env HOST_GID="$(id -g)" \
+                --volume "$SCRIPT_DIR/backend:/var/www/html" \
+                --workdir /var/www/html \
+                --entrypoint sh \
+                "$backend_image" -c \
+                    'composer install --no-interaction --prefer-dist --no-progress && chown -R "$HOST_UID:$HOST_GID" vendor'
+            backend_exec php artisan migrate --force --no-interaction
+            backend_exec php artisan optimize:clear
         fi
     fi
 done
 
-for container_name in laravel_app1 laravel_app2 laravel_queue; do
+backend_exec chown -R www-data:www-data \
+    /var/www/html/storage /var/www/html/bootstrap/cache
+backend_exec chmod -R ug+rwX \
+    /var/www/html/storage /var/www/html/bootstrap/cache
+
+for container_name in laravel_queue; do
     if docker container inspect -f '{{.State.Running}}' "$container_name" 2>/dev/null | grep -q '^true$'; then
         docker exec "$container_name" chown -R www-data:www-data \
             /var/www/html/storage /var/www/html/bootstrap/cache
@@ -123,9 +125,9 @@ if [[ -n "$init_exit_code" && "$init_exit_code" != "0" ]]; then
 fi
 
 required_containers=(
-    mysql_db phpmyadmin laravel_app1 laravel_app2 laravel_queue laravel_nginx
+    mysql_db phpmyadmin laravel_queue laravel_redis laravel_nginx laravel_autoscaler
     laravel_soketi
-    laravel_nextjs fastapi-app minio frontend-ui5 vpos_caddy
+    laravel_nextjs fastapi-app minio frontend-ui5
 )
 for container_name in "${required_containers[@]}"; do
     if ! docker container inspect -f '{{.State.Running}}' "$container_name" 2>/dev/null | grep -q '^true$'; then
@@ -181,20 +183,6 @@ done
 if [[ "$ui5_ready" != true ]]; then
     echo "Error: UI5 did not become ready." >&2
     docker logs --tail 50 frontend-ui5 >&2 || true
-    exit 1
-fi
-
-caddy_ready=false
-for _ in {1..30}; do
-    if docker exec vpos_caddy wget -q --spider http://127.0.0.1:2019/config/ >/dev/null 2>&1; then
-        caddy_ready=true
-        break
-    fi
-    sleep 1
-done
-if [[ "$caddy_ready" != true ]]; then
-    echo "Error: Caddy did not become ready." >&2
-    docker logs --tail 50 vpos_caddy >&2 || true
     exit 1
 fi
 

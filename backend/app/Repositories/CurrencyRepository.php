@@ -2,6 +2,8 @@
 
 namespace App\Repositories;
 
+use App\Cache\CatalogCacheTags;
+use App\Repositories\Concerns\InvalidatesCatalogCache;
 use App\Models\Currency;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Collection;
@@ -9,6 +11,7 @@ use Illuminate\Support\Facades\Log;
 
 class CurrencyRepository extends RepositoryBase
 {
+    use InvalidatesCatalogCache;
     protected $repositoryId = 'rinvex.repository.id';
     protected $model = Currency::class;
 
@@ -95,6 +98,7 @@ class CurrencyRepository extends RepositoryBase
         $currency->save();
 
         Currency::flushQueryCache();
+        $this->invalidateCatalogCache([CatalogCacheTags::CURRENCIES, CatalogCacheTags::RATES, CatalogCacheTags::ITEMS, CatalogCacheTags::BOOTSTRAP], $currency->getConnectionName());
 
         return $currency;
     }
@@ -105,6 +109,7 @@ class CurrencyRepository extends RepositoryBase
         $currency->save();
 
         Currency::flushQueryCache();
+        $this->invalidateCatalogCache([CatalogCacheTags::CURRENCIES, CatalogCacheTags::RATES, CatalogCacheTags::ITEMS, CatalogCacheTags::BOOTSTRAP], $currency->getConnectionName());
 
         return $currency;
     }
@@ -114,6 +119,7 @@ class CurrencyRepository extends RepositoryBase
         $currency->delete();
 
         Currency::flushQueryCache();
+        $this->invalidateCatalogCache([CatalogCacheTags::CURRENCIES, CatalogCacheTags::RATES, CatalogCacheTags::ITEMS, CatalogCacheTags::BOOTSTRAP], $currency->getConnectionName());
     }
 
     protected function normalizeAttributes(array $attributes): array

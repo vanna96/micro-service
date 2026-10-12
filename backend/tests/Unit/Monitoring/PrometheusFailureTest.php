@@ -7,6 +7,7 @@ use App\Monitoring\Services\MetricsRepository;
 use App\Monitoring\Services\MonitoringService;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -36,6 +37,12 @@ class PrometheusFailureTest extends TestCase
         config()->set('monitoring.prometheus.enabled', true);
         config()->set('monitoring.prometheus.url', 'http://prometheus.invalid');
         config()->set('monitoring.components.pulse', true);
+        config()->set('database.connections.central', ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '']);
+        config()->set('pulse.storage.database.connection', 'central');
+        DB::purge('central');
+        foreach (['pulse_values', 'pulse_entries', 'pulse_aggregates'] as $table) {
+            DB::connection('central')->getSchemaBuilder()->create($table, fn ($schema) => $schema->id());
+        }
         Http::fake(fn () => throw new ConnectionException('unreachable'));
 
         $service = new MonitoringService(new PrometheusDriver, app(MetricsRepository::class));
@@ -43,6 +50,8 @@ class PrometheusFailureTest extends TestCase
 
         $this->assertSame('Laravel Pulse', $dashboard['statuses'][5]['name']);
         $this->assertSame('connected', $dashboard['statuses'][5]['state']);
+
+        DB::purge('central');
     }
 
     public function test_prometheus_range_query_returns_chart_samples(): void

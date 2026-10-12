@@ -11,6 +11,11 @@ trait UsesQueryCache
         return (string) config('query-cache.prefix', 'micro_service_backend');
     }
 
+    public function cacheDriverValue(): string
+    {
+        return (string) config('query-cache.store', 'redis');
+    }
+
     protected function buildQueryCacheBaseTags(): array
     {
         $connection = $this->getConnection();

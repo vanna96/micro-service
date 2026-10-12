@@ -45,7 +45,8 @@ class TrackMonitoringRequest
                 (string) $routeLabel,
                 (int) $status,
                 microtime(true) - $startedAt,
-                memory_get_peak_usage(true)
+                memory_get_peak_usage(true),
+                app(\App\Services\QueryCacheTelemetry::class)->snapshot($request)
             );
         }
     }

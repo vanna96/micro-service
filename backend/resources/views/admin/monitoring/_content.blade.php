@@ -28,6 +28,12 @@
         'healthy' => 'success',
         'overdue' => 'danger',
         'unknown' => 'warning',
+        'holding' => 'success',
+        'waiting_scale_up' => 'warning',
+        'scaling_up' => 'primary',
+        'waiting_scale_down' => 'info',
+        'scaling_down' => 'warning',
+        'error' => 'danger',
     ];
     $temperatureColor = $server['cpu_temperature_celsius'] === null
         ? 'secondary'
@@ -35,6 +41,11 @@
     $schedulerColor = $stateClasses[$scheduler['state']] ?? 'secondary';
     $runningContainers = count(array_filter($containers, fn ($container) => ($container['status'] ?? null) === 'running'));
     $connectedComponents = count(array_filter($statuses, fn ($status) => ($status['state'] ?? null) === 'connected'));
+    $autoscalingState = $autoscaling['state'] ?? 'unavailable';
+    $autoscalingColor = $autoscalingState === 'unavailable' ? 'secondary' : ($stateClasses[$autoscalingState] ?? 'secondary');
+    $autoscalingLabel = ucwords(str_replace('_', ' ', $autoscalingState));
+    $slowRequestMs = (float) config('monitoring.slow_request_ms', 1000);
+    $recentRequestLimit = max(10, min(500, (int) config('monitoring.recent_requests.limit', 100)));
     $capacity = function ($used, $total) {
         if ($used === null || $total === null || $total <= 0) return null;
         $used = min(max(0, $used), $total);
@@ -55,7 +66,7 @@
     @endif
 
     <ul class="nav monitor-nav mb-3">
-        @foreach (['overview' => ['Overview', false], 'graphs' => ['Graphs', true], 'server' => ['Server', true], 'requests' => ['Requests', true], 'database' => ['Database', true], 'operations' => ['Jobs & Cron', true], 'containers' => ['Containers', true], 'monitoring-status' => ['Status', true]] as $anchor => [$label, $isDetail])
+        @foreach (['overview' => ['Overview', false], 'autoscaling' => ['Autoscaling', false], 'graphs' => ['Graphs', true], 'server' => ['Server', true], 'requests' => ['Requests', true], 'database' => ['Database', true], 'operations' => ['Jobs & Cron', true], 'containers' => ['Containers', true], 'monitoring-status' => ['Status', true]] as $anchor => [$label, $isDetail])
             <li class="nav-item"><a class="nav-link{{ $isDetail ? ' monitor-detail-link' : '' }}" href="#{{ $anchor }}">{{ __($label) }}</a></li>
         @endforeach
     </ul>
@@ -63,7 +74,7 @@
     <section id="overview" class="monitor-section mb-4">
         <div class="row g-3">
             @foreach ([
-                ['CPU', $percent($server['cpu_percent']), 'uil-microchip', 'primary'],
+                ['Server CPU (5m avg)', $percent($server['cpu_percent']), 'uil-microchip', 'primary'],
                 ['CPU temperature', $temperature($server['cpu_temperature_celsius']), 'uil-temperature-half', $temperatureColor],
                 ['API requests/min', $number($api['requests_per_minute']), 'uil-exchange', 'success'],
                 ['API response', $duration($api['average_duration_ms']), 'uil-stopwatch', 'primary'],
@@ -120,6 +131,30 @@
                     </div>
                 </div>
             @endforeach
+        </div>
+    </section>
+
+    <section id="autoscaling" class="monitor-section mb-4">
+        <div class="card monitor-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="uil uil-expand-arrows-alt me-2 text-primary"></i>{{ __('Laravel Autoscaling') }}</span>
+                <span class="badge bg-soft-{{ $autoscalingColor }} text-{{ $autoscalingColor }}"><span class="status-dot bg-{{ $autoscalingColor }}"></span>{{ __($autoscalingLabel) }}</span>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-light border py-2 small text-muted">
+                    {{ __('Laravel CPU uses Docker units where 100% equals one CPU core. Server CPU above is a five-minute average across all cores.') }}
+                </div>
+                <div class="row g-4">
+                    <div class="col-xl-3 col-md-6"><div class="monitor-label">{{ __('Laravel CPU (latest sample)') }}</div><div class="monitor-kpi mt-2">{{ $percent($autoscaling['cpu_percent']) }}</div><div class="small text-muted mt-1">{{ $autoscaling['sample_age_seconds'] === null ? __('No controller sample') : __('Sampled :time ago', ['time' => $uptime($autoscaling['sample_age_seconds'])]) }}</div></div>
+                    <div class="col-xl-3 col-md-6"><div class="monitor-label">{{ __('Active replicas') }}</div><div class="monitor-kpi mt-2">{{ $autoscaling['replicas'] === null ? '—' : number_format($autoscaling['replicas'], 0) . ' / ' . number_format($autoscaling['max_replicas'], 0) }}</div><div class="small text-muted mt-1">{{ __('Minimum 1, maximum :max', ['max' => number_format($autoscaling['max_replicas'], 0)]) }}</div></div>
+                    <div class="col-xl-3 col-md-6"><div class="monitor-label">{{ __('Scale-up rule') }}</div><div class="h5 mt-2">≥ {{ $percent($autoscaling['scale_up_cpu_percent']) }}</div><div class="small text-muted">{{ __('Sustained for :time', ['time' => $uptime($autoscaling['scale_up_seconds'])]) }}</div></div>
+                    <div class="col-xl-3 col-md-6"><div class="monitor-label">{{ __('Scale-down rule') }}</div><div class="h5 mt-2">≤ {{ $percent($autoscaling['scale_down_cpu_percent']) }}</div><div class="small text-muted">{{ __('Combined CPU for :time', ['time' => $uptime($autoscaling['scale_down_seconds'])]) }}</div></div>
+                    <div class="col-xl-3 col-md-6"><div class="monitor-label">{{ __('Current decision') }}</div><div class="h6 mt-2 text-{{ $autoscalingColor }}">{{ __($autoscalingLabel) }}</div></div>
+                    <div class="col-xl-3 col-md-6"><div class="monitor-label">{{ __('Earliest pending action') }}</div><div class="h6 mt-2">{{ $autoscaling['seconds_until_action'] === null ? '—' : $uptime($autoscaling['seconds_until_action']) }}</div></div>
+                    <div class="col-xl-3 col-md-6"><div class="monitor-label">{{ __('Downscale cooldown') }}</div><div class="h6 mt-2">{{ $autoscaling['cooldown_remaining_seconds'] === null ? '—' : $uptime($autoscaling['cooldown_remaining_seconds']) }}</div><div class="small text-muted">{{ __('Configured: :time', ['time' => $uptime($autoscaling['cooldown_seconds'])]) }}</div></div>
+                    <div class="col-xl-3 col-md-6"><div class="monitor-label">{{ __('Controller status') }}</div><div class="h6 mt-2">{{ $autoscaling['available'] ? __('Reporting') : __('Unavailable') }}</div><div class="small text-muted">{{ $autoscaling['age_seconds'] === null ? __('Waiting for status file') : __('Updated :time ago', ['time' => $uptime($autoscaling['age_seconds'])]) }}</div></div>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -220,6 +255,39 @@
                     <tr><td><span class="badge bg-soft-primary text-primary">{{ $endpoint['method'] }}</span></td><td>{{ $endpoint['route'] }}</td><td class="text-end">{{ $duration($endpoint['duration_ms']) }}</td></tr>
                 @empty
                     <tr><td colspan="3" class="text-center text-muted py-4">{{ __('No API samples yet.') }}</td></tr>
+                @endforelse
+                </tbody></table>
+            </div></div></div>
+            <div class="col-12"><div class="card monitor-card">
+                <div class="card-header d-flex flex-wrap justify-content-between gap-2">
+                    <span>{{ __('Recent Laravel Requests') }}</span>
+                    <span class="small text-muted">{{ __('Latest :count of :limit; query strings and request bodies are not stored.', ['count' => count($recentRequests), 'limit' => $recentRequestLimit]) }}</span>
+                </div>
+                <div class="table-responsive">
+                <table class="table monitor-table"><thead><tr><th>{{ __('Time') }}</th><th>{{ __('Method') }}</th><th>{{ __('Route') }}</th><th>{{ __('Status') }}</th><th>{{ __('Query cache') }}</th><th class="text-end">{{ __('Duration') }}</th></tr></thead><tbody>
+                @forelse ($recentRequests as $request)
+                    @php
+                        $requestStatus = (int) ($request['status'] ?? 0);
+                        $requestStatusColor = $requestStatus >= 500 ? 'danger' : ($requestStatus >= 400 ? 'warning' : 'success');
+                        $requestIsSlow = (float) ($request['duration_ms'] ?? 0) >= $slowRequestMs;
+                    @endphp
+                    <tr class="{{ $requestIsSlow ? 'table-warning' : '' }}">
+                        <td class="text-nowrap">{{ $request['at'] }}</td>
+                        <td><span class="badge bg-soft-primary text-primary">{{ $request['method'] }}</span></td>
+                        <td class="text-break">{{ $request['route'] }}</td>
+                        <td><span class="badge bg-soft-{{ $requestStatusColor }} text-{{ $requestStatusColor }}">{{ $requestStatus }}</span></td>
+                        <td class="text-nowrap small">
+                            @php
+                                $cacheStats = (array) ($request['query_cache'] ?? []);
+                            @endphp
+                            <span class="text-success">H {{ (int) ($cacheStats['hit'] ?? 0) }}</span>
+                            <span class="text-warning ms-1">M {{ (int) ($cacheStats['miss'] ?? 0) }}</span>
+                            <span class="text-muted ms-1">B {{ (int) ($cacheStats['bypass'] ?? 0) }}</span>
+                        </td>
+                        <td class="text-end text-nowrap fw-semibold">{{ $duration($request['duration_ms']) }}</td>
+                    </tr>
+                @empty
+                    <tr><td colspan="6" class="text-center text-muted py-4">{{ __('No Laravel requests recorded yet.') }}</td></tr>
                 @endforelse
                 </tbody></table>
             </div></div></div>

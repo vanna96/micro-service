@@ -47,6 +47,7 @@ class MonitoringService
             'monitoringEnabled' => $enabled,
             'statuses' => $this->statuses($prometheusAvailable, $targets),
             'server' => $this->emptyServer(),
+            'autoscaling' => $this->autoscalingStatus(),
             'charts' => $this->emptyCharts(),
             'containers' => [],
             'http' => [
@@ -91,6 +92,7 @@ class MonitoringService
                 'per_minute' => null,
                 'recent' => (array) data_get($snapshot, 'recent.exceptions', []),
             ],
+            'recentRequests' => $this->metrics->recentRequests(),
             'recentSlowRequests' => (array) data_get($snapshot, 'recent.slow_requests', []),
         ];
 
@@ -621,6 +623,67 @@ class MonitoringService
         $server['temperature_sensors'] = [];
 
         return $server;
+    }
+
+    private function autoscalingStatus(): array
+    {
+        $settings = (array) config('monitoring.autoscaling', []);
+        $status = [
+            'available' => false,
+            'state' => 'unavailable',
+            'replicas' => null,
+            'max_replicas' => (int) ($settings['max_replicas'] ?? 2),
+            'cpu_percent' => null,
+            'scale_up_cpu_percent' => (float) ($settings['up_cpu_percent'] ?? 70),
+            'scale_down_cpu_percent' => (float) ($settings['down_cpu_percent'] ?? 25),
+            'scale_up_seconds' => (int) ($settings['up_seconds'] ?? 60),
+            'scale_down_seconds' => (int) ($settings['down_seconds'] ?? 300),
+            'cooldown_seconds' => (int) ($settings['cooldown_seconds'] ?? 300),
+            'cooldown_remaining_seconds' => null,
+            'seconds_until_action' => null,
+            'age_seconds' => null,
+            'sample_age_seconds' => null,
+        ];
+
+        try {
+            $path = (string) ($settings['status_file'] ?? '');
+            if ($path === '' || ! is_file($path) || ! is_readable($path)) {
+                return $status;
+            }
+
+            $payload = json_decode((string) file_get_contents($path), true, 16, JSON_THROW_ON_ERROR);
+            if (! is_array($payload) || ! is_numeric($payload['updated_at'] ?? null)) {
+                return $status;
+            }
+
+            $status['age_seconds'] = max(0, time() - (float) $payload['updated_at']);
+            if ($status['age_seconds'] > max(30, (int) ($settings['stale_after_seconds'] ?? 90))) {
+                return $status;
+            }
+
+            $states = ['holding', 'waiting_scale_up', 'scaling_up', 'waiting_scale_down', 'scaling_down', 'error'];
+            $state = (string) ($payload['state'] ?? 'error');
+            $status['available'] = true;
+            $status['state'] = in_array($state, $states, true) ? $state : 'error';
+
+            foreach ([
+                'replicas', 'max_replicas', 'cpu_percent', 'scale_up_cpu_percent',
+                'scale_down_cpu_percent', 'scale_up_seconds', 'scale_down_seconds',
+                'cooldown_seconds', 'cooldown_remaining_seconds', 'seconds_until_action',
+            ] as $key) {
+                if (is_numeric($payload[$key] ?? null)) {
+                    $status[$key] = max(0, (float) $payload[$key]);
+                }
+            }
+
+            if (is_numeric($payload['sampled_at'] ?? null)) {
+                $status['sample_age_seconds'] = max(0, time() - (float) $payload['sampled_at']);
+            }
+        } catch (Throwable) {
+            return $status;
+        }
+
+        return $status;
     }
 
     private function emptyCharts(): array

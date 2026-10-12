@@ -32,9 +32,9 @@ class MonitoringDisabledTest extends TestCase
 
     public function test_monitoring_dashboard_requires_authentication(): void
     {
-        $this->get('/admin/monitoring')->assertRedirect('/');
-        $this->get('/admin/monitoring/live')->assertRedirect('/');
-        $this->put('/admin/monitoring/live-preference', ['enabled' => true])->assertRedirect('/');
+        $this->get('/admin/monitoring')->assertRedirect('/admin');
+        $this->get('/admin/monitoring/live')->assertRedirect('/admin');
+        $this->put('/admin/monitoring/live-preference', ['enabled' => true])->assertRedirect('/admin');
         $this->get('/pulse')->assertForbidden();
     }
 

@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Stancl\Tenancy\Database\Models\Domain;
 use Stancl\Tenancy\Database\Models\Tenant;
 
 $appUrlHost = parse_url(trim((string) env('APP_URL', 'http://localhost')), PHP_URL_HOST);
@@ -24,7 +23,7 @@ return [
     'tenant_model' => \App\Models\Tenant::class,/*Tenant::class,*/
     'id_generator' => Stancl\Tenancy\UUIDGenerator::class,
 
-    'domain_model' => Domain::class,
+    'domain_model' => \App\Models\Domain::class,
 
     'central_portal_host' => $centralPortalHost,
 

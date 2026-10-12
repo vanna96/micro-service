@@ -1,6 +1,8 @@
 <?php
 namespace App\Repositories;
 
+use App\Cache\CatalogCacheTags;
+use App\Repositories\Concerns\InvalidatesCatalogCache;
 use App\Models\Category;
 use App\Models\Gallery;
 use Illuminate\Database\Eloquent\Collection;
@@ -15,6 +17,7 @@ use App\Repositories\RepositoryBase;
 /** @package App\Repositories */
 class CategoryRepository extends RepositoryBase
 {
+    use InvalidatesCatalogCache;
     protected $repositoryId = 'rinvex.repository.id';
     protected $model = 'App\Models\Category';
 
@@ -90,6 +93,7 @@ class CategoryRepository extends RepositoryBase
         $category->save();
         $this->syncImageUpload($category, $image);
         Category::flushQueryCache();
+        $this->invalidateCatalogCache([CatalogCacheTags::CATEGORIES, CatalogCacheTags::ITEMS, CatalogCacheTags::BOOTSTRAP], $category->getConnectionName());
 
         return $category;
     }
@@ -103,6 +107,7 @@ class CategoryRepository extends RepositoryBase
         $category->save();
         $this->syncImageUpload($category, $image);
         Category::flushQueryCache();
+        $this->invalidateCatalogCache([CatalogCacheTags::CATEGORIES, CatalogCacheTags::ITEMS, CatalogCacheTags::BOOTSTRAP], $category->getConnectionName());
 
         return $category;
     }
@@ -113,6 +118,7 @@ class CategoryRepository extends RepositoryBase
         $this->categoryModel()->newQuery()->where('parent_id', $category->getKey())->update(['parent_id' => null]);
         $category->delete();
         Category::flushQueryCache();
+        $this->invalidateCatalogCache([CatalogCacheTags::CATEGORIES, CatalogCacheTags::ITEMS, CatalogCacheTags::BOOTSTRAP], $category->getConnectionName());
     }
 
     protected function categoryCacheTtl(): int

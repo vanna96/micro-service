@@ -21,8 +21,8 @@ LARAVEL_METRICS_ENABLED=true
 Then run:
 
 ```bash
-docker exec laravel_app1 php artisan config:clear
-docker exec laravel_app1 php artisan queue:restart
+docker compose exec -T --index 1 app php artisan config:clear
+docker compose exec -T --index 1 app php artisan queue:restart
 docker compose --profile monitoring up -d prometheus node-exporter cadvisor pulse
 ```
 
@@ -40,6 +40,13 @@ the remaining databases stay visible. Idle queue rates show zero when the
 Laravel metrics scrape is healthy.
 Hardware readings show as unavailable on hosts that do not expose the matching
 Linux sensors.
+
+The request details section keeps the latest 100 Laravel requests in a bounded
+Redis list and shows the method, route, status, and individual application
+duration. It intentionally excludes query strings, request bodies, user IDs,
+and IP addresses. Change the bounded window with
+`MONITORING_RECENT_REQUEST_LIMIT` (10–500), or disable it with
+`MONITORING_RECENT_REQUESTS_ENABLED=false`.
 
 The UI shows key indicators and six overview charts, with detailed sections and
 additional historical graphs collapsed by default. Livewire morphs changed
@@ -71,10 +78,10 @@ PULSE_DB_CONNECTION=central
 Then refresh Laravel's cached configuration and restart long-running workers:
 
 ```bash
-docker exec laravel_app1 php artisan optimize:clear
-docker exec laravel_app1 php artisan optimize
-docker exec laravel_app1 php artisan queue:restart
-docker exec laravel_app1 php artisan pulse:restart
+docker compose exec -T --index 1 app php artisan optimize:clear
+docker compose exec -T --index 1 app php artisan optimize
+docker compose exec -T --index 1 app php artisan queue:restart
+docker compose exec -T --index 1 app php artisan pulse:restart
 docker compose --profile monitoring up -d --build pulse
 ```
 
@@ -96,8 +103,8 @@ Set `MONITORING_ENABLED=false` (and optionally each component flag to `false`),
 then run:
 
 ```bash
-docker exec laravel_app1 php artisan config:clear
-docker exec laravel_app1 php artisan queue:restart
+docker compose exec -T --index 1 app php artisan config:clear
+docker compose exec -T --index 1 app php artisan queue:restart
 docker compose --profile monitoring stop prometheus node-exporter cadvisor pulse
 ```
 

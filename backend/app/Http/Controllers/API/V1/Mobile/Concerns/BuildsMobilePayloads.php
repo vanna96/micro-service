@@ -10,9 +10,7 @@ use App\Models\Customer;
 use App\Models\Item;
 use App\Models\Notification;
 use App\Models\PosSale;
-use App\Models\RateIndexValue;
 use App\Models\Slider;
-use Carbon\Carbon;
 
 trait BuildsMobilePayloads
 {
@@ -288,34 +286,7 @@ trait BuildsMobilePayloads
 
     protected function mobileCurrencyRates(): array
     {
-        if (request()->attributes->has('mobile_currency_rates')) {
-            return request()->attributes->get('mobile_currency_rates');
-        }
-
-        $tenantSettings = is_array(tenant()?->general_settings) ? tenant()->general_settings : [];
-        $tenantTimezone = (string) ($tenantSettings['timezone'] ?? config('app.timezone', 'UTC'));
-        $today = Carbon::now($tenantTimezone);
-
-        $rates = RateIndexValue::query()
-            ->dontCache()
-            ->where('dataset_type', 'exchange_rate')
-            ->where('year', $today->year)
-            ->where('month', $today->month)
-            ->where('day', $today->day)
-            ->get()
-            ->mapWithKeys(fn (RateIndexValue $rate): array => [
-                (int) $rate->currency_id => (float) $rate->value,
-            ])
-            ->all();
-
-        $baseCurrency = tenant_base_currency();
-        if ($baseCurrency) {
-            $rates[(int) $baseCurrency->id] = 1.0;
-        }
-
-        request()->attributes->set('mobile_currency_rates', $rates);
-
-        return $rates;
+        return app(\App\Services\TenantCurrencyContext::class)->todayRates();
     }
 
     protected function mobileCurrencyPayload(Currency $currency, bool $isDefault = false): array

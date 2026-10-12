@@ -5,19 +5,24 @@ namespace App\Http\Controllers\API\V1\Mobile;
 use App\Http\Controllers\API\V1\Mobile\Concerns\BuildsMobilePayloads;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
-use App\Models\Currency;
 use App\Models\Category;
+use App\Models\Currency;
 use App\Models\Item;
 use App\Models\Slider;
+use App\Repositories\CatalogReadRepository;
 use App\Services\PromotionPricingService;
+use App\Services\TenantCurrencyContext;
 use Illuminate\Http\Request;
 
 class HomeController extends Controller
 {
     use BuildsMobilePayloads;
 
-    public function __construct(protected PromotionPricingService $promotionPricing)
-    {
+    public function __construct(
+        protected PromotionPricingService $promotionPricing,
+        protected CatalogReadRepository $catalog,
+        protected TenantCurrencyContext $currencyContext
+    ) {
     }
 
     public function bootstrap(Request $request)
@@ -29,11 +34,7 @@ class HomeController extends Controller
         $hasBranchParam = $request->has('branch_id') && $request->input('branch_id') !== '' && (int) $request->input('branch_id') !== 0;
         $requestedBranchId = $hasBranchParam ? $request->integer('branch_id') : null;
 
-        $branches = Branch::query()
-            ->where('status', 'Active')
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get();
+        $branches = $this->catalog->activeBranches();
 
         $selectedBranchId = null;
         if ($hasBranchParam) {
@@ -42,81 +43,19 @@ class HomeController extends Controller
                 : $branches->first()?->id;
         }
 
-        $baseItemsQuery = Item::query()
-            ->with([
-                'category',
-                'branch',
-                'currency',
-                'image',
-                'galleries',
-                'uomGroup.units' => fn ($query) => $query->where('status', 'Active')->orderBy('sort_order'),
-                'uomGroup.units.unit',
-                'uomPrices',
-                'optionGroups' => fn ($query) => $query->where('status', 'Active'),
-                'optionGroups.values' => fn ($query) => $query->where('status', 'Active'),
-                'variants' => fn ($query) => $query->where('status', 'Active'),
-                'variants.optionValues',
-            ])
-            ->where('status', 'Active')
-            ->where('sale', true)
-            ->when($selectedBranchId, fn ($query) => $query->where('branch_id', $selectedBranchId));
-
-        $banners = Slider::query()
-            ->with('image')
-            ->where('status', 'Active')
-            ->whereIn('placement', ['Mobile', 'Website'])
-            ->orderBy('sort_order')
-            ->orderByDesc('id')
-            ->limit(10)
-            ->get();
-
-        $categories = Category::query()
-            ->with('image')
-            ->where('status', 'Active')
-            ->orderByDesc('id')
-            ->limit(12)
-            ->get();
-
-        $featured = (clone $baseItemsQuery)
-            ->where('is_featured', true)
-            ->orderBy('sort_order')
-            ->orderByDesc('id')
-            ->limit(8)
-            ->get();
-
-        $newArrivals = (clone $baseItemsQuery)
-            ->where('is_new_arrival', true)
-            ->orderByDesc('id')
-            ->limit(8)
-            ->get();
-
-        $bestSellers = (clone $baseItemsQuery)
-            ->orderByDesc('review_count')
-            ->orderByDesc('rating')
-            ->orderByDesc('id')
-            ->limit(8)
-            ->get();
-
-        $recommended = (clone $baseItemsQuery)
-            ->where(function ($query) {
-                $query->where('is_premium', true)
-                    ->orWhere('is_featured', true);
-            })
-            ->orderByDesc('is_premium')
-            ->orderBy('sort_order')
-            ->orderByDesc('id')
-            ->limit(8)
-            ->get();
+        $banners = $this->catalog->banners(['Mobile', 'Website'], 10);
+        $categories = $this->catalog->featuredCategories(12);
+        $productSections = $this->catalog->bootstrapProducts($selectedBranchId);
+        $featured = $productSections['featured_products'];
+        $newArrivals = $productSections['new_arrivals'];
+        $bestSellers = $productSections['best_sellers'];
+        $recommended = $productSections['recommended_products'];
 
         $allItems = $featured->concat($newArrivals)->concat($bestSellers)->concat($recommended)->unique('id');
         $promotionPreviews = $this->promotionPricing->catalogPromotionPreviews($allItems);
 
-        $baseCurrency = tenant_base_currency();
-        $currencies = Currency::query()
-            ->where('status', 'Active')
-            ->orderBy('sort_order')
-            ->orderBy('code')
-            ->get();
+        $baseCurrency = $this->currencyContext->baseCurrency();
+        $currencies = $this->catalog->currencies();
 
         $currencyPayload = $baseCurrency ? $this->mobileCurrencyPayload($baseCurrency, true) : null;
         $currenciesPayload = $currencies->map(function (Currency $c) use ($baseCurrency) {

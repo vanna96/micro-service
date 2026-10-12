@@ -6,14 +6,17 @@ use App\Models\Item;
 use App\Models\Promotion;
 use App\Models\PromotionItem;
 use App\Models\RateIndexValue;
+use App\Repositories\CatalogReadRepository;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 class PromotionPricingService
 {
-    public function __construct(protected ItemConfigurationService $itemConfiguration)
-    {
+    public function __construct(
+        protected ItemConfigurationService $itemConfiguration,
+        protected CatalogReadRepository $catalog
+    ) {
     }
 
     public function price(
@@ -94,10 +97,7 @@ class PromotionPricingService
             ->mapWithKeys(fn (Item $item) => [(int) $item->id => []])
             ->all();
 
-        $promotions = Promotion::query()
-            ->currentlyActive()
-            ->with(['activeLines.item.currency'])
-            ->get();
+        $promotions = $this->catalog->activePromotionsForCatalog();
 
         foreach ($promotions as $promotion) {
             if ($promotion->type === Promotion::TYPE_SUBTOTAL_DISCOUNT) {

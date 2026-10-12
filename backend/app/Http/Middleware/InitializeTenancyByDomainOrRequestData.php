@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Models\Tenant;
+use App\Repositories\TenantReadRepository;
 use Closure;
 use Illuminate\Http\Request;
 use Stancl\Tenancy\Exceptions\TenantCouldNotBeIdentifiedByRequestDataException;
@@ -16,7 +17,8 @@ class InitializeTenancyByDomainOrRequestData
 {
     public function __construct(
         protected InitializeTenancyByDomain $domainMiddleware,
-        protected InitializeTenancyByRequestData $requestDataMiddleware
+        protected InitializeTenancyByRequestData $requestDataMiddleware,
+        protected TenantReadRepository $tenants
     ) {}
 
     public function handle(Request $request, Closure $next)
@@ -28,12 +30,7 @@ class InitializeTenancyByDomainOrRequestData
             $payload = trim((string) $payload);
 
             // 1. Try resolving by primary ID, alias, or domain prefix
-            $tenant = Tenant::find($payload)
-                ?? Tenant::where('alias', $payload)->first()
-                ?? Tenant::whereHas('domains', function ($q) use ($payload) {
-                    $q->where('domain', $payload)
-                      ->orWhere('domain', 'like', "{$payload}.%");
-                })->first();
+            $tenant = $this->tenants->resolve($payload);
 
             if ($tenant) {
                 tenancy()->initialize($tenant);

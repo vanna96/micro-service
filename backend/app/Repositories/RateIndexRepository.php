@@ -2,6 +2,8 @@
 
 namespace App\Repositories;
 
+use App\Cache\CatalogCacheTags;
+use App\Repositories\Concerns\InvalidatesCatalogCache;
 use App\Models\Currency;
 use App\Models\RateIndexValue;
 use Carbon\Carbon;
@@ -10,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 class RateIndexRepository
 {
+    use InvalidatesCatalogCache;
     public function getGridValues(string $datasetType, int $year, int $month, array $currencyIds): array
     {
         if ($currencyIds === []) {
@@ -86,6 +89,12 @@ class RateIndexRepository
             }
 
             RateIndexValue::flushQueryCache();
+            $this->invalidateCatalogCache([
+                CatalogCacheTags::RATES,
+                CatalogCacheTags::CURRENCIES,
+                CatalogCacheTags::ITEMS,
+                CatalogCacheTags::BOOTSTRAP,
+            ], $this->tenantConnectionName());
         });
     }
 

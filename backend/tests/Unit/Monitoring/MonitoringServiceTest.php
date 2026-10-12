@@ -27,6 +27,7 @@ class MonitoringServiceTest extends TestCase
         config()->set('monitoring.enabled', true);
         config()->set('monitoring.prometheus.enabled', true);
         config()->set('monitoring.metrics_file', $this->metricsFile);
+        config()->set('monitoring.recent_requests.enabled', false);
         config()->set('monitoring.components', ['node_exporter' => true, 'cadvisor' => true, 'caddy' => true, 'laravel' => true, 'pulse' => false]);
     }
 
@@ -34,12 +35,14 @@ class MonitoringServiceTest extends TestCase
     {
         DB::purge('central');
         File::delete($this->metricsFile);
+        File::delete(storage_path('framework/testing/autoscaler-status.json'));
+        File::delete(storage_path('framework/testing/autoscaler-stale-status.json'));
         parent::tearDown();
     }
 
     public function test_caddy_uses_the_public_outer_handler_for_all_http_readings(): void
     {
-        $driver = $this->driver(fn ($query) => str_contains($query, 'caddy_') && str_contains($query, 'handler="encode"')
+        $driver = $this->driver(fn ($query) => str_contains($query, 'caddy_') && str_contains($query, 'handler="headers"')
             ? [['metric' => ['code' => '200'], 'value' => [time(), '2']]] : []);
         $http = (new MonitoringService($driver, app(MetricsRepository::class)))->dashboard()['http'];
         $this->assertSame(2.0, $http['total_requests']);
@@ -124,6 +127,48 @@ class MonitoringServiceTest extends TestCase
         $this->assertSame('healthy', $data['scheduler']['state']);
         $this->assertLessThanOrEqual(2, $data['scheduler']['seconds_since_last_run']);
         $this->assertNotEmpty($data['scheduler']['tasks']);
+    }
+
+    public function test_autoscaling_status_uses_the_controllers_live_sample(): void
+    {
+        $path = storage_path('framework/testing/autoscaler-status.json');
+        File::put($path, json_encode([
+            'updated_at' => time(),
+            'sampled_at' => time() - 2,
+            'state' => 'waiting_scale_up',
+            'replicas' => 1,
+            'max_replicas' => 2,
+            'cpu_percent' => 82.5,
+            'scale_up_cpu_percent' => 70,
+            'scale_down_cpu_percent' => 25,
+            'scale_up_seconds' => 60,
+            'scale_down_seconds' => 300,
+            'cooldown_seconds' => 300,
+            'cooldown_remaining_seconds' => 0,
+            'seconds_until_action' => 45,
+        ], JSON_THROW_ON_ERROR));
+        config()->set('monitoring.autoscaling.status_file', $path);
+
+        $status = (new MonitoringService($this->driver(), app(MetricsRepository::class)))->dashboard()['autoscaling'];
+
+        $this->assertTrue($status['available']);
+        $this->assertSame('waiting_scale_up', $status['state']);
+        $this->assertSame(82.5, $status['cpu_percent']);
+        $this->assertSame(45.0, $status['seconds_until_action']);
+        $this->assertLessThanOrEqual(3, $status['sample_age_seconds']);
+    }
+
+    public function test_stale_autoscaling_status_is_not_presented_as_live(): void
+    {
+        $path = storage_path('framework/testing/autoscaler-stale-status.json');
+        File::put($path, json_encode(['updated_at' => time() - 120, 'state' => 'holding'], JSON_THROW_ON_ERROR));
+        config()->set('monitoring.autoscaling.status_file', $path);
+        config()->set('monitoring.autoscaling.stale_after_seconds', 90);
+
+        $status = (new MonitoringService($this->driver(), app(MetricsRepository::class)))->dashboard()['autoscaling'];
+
+        $this->assertFalse($status['available']);
+        $this->assertSame('unavailable', $status['state']);
     }
 
     private function driver(?callable $answer = null): MonitoringDriver

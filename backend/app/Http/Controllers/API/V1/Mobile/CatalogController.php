@@ -5,11 +5,13 @@ namespace App\Http\Controllers\API\V1\Mobile;
 use App\Http\Controllers\API\V1\Mobile\Concerns\BuildsMobilePayloads;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
-use App\Models\Currency;
 use App\Models\Category;
+use App\Models\Currency;
 use App\Models\Item;
 use App\Models\Slider;
+use App\Repositories\CatalogReadRepository;
 use App\Services\PromotionPricingService;
+use App\Services\TenantCurrencyContext;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -17,13 +19,16 @@ class CatalogController extends Controller
 {
     use BuildsMobilePayloads;
 
-    public function __construct(protected PromotionPricingService $promotionPricing)
-    {
+    public function __construct(
+        protected PromotionPricingService $promotionPricing,
+        protected CatalogReadRepository $catalog,
+        protected TenantCurrencyContext $currencyContext
+    ) {
     }
 
     public function currency()
     {
-        $baseCurrency = tenant_base_currency() ?? Currency::query()->where('status', 'Active')->orderBy('sort_order')->first();
+        $baseCurrency = $this->currencyContext->baseCurrency() ?? $this->catalog->currencies()->first();
 
         return response()->json([
             'success' => true,
@@ -33,12 +38,8 @@ class CatalogController extends Controller
 
     public function currencies()
     {
-        $baseCurrency = tenant_base_currency();
-        $currencies = Currency::query()
-            ->where('status', 'Active')
-            ->orderBy('sort_order')
-            ->orderBy('code')
-            ->get();
+        $baseCurrency = $this->currencyContext->baseCurrency();
+        $currencies = $this->catalog->currencies();
 
         return response()->json([
             'success' => true,
@@ -51,11 +52,7 @@ class CatalogController extends Controller
 
     public function branches()
     {
-        $branches = Branch::query()
-            ->where('status', 'Active')
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get();
+        $branches = $this->catalog->activeBranches();
 
         return response()->json([
             'success' => true,
@@ -74,13 +71,7 @@ class CatalogController extends Controller
             default => ['Mobile', 'mobile', 'All', 'all'],
         };
 
-        $banners = Slider::query()
-            ->with('image')
-            ->where('status', 'Active')
-            ->whereIn('placement', $placements)
-            ->orderBy('sort_order')
-            ->orderByDesc('id')
-            ->get();
+        $banners = $this->catalog->banners($placements);
 
         $origin = rtrim($request->getSchemeAndHttpHost(), '/');
 
@@ -109,22 +100,11 @@ class CatalogController extends Controller
     {
         $search = trim((string) $request->get('search', ''));
 
-        $categories = Category::query()
-            ->with('image')
-            ->where('status', 'Active')
-            ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($innerQuery) use ($search) {
-                    $innerQuery->where('name', 'like', "%{$search}%")
-                        ->orWhere('foreign_name', 'like', "%{$search}%")
-                        ->orWhereHas('items', function ($itemQuery) use ($search) {
-                            $itemQuery->where('name', 'like', "%{$search}%")
-                                ->orWhere('foreign_name', 'like', "%{$search}%")
-                                ->orWhere('sku', 'like', "%{$search}%");
-                        });
-                });
-            })
-            ->orderByDesc('id')
-            ->paginate($request->integer('per_page') ?: 20);
+        $categories = $this->catalog->categories(
+            $search,
+            $request->integer('per_page') ?: 20,
+            max(1, $request->integer('page', 1))
+        );
 
         return response()->json([
             'success' => true,
@@ -143,54 +123,20 @@ class CatalogController extends Controller
         $search = trim((string) $request->get('search', ''));
         $sort = (string) $request->get('sort', 'latest');
 
-        $products = Item::query()
-            ->with([
-                'category',
-                'branch',
-                'currency',
-                'image',
-                'galleries',
-                'uomGroup.units' => fn ($query) => $query->where('status', 'Active')->orderBy('sort_order'),
-                'uomGroup.units.unit',
-                'uomPrices',
-                'optionGroups' => fn ($query) => $query->where('status', 'Active'),
-                'optionGroups.values' => fn ($query) => $query->where('status', 'Active'),
-                'variants' => fn ($query) => $query->where('status', 'Active'),
-                'variants.optionValues',
-            ])
-            ->where('status', 'Active')
-            ->where('sale', true)
-            ->when($request->filled('category_id'), fn ($query) => $query->where('category_id', (int) $request->get('category_id')))
-            ->when($request->filled('branch_id') && (int) $request->get('branch_id') > 0, function ($query) use ($request) {
-                $branchId = (int) $request->get('branch_id');
-                $query->where('branch_id', $branchId);
-            })
-            ->when($request->boolean('featured', false), fn ($query) => $query->where('is_featured', true))
-            ->when($request->boolean('new_arrival', false), fn ($query) => $query->where('is_new_arrival', true))
-            ->when($request->boolean('premium', false), fn ($query) => $query->where('is_premium', true))
-            ->when($request->boolean('try_on', false) || $request->boolean('is_try_on_enabled', false), fn ($query) => $query->where('is_try_on_enabled', true))
-            ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($innerQuery) use ($search) {
-                    $innerQuery->where('sku', 'like', "%{$search}%")
-                        ->orWhere('name', 'like', "%{$search}%")
-                        ->orWhere('foreign_name', 'like', "%{$search}%")
-                        ->orWhere('description', 'like', "%{$search}%")
-                        ->orWhereHas('category', function ($categoryQuery) use ($search) {
-                            $categoryQuery->where('name', 'like', "%{$search}%")
-                                ->orWhere('foreign_name', 'like', "%{$search}%");
-                        });
-                });
-            });
-
-        match ($sort) {
-            'price_asc' => $products->orderBy('price'),
-            'price_desc' => $products->orderByDesc('price'),
-            'name_asc' => $products->orderBy('name'),
-            'name_desc' => $products->orderByDesc('name'),
-            default => $products->orderByDesc('id'),
-        };
-
-        $paginated = $products->paginate($request->integer('per_page') ?: 20);
+        $paginated = $this->catalog->products([
+            'search' => $search,
+            'sort' => $sort,
+            'category_id' => $request->filled('category_id') ? (int) $request->get('category_id') : null,
+            'branch_id' => $request->filled('branch_id') && (int) $request->get('branch_id') > 0
+                ? (int) $request->get('branch_id')
+                : null,
+            'featured' => $request->boolean('featured', false),
+            'new_arrival' => $request->boolean('new_arrival', false),
+            'premium' => $request->boolean('premium', false),
+            'try_on' => $request->boolean('try_on', false) || $request->boolean('is_try_on_enabled', false),
+            'per_page' => $request->integer('per_page') ?: 20,
+            'page' => max(1, $request->integer('page', 1)),
+        ]);
         $paginatedItems = collect($paginated->items());
         $promotionPreviews = $this->promotionPricing->catalogPromotionPreviews($paginatedItems);
 
@@ -213,24 +159,7 @@ class CatalogController extends Controller
 
     public function show(string $item)
     {
-        $product = Item::query()
-            ->with([
-                'category',
-                'branch',
-                'currency',
-                'image',
-                'galleries',
-                'uomGroup.units' => fn ($query) => $query->where('status', 'Active')->orderBy('sort_order'),
-                'uomGroup.units.unit',
-                'uomPrices',
-                'optionGroups' => fn ($query) => $query->where('status', 'Active'),
-                'optionGroups.values' => fn ($query) => $query->where('status', 'Active'),
-                'variants' => fn ($query) => $query->where('status', 'Active'),
-                'variants.optionValues',
-            ])
-            ->where('status', 'Active')
-            ->where('sale', true)
-            ->findOrFail((int) $item);
+        $product = $this->catalog->product((int) $item);
         $promotionPreviews = $this->promotionPricing->catalogPromotionPreviews(collect([$product]));
 
         return response()->json([

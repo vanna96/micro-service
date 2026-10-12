@@ -2,6 +2,8 @@
 
 namespace App\Repositories;
 
+use App\Cache\CatalogCacheTags;
+use App\Repositories\Concerns\InvalidatesCatalogCache;
 use App\Models\Gallery;
 use App\Models\Item;
 use App\Models\Promotion;
@@ -16,6 +18,7 @@ use Illuminate\Support\Str;
 
 class PromotionRepository extends RepositoryBase
 {
+    use InvalidatesCatalogCache;
     protected $repositoryId = 'rinvex.repository.id';
     protected $model = 'App\Models\Promotion';
 
@@ -219,6 +222,11 @@ class PromotionRepository extends RepositoryBase
         Promotion::flushQueryCache();
         PromotionItem::flushQueryCache();
         Item::flushQueryCache();
+        $this->invalidateCatalogCache([
+            CatalogCacheTags::PROMOTIONS,
+            CatalogCacheTags::ITEMS,
+            CatalogCacheTags::BOOTSTRAP,
+        ], $this->tenantConnectionName());
     }
 
     protected function syncImageUpload(Promotion $promotion, $image): void

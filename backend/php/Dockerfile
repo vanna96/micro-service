@@ -2,6 +2,7 @@ FROM php:8.2-fpm-bookworm
 
 # Install dependencies and MySQL client
 RUN apt-get update && apt-get install -y \
+    $PHPIZE_DEPS \
     procps \
     git \
     unzip \
@@ -15,10 +16,14 @@ RUN apt-get update && apt-get install -y \
     cron \
     supervisor \
     && docker-php-ext-install pdo_mysql mbstring zip exif pcntl bcmath gd \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Keep PHP's multipart limits aligned with Nginx and the image-search validator.
 COPY uploads.ini /usr/local/etc/php/conf.d/uploads.ini
+COPY performance.ini /usr/local/etc/php/conf.d/zz-performance.ini
+COPY www-performance.conf /usr/local/etc/php-fpm.d/zz-performance.conf
     
 # Install Node.js (LTS) and npm
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \

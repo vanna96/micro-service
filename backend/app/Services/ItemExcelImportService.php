@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Cache\CatalogCacheTags;
 use App\Models\Branch;
 use App\Models\Tenant;
 use Illuminate\Support\Str;
@@ -15,6 +16,7 @@ use App\Models\UnitOfMeasure;
 use App\Models\UomGroup;
 use App\Models\UomGroupUnit;
 use App\Repositories\ItemRepository;
+use App\Repositories\Concerns\InvalidatesCatalogCache;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -29,6 +31,8 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class ItemExcelImportService
 {
+    use InvalidatesCatalogCache;
+
     private const MAX_ROWS = 500;
 
     private const MAX_DETAIL_ROWS = 1000;
@@ -857,6 +861,16 @@ class ItemExcelImportService
                 }
             }
         });
+
+        // The whole import is atomic. Invalidate the catalog once after the
+        // transaction commits so the next customer read is immediately fresh.
+        $this->invalidateCatalogCache([
+            CatalogCacheTags::ITEMS,
+            CatalogCacheTags::CATEGORIES,
+            CatalogCacheTags::BRANCHES,
+            CatalogCacheTags::CURRENCIES,
+            CatalogCacheTags::BOOTSTRAP,
+        ], (new Item)->getConnectionName());
 
         Item::flushQueryCache();
         Category::flushQueryCache();

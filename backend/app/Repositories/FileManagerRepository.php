@@ -2,12 +2,14 @@
 
 namespace App\Repositories;
 
+use App\Cache\CatalogCacheTags;
 use App\Models\Category;
 use App\Models\Gallery;
 use App\Models\Item;
 use App\Models\Promotion;
 use App\Models\Slider;
 use App\Models\User;
+use App\Repositories\Concerns\InvalidatesCatalogCache;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -19,6 +21,8 @@ use League\Flysystem\FilesystemException;
 
 class FileManagerRepository extends RepositoryBase
 {
+    use InvalidatesCatalogCache;
+
     protected string $disk = 'file_manager';
 
     public function getListing(string $directory = ''): array
@@ -952,6 +956,8 @@ class FileManagerRepository extends RepositoryBase
         if (method_exists($galleryModel, 'flushQueryCache')) {
             $galleryModel::flushQueryCache();
         }
+
+        $this->invalidateGalleryCatalog($galleryModel, $connection);
     }
 
     protected function assertMatchingFileExtensions(string $sourcePath, string $targetPath): void
@@ -1026,6 +1032,8 @@ class FileManagerRepository extends RepositoryBase
         if (method_exists($galleryModel, 'flushQueryCache')) {
             $galleryModel::flushQueryCache();
         }
+
+        $this->invalidateGalleryCatalog($galleryModel, $connection);
     }
 
     protected function validatedRenamedFileName(string $newName, string $currentName): string
@@ -1097,6 +1105,8 @@ class FileManagerRepository extends RepositoryBase
         if (method_exists($galleryModel, 'flushQueryCache')) {
             $galleryModel::flushQueryCache();
         }
+
+        $this->invalidateGalleryCatalog($galleryModel, $connection);
     }
 
     protected function storeGalleryBackedUpload(string $source, UploadedFile $file): void
@@ -1134,6 +1144,23 @@ class FileManagerRepository extends RepositoryBase
 
         if (method_exists($galleryModel, 'flushQueryCache')) {
             $galleryModel::flushQueryCache();
+        }
+
+        $this->invalidateGalleryCatalog($galleryModel, $connection);
+    }
+
+    protected function invalidateGalleryCatalog(string $galleryModel, string $connection): void
+    {
+        $resources = match ($galleryModel) {
+            Item::class => [CatalogCacheTags::ITEMS, CatalogCacheTags::BOOTSTRAP],
+            Category::class => [CatalogCacheTags::CATEGORIES, CatalogCacheTags::ITEMS, CatalogCacheTags::BOOTSTRAP],
+            Slider::class => [CatalogCacheTags::BANNERS, CatalogCacheTags::BOOTSTRAP],
+            Promotion::class => [CatalogCacheTags::PROMOTIONS, CatalogCacheTags::ITEMS, CatalogCacheTags::BOOTSTRAP],
+            default => [],
+        };
+
+        if ($resources !== []) {
+            $this->invalidateCatalogCache($resources, $connection);
         }
     }
 

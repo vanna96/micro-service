@@ -4,11 +4,16 @@ namespace App\Http\Controllers\API\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Tenant;
+use App\Repositories\TenantReadRepository;
 use App\Services\FacebookLoginService;
 use Illuminate\Http\Request;
 
 class PublicStoreController extends Controller
 {
+    public function __construct(private TenantReadRepository $tenants)
+    {
+    }
+
     public static function summary(Tenant $tenant): array
     {
         $settings = is_array($tenant->general_settings) ? $tenant->general_settings : [];
@@ -26,8 +31,7 @@ class PublicStoreController extends Controller
 
     public function index(Request $request)
     {
-        $stores = Tenant::query()->where('status', 'Active')->whereHas('domains')
-            ->with('domains')->orderBy('alias')->get()
+        $stores = $this->tenants->activeStores()
             ->filter(fn (Tenant $tenant) => $tenant->status === 'Active')
             ->map(fn (Tenant $tenant) => self::summary($tenant));
         $search = trim((string) $request->query('search', ''));

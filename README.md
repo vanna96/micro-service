@@ -26,6 +26,9 @@ Local URLs:
 
 The ports bind to localhost for a safe first run. UI5 is a development server. To publish the main app, configure its domain, HTTPS reverse proxy, and router forwarding separately. Do not forward MySQL, phpMyAdmin, MinIO, FastAPI, or UI5 ports without deliberate access controls.
 
+Laravel automatically scales between one and two application instances using
+CPU utilization. See [autoscaling settings and operation](backend/autoscaling/README.md).
+
 ### Existing installations
 
 `database/.env` is now local and untracked so database passwords are not distributed in the repository. Before pulling this change into an older checkout, save a copy of its `database/.env`. If the file disappears during the update, restore it before running `run.sh` so its credentials still match the existing MySQL volume. The bootstrap script can recover credentials from an existing `mysql_db` container, but cannot recover them from a volume alone.

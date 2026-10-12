@@ -2,7 +2,32 @@
 
 namespace App\Providers;
 
+use App\Contracts\CatalogCacheInvalidator;
+use App\Models\Branch;
+use App\Models\Category;
+use App\Models\Currency;
+use App\Models\Gallery;
+use App\Models\Item;
+use App\Models\ItemOption;
+use App\Models\ItemOptionGroup;
+use App\Models\ItemOptionValue;
+use App\Models\ItemUomPrice;
+use App\Models\ItemVariant;
+use App\Models\ItemVariation;
+use App\Models\Promotion;
+use App\Models\PromotionItem;
+use App\Models\RateIndexValue;
+use App\Models\Slider;
+use App\Models\Tenant;
+use App\Models\UnitOfMeasure;
+use App\Models\UomGroup;
+use App\Models\UomGroupUnit;
+use App\Observers\CatalogCacheObserver;
+use App\Services\TaggedCatalogCacheInvalidator;
+use App\Services\TenantCurrencyContext;
+use App\Tenancy\FailOpenDomainTenantResolver;
 use Illuminate\Support\ServiceProvider;
+use Stancl\Tenancy\Resolvers\DomainTenantResolver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -14,6 +39,9 @@ class AppServiceProvider extends ServiceProvider
     public function register()
     {
         $this->app->singleton(\App\Services\MailNotificationService::class);
+        $this->app->scoped(CatalogCacheInvalidator::class, TaggedCatalogCacheInvalidator::class);
+        $this->app->scoped(TenantCurrencyContext::class);
+        $this->app->bind(DomainTenantResolver::class, FailOpenDomainTenantResolver::class);
     }
 
     /**
@@ -23,6 +51,39 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        DomainTenantResolver::$shouldCache = true;
+        DomainTenantResolver::$cacheTTL = (int) config('query-cache.models.tenant', 3600);
+        DomainTenantResolver::$cacheStore = (string) config('query-cache.store', 'redis');
+
+        foreach ([
+            Item::class,
+            ItemOption::class,
+            ItemOptionGroup::class,
+            ItemOptionValue::class,
+            ItemUomPrice::class,
+            ItemVariant::class,
+            ItemVariation::class,
+            UnitOfMeasure::class,
+            UomGroup::class,
+            UomGroupUnit::class,
+            Category::class,
+            Branch::class,
+            Slider::class,
+            Currency::class,
+            RateIndexValue::class,
+            Promotion::class,
+            PromotionItem::class,
+            Gallery::class,
+            Tenant::class,
+        ] as $model) {
+            $model::observe(CatalogCacheObserver::class);
+        }
+
+        $domainModel = config('tenancy.domain_model');
+        if (is_string($domainModel) && class_exists($domainModel)) {
+            $domainModel::observe(CatalogCacheObserver::class);
+        }
+
         $this->configureCorsFromSecuritySettings();
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Repositories;
 
+use App\Cache\CatalogCacheTags;
 use App\Models\Branch;
 use App\Models\Gallery;
 use App\Models\Item;
@@ -14,9 +15,11 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Repositories\Concerns\InvalidatesCatalogCache;
 
 class ItemRepository extends RepositoryBase
 {
+    use InvalidatesCatalogCache;
     protected $repositoryId = 'rinvex.repository.id';
 
     protected $model = 'App\Models\Item';
@@ -105,6 +108,7 @@ class ItemRepository extends RepositoryBase
             $this->syncUomPrices($item, $uomPrices);
         }
         Item::flushQueryCache();
+        $this->invalidateCatalogCache([CatalogCacheTags::ITEMS, CatalogCacheTags::BOOTSTRAP], $item->getConnectionName());
 
         return $item->load(['uomPrices.unit', 'optionGroups.values', 'variants.optionValues']);
     }
@@ -135,6 +139,7 @@ class ItemRepository extends RepositoryBase
             $this->syncUomPrices($item, $uomPrices);
         }
         Item::flushQueryCache();
+        $this->invalidateCatalogCache([CatalogCacheTags::ITEMS, CatalogCacheTags::BOOTSTRAP], $item->getConnectionName());
 
         return $item->load(['uomPrices.unit', 'optionGroups.values', 'variants.optionValues']);
     }
@@ -233,6 +238,7 @@ class ItemRepository extends RepositoryBase
         $this->deleteItemGalleryImages($item);
         $item->delete();
         Item::flushQueryCache();
+        $this->invalidateCatalogCache([CatalogCacheTags::ITEMS, CatalogCacheTags::BOOTSTRAP], $item->getConnectionName());
     }
 
     protected function itemCacheTtl(): int
@@ -336,6 +342,7 @@ class ItemRepository extends RepositoryBase
 
         $gallery->delete();
         Item::flushQueryCache();
+        $this->invalidateCatalogCache([CatalogCacheTags::ITEMS, CatalogCacheTags::BOOTSTRAP], $item->getConnectionName());
     }
 
     protected function storeImageAsset($image, string $prefix, string $disk): ?string

@@ -316,17 +316,7 @@ if (! function_exists('tenant_currency_query')) {
 if (! function_exists('tenant_base_currency')) {
     function tenant_base_currency(?\App\Models\Tenant $tenantModel = null): ?\App\Models\Currency
     {
-        $tenantModel = $tenantModel ?: tenant() ?: admin_current_tenant();
-        $currencyCode = strtoupper(trim((string) data_get($tenantModel?->general_settings, 'currency', '')));
-
-        if ($currencyCode === '') {
-            return null;
-        }
-
-        return tenant_currency_query()
-            ->where('status', 'Active')
-            ->where('code', $currencyCode)
-            ->first();
+        return app(\App\Services\TenantCurrencyContext::class)->baseCurrency($tenantModel);
     }
 }
 

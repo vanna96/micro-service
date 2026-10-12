@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\UsesQueryCache;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Rennokki\QueryCache\Traits\QueryCacheable;
 
 class ItemUomPrice extends Model
 {
+    use QueryCacheable, UsesQueryCache;
+
     protected $fillable = [
         'item_id',
         'unit_of_measure_id',
@@ -24,6 +28,11 @@ class ItemUomPrice extends Model
         'is_auto' => 'boolean',
         'is_active' => 'boolean',
     ];
+
+    protected function getCacheBaseTags(): array
+    {
+        return $this->buildQueryCacheBaseTags();
+    }
 
     public function __construct(array $attributes = [])
     {

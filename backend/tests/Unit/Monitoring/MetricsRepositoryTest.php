@@ -23,6 +23,7 @@ class MetricsRepositoryTest extends TestCase
         config()->set('monitoring.components.laravel', true);
         config()->set('monitoring.metrics_file', $this->metricsFile);
         config()->set('monitoring.slow_query_ms', 1);
+        config()->set('monitoring.recent_requests.enabled', false);
     }
 
     protected function tearDown(): void
@@ -122,5 +123,72 @@ class MetricsRepositoryTest extends TestCase
         $this->assertStringContainsString('laravel_queue_job_duration_seconds_bucket{le="0.5",queue="default"} 2', $output);
         $this->assertStringContainsString('laravel_queue_job_duration_seconds_bucket{le="+Inf",queue="default"} 3', $output);
         $this->assertCount(2, $metrics->snapshot()['recent']['exceptions']);
+    }
+
+    public function test_recent_request_trace_is_written_to_and_read_from_a_bounded_redis_list(): void
+    {
+        config()->set('monitoring.recent_requests.enabled', true);
+        config()->set('monitoring.recent_requests.limit', 25);
+        config()->set('monitoring.recent_requests.redis_key', 'testing:recent-requests');
+
+        $pipeline = \Mockery::mock();
+        $connection = \Mockery::mock();
+        $redis = \Mockery::mock();
+        $this->app->instance('redis', $redis);
+
+        $redis->shouldReceive('connection')->twice()->andReturn($connection);
+        $pipeline->shouldReceive('lPush')->once()->with(
+            'testing:recent-requests',
+            \Mockery::on(fn ($value) => str_contains($value, 'api.orders.index'))
+        );
+        $pipeline->shouldReceive('lTrim')->once()->with('testing:recent-requests', 0, 24);
+        $connection->shouldReceive('pipeline')->once()->with(\Mockery::on(function ($callback) use ($pipeline): bool {
+            $callback($pipeline);
+
+            return true;
+        }))->andReturn([]);
+        $connection->shouldReceive('lrange')->once()->with('testing:recent-requests', 0, 24)->andReturn([
+            json_encode([
+                'at' => '2026-10-12T08:00:00+00:00',
+                'method' => 'GET',
+                'route' => 'api.orders.index',
+                'status' => 200,
+                'duration_ms' => 12.5,
+            ], JSON_THROW_ON_ERROR),
+        ]);
+
+        $metrics = app(MetricsRepository::class);
+        $metrics->recordRequest('GET', 'api.orders.index', 200, 0.0125, 1024);
+        $recentRequests = $metrics->recentRequests();
+
+        $this->assertSame('api.orders.index', $recentRequests[0]['route']);
+        $this->assertSame(12.5, $recentRequests[0]['duration_ms']);
+    }
+
+    public function test_query_cache_counters_survive_a_saturated_series_budget(): void
+    {
+        config()->set('monitoring.max_series', 50);
+        $metrics = app(MetricsRepository::class);
+
+        for ($i = 0; $i < 20; $i++) {
+            $metrics->recordRequest('GET', 'route.'.$i, 200, 20, 1024);
+        }
+
+        $metrics->recordRequest('GET', 'v1/api/mobile/products', 200, 0.01, 1024, [
+            'hit' => 7,
+            'miss' => 2,
+            'bypass' => 1,
+        ]);
+
+        $output = $metrics->renderPrometheus();
+        $this->assertStringContainsString(
+            'laravel_query_cache_requests_total{result="hit",route="v1/api/mobile/products"} 7',
+            $output
+        );
+        $this->assertStringContainsString(
+            'laravel_query_cache_requests_total{result="miss",route="v1/api/mobile/products"} 2',
+            $output
+        );
+        $this->assertLessThanOrEqual(50, array_sum(array_map('count', $metrics->snapshot()['metrics'])));
     }
 }

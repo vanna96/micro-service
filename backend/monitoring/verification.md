@@ -51,7 +51,7 @@ database reporting, healthy idle rates, and immediate Pulse ingestion per job.
 | Charts and layout | Six overview charts and four optional historical graphs render with actual Livewire/ApexCharts; changed text and chart series update without recreating chart instances; capacity percentages, unavailable-data messages and recovery verified; open panels survive refresh; no duplicate charts or browser exceptions; overview cards fit desktop/mobile and status panel stays in document flow |
 | Access | Guest requests and tenant sessions cannot access the dashboard or change preferences, including Livewire updates after a session changes; tenant-domain Livewire updates are rejected; preference properties are locked; tenant sessions cannot access Pulse |
 | Preferences | Invalid input rejected; administrator preferences isolated; refresh interval clamped to 5–300 seconds |
-| Metrics | Success/failure queue events, outgoing requests, slow queries, scheduler events, bounded history, cumulative buckets, HTTP exception status, disabled recording, corrupt/unwritable storage checked |
+| Metrics | Success/failure queue events, outgoing requests, slow queries, scheduler events, bounded per-request Redis history with duration, cumulative buckets, HTTP exception status, disabled recording, corrupt/unwritable storage checked |
 | Prometheus | All five scrape targets up; configuration passes `promtool check config` |
 | Live dashboard | CPU, RAM, temperature sensors, CPU frequency, fan, disk/inodes, network, containers, API, Caddy HTTP, queues, scheduler and chart queries return successfully |
 | Pulse | Collector running and writing fresh system samples; public unauthenticated Pulse returns 403; current Livewire JavaScript returns 200 |
@@ -144,10 +144,10 @@ Use separate cache paths so the tests do not load production's cached config or
 routes:
 
 ```bash
-docker exec \
+docker compose exec -T --index 1 \
   -e APP_CONFIG_CACHE=/tmp/monitoring-test-config.php \
   -e APP_ROUTES_CACHE=/tmp/monitoring-test-routes.php \
-  laravel_app1 php vendor/bin/phpunit \
+  app php vendor/bin/phpunit \
     tests/Feature/Monitoring tests/Unit/Monitoring \
     tests/Feature/PosStockDeductionTest.php tests/Unit/TelegramNotificationServiceTest.php
 ```

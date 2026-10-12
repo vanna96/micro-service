@@ -25,7 +25,14 @@ class MetricsRepository
         });
     }
 
-    public function recordRequest(string $method, string $route, int $status, float $seconds, int $peakMemory): void
+    public function recordRequest(
+        string $method,
+        string $route,
+        int $status,
+        float $seconds,
+        int $peakMemory,
+        array $queryCache = []
+    ): void
     {
         if (! $this->enabled()) {
             return;
@@ -37,22 +44,37 @@ class MetricsRepository
             'status' => (string) $status,
         ];
 
-        $this->mutate(function (array &$state) use ($labels, $seconds, $peakMemory): void {
+        $entry = [
+            'at' => gmdate(DATE_ATOM),
+            'method' => $labels['method'],
+            'route' => $labels['route'],
+            'status' => (int) $labels['status'],
+            'duration_ms' => round($seconds * 1000, 2),
+            'query_cache' => array_map('intval', array_filter($queryCache, 'is_numeric')),
+        ];
+
+        $this->mutate(function (array &$state) use ($labels, $seconds, $peakMemory, $entry, $queryCache): void {
             $this->changeGauge($state, 'laravel_http_requests_active', [], -1);
             $this->increment($state, 'laravel_http_requests_total', $labels);
             $this->observe($state, 'laravel_http_request_duration_seconds', $labels, $seconds);
             $this->setGaugeMax($state, 'laravel_memory_peak_bytes', [], $peakMemory);
 
+            foreach (['hit', 'miss', 'bypass', 'invalidation'] as $result) {
+                $amount = max(0, (int) ($queryCache[$result] ?? 0));
+                if ($amount > 0) {
+                    $this->increment($state, 'laravel_query_cache_requests_total', [
+                        'route' => $labels['route'],
+                        'result' => $result,
+                    ], $amount);
+                }
+            }
+
             if ($seconds * 1000 >= (float) config('monitoring.slow_request_ms', 1000)) {
-                $this->addRecent($state, 'slow_requests', [
-                    'at' => gmdate(DATE_ATOM),
-                    'method' => $labels['method'],
-                    'route' => $labels['route'],
-                    'status' => (int) $labels['status'],
-                    'duration_ms' => round($seconds * 1000, 2),
-                ]);
+                $this->addRecent($state, 'slow_requests', $entry);
             }
         });
+
+        $this->storeRecentRequest($entry);
     }
 
     public function recordException(Throwable $exception): void
@@ -175,6 +197,38 @@ class MetricsRepository
         }
 
         return $this->read();
+    }
+
+    /**
+     * Return a bounded, newest-first request trace shared by all app replicas.
+     * Query strings, bodies, user identifiers, and IP addresses are never stored.
+     *
+     * @return array<int, array{at: string, method: string, route: string, status: int, duration_ms: float}>
+     */
+    public function recentRequests(): array
+    {
+        if (! $this->enabled() || ! config('monitoring.recent_requests.enabled', true)) {
+            return [];
+        }
+
+        try {
+            $limit = $this->recentRequestLimit();
+            $rows = app('redis')->connection()->lrange(
+                (string) config('monitoring.recent_requests.redis_key', 'monitoring:recent-requests'),
+                0,
+                $limit - 1
+            );
+
+            return collect(is_array($rows) ? $rows : [])
+                ->map(fn ($row) => is_string($row) ? json_decode($row, true) : null)
+                ->filter(fn ($row) => is_array($row)
+                    && isset($row['at'], $row['method'], $row['route'], $row['status'], $row['duration_ms']))
+                ->take($limit)
+                ->values()
+                ->all();
+        } catch (Throwable) {
+            return [];
+        }
     }
 
     public function renderPrometheus(): string
@@ -330,6 +384,31 @@ class MetricsRepository
         );
     }
 
+    private function storeRecentRequest(array $entry): void
+    {
+        if (! config('monitoring.recent_requests.enabled', true)) {
+            return;
+        }
+
+        try {
+            $encoded = json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+            $key = (string) config('monitoring.recent_requests.redis_key', 'monitoring:recent-requests');
+            $limit = $this->recentRequestLimit();
+
+            app('redis')->connection()->pipeline(function ($pipeline) use ($key, $encoded, $limit): void {
+                $pipeline->lPush($key, $encoded);
+                $pipeline->lTrim($key, 0, $limit - 1);
+            });
+        } catch (Throwable) {
+            // Request tracing must never affect application traffic.
+        }
+    }
+
+    private function recentRequestLimit(): int
+    {
+        return max(10, min(500, (int) config('monitoring.recent_requests.limit', 100)));
+    }
+
     private function reserveSeries(array &$state, string $metric): bool
     {
         $count = 0;
@@ -362,7 +441,37 @@ class MetricsRepository
             }
         }
 
+        // A long-lived installation can eventually use the whole budget with
+        // non-bucket route series. Make room for operational counters that the
+        // dashboard must always expose, preferring to forget one old,
+        // high-cardinality HTTP series instead.
+        if ($this->isPriorityMetric($metric)) {
+            foreach ($state['metrics'] as $name => &$series) {
+                if ($this->isPriorityMetric($name) || $series === []) {
+                    continue;
+                }
+
+                array_shift($series);
+
+                return true;
+            }
+        }
+
         return false;
+    }
+
+    private function isPriorityMetric(string $metric): bool
+    {
+        return in_array($metric, [
+            'laravel_http_requests_active',
+            'laravel_memory_peak_bytes',
+            'laravel_query_cache_requests_total',
+            'laravel_queue_jobs_total',
+            'laravel_scheduled_tasks_total',
+            'laravel_scheduled_task_last_run_timestamp_seconds',
+            'laravel_scheduler_last_run_timestamp_seconds',
+            'laravel_exceptions_total',
+        ], true);
     }
 
     private function seriesKey(array $labels): string

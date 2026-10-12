@@ -2,6 +2,8 @@
 
 namespace App\Repositories;
 
+use App\Cache\CatalogCacheTags;
+use App\Repositories\Concerns\InvalidatesCatalogCache;
 use App\Models\Branch;
 use App\Models\Item;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
@@ -10,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 
 class BranchRepository extends RepositoryBase
 {
+    use InvalidatesCatalogCache;
     protected $repositoryId = 'rinvex.repository.id';
     protected $model = 'App\Models\Branch';
 
@@ -82,6 +85,7 @@ class BranchRepository extends RepositoryBase
         $branch->fill($attributes);
         $branch->save();
         Branch::flushQueryCache();
+        $this->invalidateCatalogCache([CatalogCacheTags::BRANCHES, CatalogCacheTags::ITEMS, CatalogCacheTags::BOOTSTRAP], $branch->getConnectionName());
 
         return $branch;
     }
@@ -95,6 +99,7 @@ class BranchRepository extends RepositoryBase
 
         Branch::flushQueryCache();
         Item::flushQueryCache();
+        $this->invalidateCatalogCache([CatalogCacheTags::BRANCHES, CatalogCacheTags::ITEMS, CatalogCacheTags::BOOTSTRAP], $branch->getConnectionName());
 
         return $branch;
     }
@@ -110,6 +115,7 @@ class BranchRepository extends RepositoryBase
 
         Branch::flushQueryCache();
         Item::flushQueryCache();
+        $this->invalidateCatalogCache([CatalogCacheTags::BRANCHES, CatalogCacheTags::ITEMS, CatalogCacheTags::BOOTSTRAP], $branch->getConnectionName());
     }
 
     protected function branchCacheTtl(): int

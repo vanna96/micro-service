@@ -97,7 +97,15 @@ class MobileApiSupportTest extends TestCase
 
         $response = $this->getJson('/v1/api/stores')->assertOk()->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.name', 'Fresh Market')->assertJsonPath('data.0.domain', 'public-shop.localhost');
-        $this->assertSame(['id', 'name', 'logo_url', 'domain', 'domains'], array_keys($response->json('data.0')));
+        $this->assertSame([
+            'id',
+            'name',
+            'logo_url',
+            'domain',
+            'domains',
+            'facebook_login_enabled',
+            'google_login_enabled',
+        ], array_keys($response->json('data.0')));
         $this->assertSame(['public-shop.localhost'], $response->json('data.0.domains'));
     }
 

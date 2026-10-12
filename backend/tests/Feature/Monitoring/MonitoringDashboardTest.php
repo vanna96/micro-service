@@ -66,6 +66,9 @@ class MonitoringDashboardTest extends TestCase
             ->assertSee('Monitoring Status')
             ->assertSee('Prometheus')
             ->assertSee('Docker Containers')
+            ->assertSee('Laravel Autoscaling')
+            ->assertSee('Server CPU (5m avg)')
+            ->assertSee('Laravel CPU uses Docker units')
             ->assertSee('CPU temperature')
             ->assertSee('System performance')
             ->assertSee('<details id="graphs"', false)
@@ -78,6 +81,7 @@ class MonitoringDashboardTest extends TestCase
             ->assertSee('Scheduler / cron')
             ->assertSee('Scheduled tasks')
             ->assertSee('Recent cron runs')
+            ->assertSee('Recent Laravel Requests')
             ->assertSee('Failed jobs total')
             ->assertSee('Refresh now')
             ->assertSee('Updates every 15 seconds only while Live')
@@ -210,9 +214,26 @@ class MonitoringDashboardTest extends TestCase
         $data['server']['ram_total_bytes'] = 16 * 1024 ** 3;
         $data['server']['disk_used_bytes'] = 80 * 1024 ** 3;
         $data['server']['disk_total_bytes'] = 256 * 1024 ** 3;
+        $data['autoscaling'] = array_merge($data['autoscaling'], [
+            'available' => true,
+            'state' => 'waiting_scale_up',
+            'replicas' => 1,
+            'cpu_percent' => 82.5,
+            'seconds_until_action' => 45,
+            'cooldown_remaining_seconds' => 0,
+            'age_seconds' => 1,
+            'sample_age_seconds' => 1,
+        ]);
         $data['api']['requests_per_minute'] = 42;
         $data['api']['average_duration_ms'] = 18.5;
         $data['api']['error_rate_percent'] = 0.0;
+        $data['recentRequests'] = [[
+            'at' => '2026-10-12T08:00:00+00:00',
+            'method' => 'GET',
+            'route' => 'v1/api/mobile/products',
+            'status' => 200,
+            'duration_ms' => 18.5,
+        ]];
         $data['queues']['pending'] = 2;
         $data['queues']['failed_total'] = 0;
         $data['containers'] = [['name' => 'test-container', 'status' => 'running']];
@@ -243,6 +264,8 @@ class MonitoringDashboardTest extends TestCase
         $this->actingAs($user)->withSession(['auth_user_scope' => 'administrator']);
         $response = $this->get('/admin/monitoring')->assertOk()
             ->assertSee('test-container')->assertSee('25.5%')->assertSee('48.0 °C')
+            ->assertSee('82.5%')->assertSee('Waiting Scale Up')
+            ->assertSee('v1/api/mobile/products')->assertSee('18.5 ms')
             ->assertSee('Queue totals are incomplete')->assertSee('monitoring-chart-data')
             ->assertSee('Requests &amp; Response Time', false)->assertSee('Disk Storage')->assertSee('Memory Usage');
         $this->get('/admin/monitoring/live?once=1')->assertOk();

@@ -2,6 +2,8 @@
 
 namespace App\Repositories;
 
+use App\Cache\CatalogCacheTags;
+use App\Repositories\Concerns\InvalidatesCatalogCache;
 use App\Models\Gallery;
 use App\Models\Slider;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
@@ -13,6 +15,7 @@ use Illuminate\Support\Str;
 
 class SliderRepository extends RepositoryBase
 {
+    use InvalidatesCatalogCache;
     protected $repositoryId = 'rinvex.repository.id';
     protected $model = 'App\Models\Slider';
 
@@ -67,6 +70,7 @@ class SliderRepository extends RepositoryBase
         $this->syncImageUpload($slider, $image);
         $this->syncVideoUpload($slider, $videoFile);
         Slider::flushQueryCache();
+        $this->invalidateCatalogCache([CatalogCacheTags::BANNERS, CatalogCacheTags::BOOTSTRAP], $slider->getConnectionName());
 
         return $slider;
     }
@@ -82,6 +86,7 @@ class SliderRepository extends RepositoryBase
         $this->syncImageUpload($slider, $image);
         $this->syncVideoUpload($slider, $videoFile);
         Slider::flushQueryCache();
+        $this->invalidateCatalogCache([CatalogCacheTags::BANNERS, CatalogCacheTags::BOOTSTRAP], $slider->getConnectionName());
 
         return $slider;
     }
@@ -91,6 +96,7 @@ class SliderRepository extends RepositoryBase
         $this->deleteSliderImage($slider);
         $slider->delete();
         Slider::flushQueryCache();
+        $this->invalidateCatalogCache([CatalogCacheTags::BANNERS, CatalogCacheTags::BOOTSTRAP], $slider->getConnectionName());
     }
 
     protected function normalizeAttributes(array $attributes): array

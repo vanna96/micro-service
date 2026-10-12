@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -25,7 +27,21 @@ Route::get('/caddy-check', function (\Illuminate\Http\Request $request) {
         return response('OK', 200);
     }
 
-    if (\Illuminate\Support\Facades\DB::connection('central')->table('domains')->where('domain', $domain)->exists()) {
+    // Caddy can ask about the same tenant repeatedly during certificate work.
+    // Cache only positive lookups: unknown domains cannot fill Redis, and a
+    // newly-created tenant is available immediately rather than after a TTL.
+    $cacheKey = 'caddy-check:allowed-domain:'.hash('sha256', $domain);
+    $allowed = Cache::get($cacheKey) === true;
+
+    if (! $allowed) {
+        $allowed = DB::connection('central')->table('domains')->where('domain', $domain)->exists();
+
+        if ($allowed) {
+            Cache::put($cacheKey, true, 60);
+        }
+    }
+
+    if ($allowed) {
         return response('OK', 200);
     }
 
