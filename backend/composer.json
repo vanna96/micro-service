@@ -5,7 +5,7 @@
     "keywords": ["framework", "laravel"],
     "license": "MIT",
     "require": {
-        "php": "^8.2",
+        "php": "~8.5.12",
         "guzzlehttp/guzzle": "^7.15.2",
         "laravel/framework": "^12.69.3",
         "laravel/pulse": "^1.8",
@@ -13,7 +13,7 @@
         "laravel/tinker": "^2.7",
         "laravel/ui": "^4.6",
         "league/flysystem-aws-s3-v3": "^3.35.3",
-        "phpoffice/phpspreadsheet": "^1.30",
+        "phpoffice/phpspreadsheet": "^5.11",
         "propaganistas/laravel-phone": "^6.1",
         "pusher/pusher-php-server": "^7.3",
         "rennokki/laravel-eloquent-query-cache": "^3.6",
