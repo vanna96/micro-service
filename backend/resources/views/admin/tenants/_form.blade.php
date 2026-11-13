@@ -659,11 +659,20 @@
 
                         <div class="col-md-6">
                             <label class="form-label fw-semibold" for="tenant_facebook_app_secret">{{ __('Facebook App Secret') }}</label>
-                            <input type="password" id="tenant_facebook_app_secret" name="general_settings[facebook_app_secret]"
-                                value="" class="form-control font-monospace @error('general_settings.facebook_app_secret') is-invalid @enderror"
-                                placeholder="{{ ! empty($generalSettings['facebook_app_secret']) ? __('Saved — leave blank to keep current secret') : '' }}"
-                                autocomplete="new-password">
-                            @error('general_settings.facebook_app_secret')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            <div class="input-group">
+                                <input type="password" id="tenant_facebook_app_secret" name="general_settings[facebook_app_secret]"
+                                    value="{{ old('general_settings.facebook_app_secret', $generalSettings['facebook_app_secret'] ?? '') }}"
+                                    class="form-control font-monospace @error('general_settings.facebook_app_secret') is-invalid @enderror"
+                                    autocomplete="off">
+                                <button class="btn btn-outline-secondary" type="button"
+                                    data-secret-toggle="#tenant_facebook_app_secret"
+                                    aria-label="{{ __('Show Facebook App Secret') }}"
+                                    aria-pressed="false"
+                                    title="{{ __('Show Facebook App Secret') }}">
+                                    <i class="uil uil-eye"></i>
+                                </button>
+                            </div>
+                            @error('general_settings.facebook_app_secret')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                         </div>
 
                         <div class="col-md-4">
@@ -712,11 +721,20 @@
 
                         <div class="col-md-6">
                             <label class="form-label fw-semibold" for="tenant_google_client_secret">{{ __('Google Client Secret') }}</label>
-                            <input type="password" id="tenant_google_client_secret" name="general_settings[google_client_secret]"
-                                value="" class="form-control font-monospace @error('general_settings.google_client_secret') is-invalid @enderror"
-                                placeholder="{{ ! empty($generalSettings['google_client_secret']) ? __('Saved — leave blank to keep current secret') : '' }}"
-                                autocomplete="new-password">
-                            @error('general_settings.google_client_secret')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            <div class="input-group">
+                                <input type="password" id="tenant_google_client_secret" name="general_settings[google_client_secret]"
+                                    value="{{ old('general_settings.google_client_secret', $generalSettings['google_client_secret'] ?? '') }}"
+                                    class="form-control font-monospace @error('general_settings.google_client_secret') is-invalid @enderror"
+                                    autocomplete="off">
+                                <button class="btn btn-outline-secondary" type="button"
+                                    data-secret-toggle="#tenant_google_client_secret"
+                                    aria-label="{{ __('Show Google Client Secret') }}"
+                                    aria-pressed="false"
+                                    title="{{ __('Show Google Client Secret') }}">
+                                    <i class="uil uil-eye"></i>
+                                </button>
+                            </div>
+                            @error('general_settings.google_client_secret')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                         </div>
 
                         <div class="col-md-12">
@@ -937,6 +955,17 @@
             $input.attr('type', 'password');
             $icon.removeClass('uil-eye-slash').addClass('uil-eye');
         }
+    });
+
+    $('[data-secret-toggle]').on('click', function () {
+        var $button = $(this);
+        var $input = $($button.data('secret-toggle'));
+        var $icon = $button.find('i');
+        var shouldShow = $input.attr('type') === 'password';
+
+        $input.attr('type', shouldShow ? 'text' : 'password');
+        $button.attr('aria-pressed', shouldShow ? 'true' : 'false');
+        $icon.toggleClass('uil-eye', !shouldShow).toggleClass('uil-eye-slash', shouldShow);
     });
 
     // Test Mail Delivery via AJAX

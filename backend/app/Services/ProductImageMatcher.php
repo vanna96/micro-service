@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\Storage;
 
 class ProductImageMatcher
 {
+    /** @var array<string, array<string, mixed>|null> */
+    private array $requestSignatureCache = [];
+
     /** Keep this aligned with the vision service's multipart upload limit. */
     private const MAX_SIGNATURE_VARIANTS = 8;
 
@@ -684,6 +687,10 @@ class ProductImageMatcher
 
     public function getStoredSignature(string $imageName): ?array
     {
+        if (array_key_exists($imageName, $this->requestSignatureCache)) {
+            return $this->requestSignatureCache[$imageName];
+        }
+
         try {
             if (str_starts_with($imageName, 'assets/') && is_file(public_path($imageName))) {
                 $contents = file_get_contents(public_path($imageName));
@@ -693,7 +700,7 @@ class ProductImageMatcher
             }
 
             if (! $contents) {
-                return null;
+                return $this->requestSignatureCache[$imageName] = null;
             }
 
             $cacheKey = 'product-image-signature:unicom-v1:'.sha1($contents);
@@ -701,7 +708,7 @@ class ProductImageMatcher
             if (! is_array($signature)) {
                 $image = @imagecreatefromstring($contents);
                 if (! $image) {
-                    return null;
+                    return $this->requestSignatureCache[$imageName] = null;
                 }
                 $signature = $this->signature($image);
                 if ($this->hasEmbedding($signature)) {
@@ -710,14 +717,14 @@ class ProductImageMatcher
                 imagedestroy($image);
             }
 
-            return $signature;
+            return $this->requestSignatureCache[$imageName] = $signature;
         } catch (\Throwable $exception) {
             Log::debug('ImageSearch: failed to process image signature', [
                 'image' => $imageName,
                 'error' => $exception->getMessage(),
             ]);
 
-            return null;
+            return $this->requestSignatureCache[$imageName] = null;
         }
     }
 

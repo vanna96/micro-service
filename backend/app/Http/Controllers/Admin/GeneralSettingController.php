@@ -49,6 +49,14 @@ class GeneralSettingController extends Controller
             $generalSettings = [];
         }
 
+        foreach (['mail_password', 'facebook_app_secret'] as $secretKey) {
+            if (array_key_exists($secretKey, $validated)
+                && trim((string) $validated[$secretKey]) === ''
+                && ! empty($generalSettings[$secretKey])) {
+                $validated[$secretKey] = $generalSettings[$secretKey];
+            }
+        }
+
         $tenant->forceFill([
             'general_settings' => array_merge($generalSettings, $validated),
         ])->save();

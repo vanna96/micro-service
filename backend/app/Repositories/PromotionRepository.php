@@ -8,6 +8,7 @@ use App\Models\Gallery;
 use App\Models\Item;
 use App\Models\Promotion;
 use App\Models\PromotionItem;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -147,6 +148,29 @@ class PromotionRepository extends RepositoryBase
         $line->delete();
 
         $this->flushRelatedCaches();
+    }
+
+    public function expireEndedPromotions(CarbonInterface $at): int
+    {
+        $connection = $this->tenantConnectionName();
+        $expired = DB::connection($connection)->transaction(function () use ($at): int {
+            return $this->promotionModel()
+                ->newQuery()
+                ->where('status', 'Active')
+                ->where('end_at', '<', $at)
+                ->update([
+                    'status' => 'Inactive',
+                    'updated_at' => now(),
+                ]);
+        });
+
+        if ($expired > 0) {
+            // Bulk updates bypass model observers, so invalidate explicitly
+            // only after the database transaction has committed.
+            $this->flushRelatedCaches();
+        }
+
+        return $expired;
     }
 
     protected function normalizePromotionAttributes(array $attributes): array

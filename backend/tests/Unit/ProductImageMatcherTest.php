@@ -9,6 +9,7 @@ use App\Services\PromotionPricingService;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Mockery;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use Tests\TestCase;
@@ -27,6 +28,27 @@ class ProductImageMatcherTest extends TestCase
     public function test_default_threshold_cannot_accept_every_possible_image(): void
     {
         $this->assertLessThan(64, ProductImageMatcher::DEFAULT_DISTANCE_THRESHOLD);
+    }
+
+    public function test_stored_signature_is_loaded_only_once_per_request(): void
+    {
+        Storage::fake('item');
+        $image = imagecreatetruecolor(80, 80);
+        $colour = imagecolorallocate($image, 30, 120, 210);
+        imagefill($image, 0, 0, $colour);
+        ob_start();
+        imagepng($image);
+        $contents = (string) ob_get_clean();
+        imagedestroy($image);
+        Storage::disk('item')->put('cached-product.png', $contents);
+
+        $matcher = new ProductImageMatcher;
+        $first = $matcher->getStoredSignature('cached-product.png');
+        Storage::disk('item')->delete('cached-product.png');
+        $second = $matcher->getStoredSignature('cached-product.png');
+
+        $this->assertNotNull($first);
+        $this->assertSame($first, $second);
     }
 
     public function test_mobile_image_search_forwards_the_selected_category_to_the_matcher(): void

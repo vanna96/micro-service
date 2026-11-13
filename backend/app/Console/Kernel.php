@@ -25,6 +25,12 @@ class Kernel extends ConsoleKernel
             app(MetricsRepository::class)->recordSchedulerHeartbeat();
         })->name('monitoring:scheduler-heartbeat')->everyMinute()->withoutOverlapping();
 
+        $schedule->command('promotions:expire')
+            ->name('promotions:expire')
+            ->everyMinute()
+            ->withoutOverlapping(5)
+            ->onOneServer();
+
         // $schedule->command('inspire')->hourly();
         $schedule->command('test:queue-cron')->hourly(); /* ->everyMinute(); */
     }

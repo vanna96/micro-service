@@ -21,6 +21,8 @@ use App\Models\UnitOfMeasure;
 use App\Models\UomGroup;
 use App\Models\UomGroupUnit;
 use App\Models\User;
+use App\Services\FacebookLoginService;
+use App\Services\GoogleLoginService;
 use App\Services\ItemExcelImportService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
@@ -561,6 +563,78 @@ class AdminCrudManagementTest extends TestCase
         $this->assertDatabaseMissing('tenants', [
             'id' => 'beta',
         ], 'central');
+    }
+
+    public function test_tenant_update_saves_and_preserves_oauth_client_secrets(): void
+    {
+        $admin = $this->createUser([
+            'username' => 'tenant-social-admin',
+            'email' => 'tenant-social-admin@example.com',
+            'phone' => '89898989',
+        ]);
+        $tenant = $this->createSqliteTenant('tenant-social-login');
+        $admin->tenants()->sync([$tenant->id]);
+
+        $basePayload = [
+            'alias' => 'tenant-social-login',
+            'domain' => 'social-login.example.test',
+            'db_connection' => 'sqlite',
+            'db_port' => '3306',
+            'db_name' => $tenant->db_name,
+            'db_host' => '127.0.0.1',
+            'db_username' => 'tenant_user',
+            'db_password' => 'tenant_password',
+            'status' => 'Active',
+            'general_settings' => [
+                'store_name' => 'Social Login Store',
+                'currency' => '',
+                'timezone' => 'UTC',
+                'facebook_login_enabled' => '1',
+                'facebook_app_id' => 'facebook-app-id',
+                'facebook_graph_version' => 'v24.0',
+                'google_login_enabled' => '1',
+                'google_client_id' => 'google-client-id',
+            ],
+        ];
+
+        $this->actingAs($admin)
+            ->withSession(['admin_selected_tenant_id' => $tenant->id])
+            ->put(route('admin.tenants.update', $tenant), array_replace_recursive($basePayload, [
+                'general_settings' => [
+                    'facebook_app_secret' => 'facebook-app-secret',
+                    'google_client_secret' => 'google-client-secret',
+                ],
+            ]))
+            ->assertRedirect(route('admin.tenants.index'));
+
+        $tenant->refresh();
+        $this->assertSame('facebook-app-secret', data_get($tenant->general_settings, 'facebook_app_secret'));
+        $this->assertSame('google-client-secret', data_get($tenant->general_settings, 'google_client_secret'));
+
+        $this->actingAs($admin)
+            ->withSession(['admin_selected_tenant_id' => $tenant->id])
+            ->get(route('admin.tenants.edit', $tenant))
+            ->assertOk()
+            ->assertSee('value="facebook-app-secret"', false)
+            ->assertSee('value="google-client-secret"', false)
+            ->assertSee('data-secret-toggle="#tenant_facebook_app_secret"', false)
+            ->assertSee('data-secret-toggle="#tenant_google_client_secret"', false);
+
+        $this->actingAs($admin)
+            ->withSession(['admin_selected_tenant_id' => $tenant->id])
+            ->put(route('admin.tenants.update', $tenant), array_replace_recursive($basePayload, [
+                'general_settings' => [
+                    'facebook_app_secret' => '',
+                    'google_client_secret' => '',
+                ],
+            ]))
+            ->assertRedirect(route('admin.tenants.index'));
+
+        $tenant->refresh();
+        $this->assertSame('facebook-app-secret', data_get($tenant->general_settings, 'facebook_app_secret'));
+        $this->assertSame('google-client-secret', data_get($tenant->general_settings, 'google_client_secret'));
+        $this->assertTrue(app(FacebookLoginService::class)->isConfigured($tenant));
+        $this->assertTrue(app(GoogleLoginService::class)->isConfigured($tenant));
     }
 
     public function test_admin_can_update_general_settings_for_selected_tenant(): void

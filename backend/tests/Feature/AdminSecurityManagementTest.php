@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\EnforceSecurityFirewall;
 use App\Models\BlockedIp;
 use App\Models\SecurityLog;
 use App\Models\SecuritySetting;
@@ -174,6 +175,21 @@ class AdminSecurityManagementTest extends TestCase
         $this->assertStringContainsString('Access Denied by Security Firewall', $response->getContent());
     }
 
+    public function test_blocking_an_existing_ip_increments_its_strikes_without_creating_a_duplicate(): void
+    {
+        $blockedIp = '198.51.100.100';
+
+        BlockedIp::block($blockedIp, 'First detection', 'manual', 1, 'Admin');
+        $record = BlockedIp::block($blockedIp, 'Honeypot detection', 'honeypot', 24, 'Firewall Honeypot');
+
+        $this->assertSame(1, BlockedIp::query()->where('ip_address', $blockedIp)->count());
+        $this->assertSame(2, $record->strike_count);
+        $this->assertSame('Honeypot detection', $record->reason);
+        $this->assertSame('honeypot', $record->threat_type);
+        $this->assertSame('Firewall Honeypot', $record->blocked_by);
+        $this->assertTrue($record->expires_at->isAfter(now()->addHours(23)));
+    }
+
     public function test_admin_can_unblock_ip(): void
     {
         $admin = $this->createAdminUser();
@@ -212,6 +228,55 @@ class AdminSecurityManagementTest extends TestCase
         ]);
 
         $this->assertTrue(BlockedIp::isBlocked($attackerIp));
+    }
+
+    public function test_google_oauth_code_with_sql_comment_characters_is_not_blocked(): void
+    {
+        $request = \Illuminate\Http\Request::create(
+            '/v1/api/mobile/auth/google/callback?'.http_build_query([
+                'state' => str_repeat('a', 64),
+                'code' => '4/0AXlqoi5JhjecGSYMNmBpG5GUO31wAOJxDOIjlBNXM--bN_cyLzEoCi_JCyYaHrQC-iqy-w',
+            ], '', '&', PHP_QUERY_RFC3986),
+            'GET',
+            server: ['REMOTE_ADDR' => '203.0.113.124']
+        );
+
+        $response = app(EnforceSecurityFirewall::class)->handle(
+            $request,
+            static fn () => response('OK')
+        );
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertDatabaseMissing('security_logs', [
+            'ip_address' => '203.0.113.124',
+            'threat_type' => 'sql_injection',
+        ]);
+        $this->assertFalse(BlockedIp::isBlocked('203.0.113.124'));
+    }
+
+    public function test_google_oauth_callback_still_scans_non_code_parameters(): void
+    {
+        $request = \Illuminate\Http\Request::create(
+            '/v1/api/mobile/auth/google/callback?'.http_build_query([
+                'state' => str_repeat('a', 64),
+                'code' => 'valid-looking-code',
+                'probe' => "1' UNION SELECT username,password FROM users--",
+            ], '', '&', PHP_QUERY_RFC3986),
+            'GET',
+            server: ['REMOTE_ADDR' => '203.0.113.125']
+        );
+
+        $response = app(EnforceSecurityFirewall::class)->handle(
+            $request,
+            static fn () => response('OK')
+        );
+
+        $this->assertSame(403, $response->getStatusCode());
+        $this->assertDatabaseHas('security_logs', [
+            'ip_address' => '203.0.113.125',
+            'threat_type' => 'sql_injection',
+        ]);
+        $this->assertTrue(BlockedIp::isBlocked('203.0.113.125'));
     }
 
     public function test_honeypot_route_triggers_auto_ban(): void

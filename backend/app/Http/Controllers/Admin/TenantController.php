@@ -86,8 +86,15 @@ class TenantController extends Controller
         $generalSettings = $validated['general_settings'] ?? null;
         unset($validated['general_settings']);
 
+        // BaseTenant stores custom attributes inside its data JSON. Updating the
+        // tenant connection fields can rebuild that JSON, so snapshot settings
+        // before the repository save in order to preserve write-only secrets.
+        $existingGeneralSettings = is_array($tenant->general_settings)
+            ? $tenant->general_settings
+            : [];
+
         $this->tenants->updateForAdmin($tenant, $validated);
-        $this->saveGeneralSettings($tenant, $generalSettings);
+        $this->saveGeneralSettings($tenant, $generalSettings, $existingGeneralSettings);
 
         return redirect()
             ->route('admin.tenants.index')
@@ -290,8 +297,11 @@ class TenantController extends Controller
         ], is_array($tenant->general_settings) ? $tenant->general_settings : []);
     }
 
-    private function saveGeneralSettings(Tenant $tenant, mixed $settings): void
-    {
+    private function saveGeneralSettings(
+        Tenant $tenant,
+        mixed $settings,
+        ?array $existingSettings = null
+    ): void {
         if (! is_array($settings)) {
             return;
         }
@@ -303,14 +313,14 @@ class TenantController extends Controller
         $settings['facebook_login_enabled'] = ! empty($settings['facebook_login_enabled']);
         $settings['google_login_enabled'] = ! empty($settings['google_login_enabled']);
 
-        $existingSettings = is_array($tenant->general_settings) ? $tenant->general_settings : [];
+        $existingSettings ??= is_array($tenant->general_settings) ? $tenant->general_settings : [];
 
-        if (array_key_exists('mail_password', $settings) && $settings['mail_password'] === '' && ! empty($existingSettings['mail_password'])) {
-            $settings['mail_password'] = $existingSettings['mail_password'];
-        }
-
-        if (array_key_exists('facebook_app_secret', $settings) && $settings['facebook_app_secret'] === '' && ! empty($existingSettings['facebook_app_secret'])) {
-            $settings['facebook_app_secret'] = $existingSettings['facebook_app_secret'];
+        foreach (['mail_password', 'facebook_app_secret', 'google_client_secret'] as $secretKey) {
+            if (array_key_exists($secretKey, $settings)
+                && trim((string) $settings[$secretKey]) === ''
+                && ! empty($existingSettings[$secretKey])) {
+                $settings[$secretKey] = $existingSettings[$secretKey];
+            }
         }
 
         $tenant->forceFill([

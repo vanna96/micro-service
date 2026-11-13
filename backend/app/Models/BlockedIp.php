@@ -112,28 +112,27 @@ class BlockedIp extends Model
             return null;
         }
 
-        $record = static::query()->where('ip_address', $ip)->first();
-
         $expiresAt = $durationHours && $durationHours > 0
             ? Carbon::now()->addHours($durationHours)
             : null;
 
-        if ($record) {
-            $record->increment('strike_count');
-            $record->update([
-                'reason' => $reason ?: $record->reason,
-                'threat_type' => $threatType ?: $record->threat_type,
-                'blocked_by' => $blockedBy ?: $record->blocked_by,
-                'expires_at' => $expiresAt ?: $record->expires_at,
-            ]);
-        } else {
-            $record = static::query()->create([
-                'ip_address' => $ip,
+        $record = static::query()->firstOrCreate(
+            ['ip_address' => $ip],
+            [
                 'reason' => $reason ?: 'Suspicious security threat detected',
                 'threat_type' => $threatType,
                 'blocked_by' => $blockedBy,
                 'strike_count' => 1,
                 'expires_at' => $expiresAt,
+            ]
+        );
+
+        if (! $record->wasRecentlyCreated) {
+            $record->increment('strike_count', 1, [
+                'reason' => $reason ?: $record->reason,
+                'threat_type' => $threatType ?: $record->threat_type,
+                'blocked_by' => $blockedBy ?: $record->blocked_by,
+                'expires_at' => $expiresAt ?: $record->expires_at,
             ]);
         }
 

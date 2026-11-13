@@ -6,6 +6,22 @@
 @push('styles')
 <link href="/assets/vendor/summernote/summernote-lite.min.css" rel="stylesheet">
 <style>
+    /* The bundled Summernote CSS expects a missing font/ subdirectory. */
+    @font-face {
+        font-family: "summernote-local";
+        font-style: normal;
+        font-weight: 400;
+        font-display: block;
+        src: url("/assets/vendor/summernote/summernote.woff2") format("woff2"),
+             url("/assets/vendor/summernote/summernote.woff") format("woff"),
+             url("/assets/vendor/summernote/summernote.ttf") format("truetype");
+    }
+
+    [class*=" note-icon"]::before,
+    [class^="note-icon"]::before {
+        font-family: "summernote-local" !important;
+    }
+
     /* Tab Styling */
     .general-settings-tabs .nav-link {
         color: #495057;

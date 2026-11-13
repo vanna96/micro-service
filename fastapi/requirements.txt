@@ -11,5 +11,6 @@ googletrans==4.0.0-rc1
 deep_translator
 requests
 fastembed==0.8.1
+faiss-cpu
 python-multipart
 rapidocr==3.9.2

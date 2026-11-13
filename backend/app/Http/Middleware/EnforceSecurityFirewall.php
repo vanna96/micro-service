@@ -378,15 +378,25 @@ class EnforceSecurityFirewall
             return null;
         }
 
-        // Collect inputs to inspect (excluding sensitive password fields to avoid false flags)
-        $inputs = $request->except(['password', 'password_confirmation', '_token']);
+        // Collect inputs to inspect (excluding sensitive password fields to avoid false flags).
+        // Google's authorization code is an opaque, one-time value and can legitimately
+        // contain SQL comment-like sequences such as "--". It is only forwarded to
+        // Google's token endpoint, so exclude that single field on the exact callback.
+        $isGoogleOauthCallback = $request->is('v1/api/mobile/auth/google/callback');
+        $excludedInputs = ['password', 'password_confirmation', '_token'];
+
+        if ($isGoogleOauthCallback) {
+            $excludedInputs[] = 'code';
+        }
+
+        $inputs = $request->except($excludedInputs);
 
         // Flatten all query and body inputs
         $flattened = [];
         $this->flattenArray($inputs, $flattened);
 
         // Also inspect raw query string and URI
-        if ($queryString = $request->getQueryString()) {
+        if (! $isGoogleOauthCallback && $queryString = $request->getQueryString()) {
             $flattened[] = urldecode($queryString);
         }
         $flattened[] = urldecode($request->path());
