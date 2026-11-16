@@ -168,9 +168,10 @@ export function PosTopbar({
           <span>{locale === "en" ? "KH" : "EN"}</span>
         </button>
 
-        {/* Switch Store Button */}
+        {/* Switch Store Button: only for central users (store users have no URL) */}
+        {switchTenantUrl && (
         <a
-          href={switchTenantUrl || "http://localhost:8880/"}
+          href={switchTenantUrl}
           className="btn btn-sm btn-dark rounded-pill px-3 py-1 d-inline-flex align-items-center gap-1.5 fs-12 fw-semibold text-white flex-shrink-0"
           style={{
             background: "#09090b",
@@ -185,6 +186,7 @@ export function PosTopbar({
           <i className="ri-store-2-line fs-13"></i>
           <span>{t("switchStore")}</span>
         </a>
+        )}
 
         {/* Fullscreen Button */}
         <button

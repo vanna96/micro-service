@@ -24,6 +24,8 @@ export interface PortalSession {
   user: PortalUser;
   tenants: PortalTenant[];
   tenant: ActivePortalTenant | null;
+  /** "tenant" for a store's own user, "central" for a central user. */
+  scope?: "tenant" | "central";
 }
 
 function laravelOrigin(): string {

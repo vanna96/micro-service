@@ -28,7 +28,8 @@ type ChooseProps = {
 type PosProps = {
   mode: "pos";
   session: PortalSession;
-  centralUrl: string;
+  /** Null for store users, who cannot switch stores. */
+  centralUrl: string | null;
 };
 
 type PageProps = LoginProps | ChooseProps | PosProps;
@@ -669,7 +670,7 @@ function TenantChooser({ session }: { session: PortalSession }) {
   );
 }
 
-function PosPage({ centralUrl }: { centralUrl: string }) {
+function PosPage({ centralUrl }: { centralUrl: string | null }) {
   return (
     <>
       <Head>
@@ -681,7 +682,7 @@ function PosPage({ centralUrl }: { centralUrl: string }) {
         <link rel="shortcut icon" href="/branding/v-pos-mark.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/branding/v-pos-mark.png" />
       </Head>
-      <VPosDashboard centralUrl={centralUrl} />
+      <VPosDashboard centralUrl={centralUrl ?? undefined} />
     </>
   );
 }
@@ -698,25 +699,27 @@ export const getServerSideProps: GetServerSideProps<PageProps> = async ({ req })
   const session = await portalSession(req.headers);
 
   if (central) {
+    // Signed-in users go straight to administration instead of the store chooser.
     return session
-      ? { props: { mode: "choose", session } }
+      ? { redirect: { destination: "/admin/dashboard", permanent: false } }
       : { props: { mode: "login" } };
   }
 
+  // Store subdomain: sign in with this store's own users.
   if (!session?.tenant) {
-    return {
-      redirect: {
-        destination: centralPortalUrl(req.headers),
-        permanent: false,
-      },
-    };
+    return { props: { mode: "login" } };
+  }
+
+  // Store users go to the backend, like central users do on the central domain.
+  if (session.scope === "tenant") {
+    return { redirect: { destination: "/admin/dashboard", permanent: false } };
   }
 
   return {
     props: {
       mode: "pos",
       session,
-      centralUrl: centralPortalUrl(req.headers),
+      centralUrl: session.scope === "tenant" ? null : centralPortalUrl(req.headers),
     },
   };
 };

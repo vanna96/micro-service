@@ -14,6 +14,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 
@@ -34,21 +36,35 @@ class NextPortalAuthController extends Controller
             'remember' => ['nullable', 'boolean'],
         ]);
 
-        if (! $this->isCentralHost($request)) {
+        $central = $this->isCentralHost($request);
+        $tenant = $central ? null : $this->tenantForHost($request);
+
+        if (! $central && ! $tenant instanceof Tenant) {
             return response()->json([
                 'success' => false,
-                'message' => __('Administrator sign-in is only available on the central domain.'),
-            ], 403);
+                'message' => __('This store is not available.'),
+            ], 404);
         }
+
+        // Clear any store scope first so the User model resolves the right connection.
+        $request->session()->forget(['auth_user_scope', 'auth_tenant_id', 'admin_selected_tenant_id', 'pos_tenant_id']);
 
         $ip = $request->ip();
         $cacheKey = 'failed_login_count_' . md5($ip);
 
-        if (! $this->attemptAdministratorLogin(
-            $validated['username'],
-            $validated['password'],
-            (bool) ($validated['remember'] ?? false)
-        )) {
+        // Central domain: central users only. Store subdomain: that store's users only.
+        $tenantUser = $tenant instanceof Tenant
+            ? $this->findTenantUser($tenant, $validated['username'], $validated['password'])
+            : null;
+        $authenticated = $tenant instanceof Tenant
+            ? $tenantUser instanceof User
+            : $this->attemptAdministratorLogin(
+                $validated['username'],
+                $validated['password'],
+                (bool) ($validated['remember'] ?? false)
+            );
+
+        if (! $authenticated) {
             RateLimiter::hit($cacheKey, 900);
             $attempts = RateLimiter::attempts($cacheKey);
 
@@ -99,24 +115,36 @@ class NextPortalAuthController extends Controller
         // Clear failed attempts on success
         RateLimiter::clear($cacheKey);
 
-        $user = Auth::user();
+        if ($tenant instanceof Tenant) {
+            // Store user: scope the session to this store before logging in so the
+            // User model resolves against the store's database on every request.
+            // No remember-me: a recalled user id carries no store scope and could
+            // resolve to a central user with the same id.
+            $request->session()->regenerate();
+            $request->session()->put([
+                'auth_user_scope' => 'tenant',
+                'auth_tenant_id' => (string) $tenant->getTenantKey(),
+                'admin_selected_tenant_id' => (string) $tenant->getTenantKey(),
+                'pos_tenant_id' => (string) $tenant->getTenantKey(),
+            ]);
+            Auth::login($tenantUser);
+            cookie()->queue(cookie()->forget('auth_remember_tenant_id'));
+            $user = $tenantUser;
+        } else {
+            $user = Auth::user();
 
-        if (! $user instanceof User || strcasecmp((string) $user->status, 'Active') !== 0) {
-            Auth::logout();
+            if (! $user instanceof User || strcasecmp((string) $user->status, 'Active') !== 0) {
+                Auth::logout();
 
-            return response()->json([
-                'success' => false,
-                'message' => __('Invalid username or password.'),
-            ], 401);
+                return response()->json([
+                    'success' => false,
+                    'message' => __('Invalid username or password.'),
+                ], 401);
+            }
+
+            $request->session()->regenerate();
+            $request->session()->put('auth_user_scope', 'administrator');
         }
-
-        $request->session()->regenerate();
-        $request->session()->put('auth_user_scope', 'administrator');
-        $request->session()->forget([
-            'auth_tenant_id',
-            'admin_selected_tenant_id',
-            'pos_tenant_id',
-        ]);
 
         $portalKey = Str::random(64);
         $request->session()->put(self::SESSION_KEY, $portalKey);
@@ -137,6 +165,11 @@ class NextPortalAuthController extends Controller
         $user = Auth::user();
 
         if (! $user instanceof User || ! $this->portalSessionIsValid($request, $user)) {
+            return response()->json(['authenticated' => false], 401);
+        }
+
+        // Central domain only accepts central users.
+        if ($this->isCentralHost($request) && $this->isTenantScope($request)) {
             return response()->json(['authenticated' => false], 401);
         }
 
@@ -213,7 +246,10 @@ class NextPortalAuthController extends Controller
             return redirect($this->centralPortalUrl($request));
         }
 
-        $user = User::query()
+        // Hand-offs are always for central users. Query the central connection
+        // explicitly: a store-user session on this host would otherwise make
+        // User resolve against the store's database.
+        $user = User::on(config('tenancy.database.central_connection') ?: 'central')
             ->whereKey($payload['user_id'] ?? null)
             ->where('status', 'Active')
             ->first();
@@ -307,6 +343,7 @@ class NextPortalAuthController extends Controller
                 'username' => $user->username,
                 'email' => $user->email,
             ],
+            'scope' => $this->isTenantScope($request) ? 'tenant' : 'central',
             'tenants' => $this->isCentralHost($request) ? $this->tenantPayloads($user) : [],
             'tenant' => $tenantId !== ''
                 ? $this->tenantPayload($user, $tenantId, strtolower($request->getHost()))
@@ -338,7 +375,11 @@ class NextPortalAuthController extends Controller
 
     private function tenantPayload(User $user, string $tenantId, string $domain): ?array
     {
-        $tenant = $user->tenants()
+        $query = $this->isTenantScope(request())
+            ? Tenant::query()->where('id', $this->scopedTenantId(request()))
+            : $user->tenants();
+
+        $tenant = $query
             ->where('tenants.id', $tenantId)
             ->where('tenants.status', 'Active')
             ->whereHas('domains', function ($query) use ($domain) {
@@ -375,6 +416,17 @@ class NextPortalAuthController extends Controller
             return false;
         }
 
+        // Store user: valid only on the host of the store they signed in to.
+        if ($this->isTenantScope($request)) {
+            if ($this->scopedTenantId($request) !== $tenantId) {
+                return false;
+            }
+
+            $tenant = $this->tenantForHost($request);
+
+            return $tenant instanceof Tenant && (string) $tenant->getTenantKey() === $tenantId;
+        }
+
         return $user->tenants()
             ->where('tenants.id', $tenantId)
             ->where('tenants.status', 'Active')
@@ -382,6 +434,69 @@ class NextPortalAuthController extends Controller
                 $query->where('domain', strtolower($request->getHost()));
             })
             ->exists();
+    }
+
+    private function isTenantScope(Request $request): bool
+    {
+        return (string) $request->session()->get('auth_user_scope', '') === 'tenant';
+    }
+
+    private function scopedTenantId(Request $request): string
+    {
+        return (string) $request->session()->get('auth_tenant_id', '');
+    }
+
+    private function tenantForHost(Request $request): ?Tenant
+    {
+        $host = strtolower($request->getHost());
+
+        return Tenant::query()
+            ->where('status', 'Active')
+            ->whereHas('domains', fn ($query) => $query->where('domain', $host))
+            ->first();
+    }
+
+    /**
+     * Find an active user in this store's own database matching the credentials.
+     */
+    private function findTenantUser(Tenant $tenant, string $login, string $password): ?User
+    {
+        tenancy()->initialize($tenant);
+
+        try {
+            $connection = filled($tenant->database_connection_name)
+                ? $tenant->database_connection_name
+                : 'tenant';
+            $table = (new User())->getTable();
+
+            foreach ($this->credentialCandidates($login, $password) as $credentials) {
+                $query = DB::connection($connection)->table($table);
+
+                foreach ($credentials as $field => $value) {
+                    if ($field !== 'password') {
+                        $query->where($field, $value);
+                    }
+                }
+
+                $row = $query->first();
+
+                if (! $row
+                    || strcasecmp((string) $row->status, 'Active') !== 0
+                    || ! Hash::check($password, (string) $row->password)) {
+                    continue;
+                }
+
+                return (new User())
+                    ->setConnection($connection)
+                    ->newQuery()
+                    ->whereKey($row->id)
+                    ->first();
+            }
+
+            return null;
+        } finally {
+            tenancy()->end();
+        }
     }
 
     private function isCentralHost(Request $request): bool
