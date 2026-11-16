@@ -434,7 +434,13 @@ function StoreDirectory({
     const storeUrl = (domain: string) => {
         if (!/^[a-z0-9.-]+$/i.test(domain)) return null;
         const base = new URL(origin);
-        return `${base.protocol}//${domain}${base.port ? ":" + base.port : ""}/`;
+        // Keep the dev port (e.g. chaechrib.localhost:8080) only for local
+        // hosts; public domains are served on the default port.
+        const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])$|\.localhost$/i.test(
+            domain,
+        );
+        const port = isLocal && base.port ? ":" + base.port : "";
+        return `${base.protocol}//${domain}${port}/`;
     };
     return (
         <>

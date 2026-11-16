@@ -86,25 +86,18 @@ class LoginController extends Controller
     {
         $password = (string) $request->input('password');
         $remember = $request->boolean('remember');
-        $loginScope = (string) $request->input('login_scope');
-
-        if ($loginScope === 'administrator') {
-            return $this->attemptAdministratorLogin($request, $password, $remember);
+        // This login is served on the central domain only (admin.central), so it
+        // accepts central users only. Store users sign in on their store's own
+        // subdomain through NextPortalAuthController.
+        if ((string) $request->input('login_scope') === 'tenant') {
+            return false;
         }
 
-        if ($loginScope === 'tenant') {
-            return $this->attemptTenantUserLoginForCode($request, $password, $remember);
-        }
+        // Drop any store scope left in the session so the User model resolves
+        // against the central connection.
+        $request->session()->forget(['auth_user_scope', 'auth_tenant_id', 'admin_selected_tenant_id', 'pos_tenant_id']);
 
-        if ($this->attemptAdministratorLogin($request, $password, $remember)) {
-            return true;
-        }
-
-        if ($this->attemptTenantUserLogin($request, $password, $remember)) {
-            return true;
-        }
-
-        return false;
+        return $this->attemptAdministratorLogin($request, $password, $remember);
     }
 
     protected function attemptAdministratorLogin(Request $request, string $password, bool $remember): bool
